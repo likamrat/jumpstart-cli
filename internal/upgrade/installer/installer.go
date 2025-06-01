@@ -1,4 +1,4 @@
-package upgrade
+package installer
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"jumpstartcli/internal/upgrade/config"
 	"jumpstartcli/internal/utils"
 )
 
@@ -47,18 +48,18 @@ func GetPlatformInfo() *PlatformInfo {
 
 	// Create asset pattern for matching releases
 	if platform.OS == "windows" {
-		platform.AssetPattern = WindowsBinaryPattern
+		platform.AssetPattern = config.WindowsBinaryPattern
 	} else if platform.OS == "darwin" {
-		platform.AssetPattern = DarwinBinaryPattern
+		platform.AssetPattern = config.DarwinBinaryPattern
 	} else {
-		platform.AssetPattern = LinuxBinaryPattern
+		platform.AssetPattern = config.LinuxBinaryPattern
 	}
 
 	return platform
 }
 
 // FindDownloadURL finds the appropriate download URL from release assets
-func FindDownloadURL(release *GitHubRelease, platform *PlatformInfo) (string, error) {
+func FindDownloadURL(release *config.GitHubRelease, platform *PlatformInfo) (string, error) {
 	if utils.DebugMode {
 		utils.Debug("Looking for asset pattern: %s", platform.AssetPattern)
 		utils.Debug("Available assets: %d", len(release.Assets))

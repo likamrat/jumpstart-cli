@@ -5,7 +5,8 @@ import (
 	"runtime"
 	"strings"
 
-	"jumpstartcli/internal/upgrade"
+	"jumpstartcli/internal/upgrade/installer"
+	"jumpstartcli/internal/upgrade/version"
 	"jumpstartcli/internal/utils"
 
 	"github.com/spf13/cobra"
@@ -26,8 +27,7 @@ Examples:
 
 The upgrade command checks GitHub releases for the latest version and can
 automatically download and install updates.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Get flag values
+		RunE: func(cmd *cobra.Command, args []string) error {			// Get flag values
 			checkOnly, _ := cmd.Flags().GetBool("check")
 			preRelease, _ := cmd.Flags().GetBool("pre-release")
 			force, _ := cmd.Flags().GetBool("force")
@@ -38,8 +38,7 @@ automatically download and install updates.`,
 
 			// Check for updates
 			fmt.Println(utils.InfoColor("🔍 Checking for updates..."))
-
-			versionInfo, err := upgrade.CheckForUpdates(preRelease)
+			versionInfo, err := version.CheckForUpdates(preRelease)
 			if err != nil {
 				// If the repository doesn't exist yet, provide helpful guidance
 				if strings.Contains(err.Error(), "404") {
@@ -48,7 +47,7 @@ automatically download and install updates.`,
 					fmt.Println("   1. A GitHub repository with binary releases")
 					fmt.Println("   2. Release assets named like: js-linux-amd64, js-windows-amd64.exe, js-darwin-arm64")
 					fmt.Println("   3. Update the GitHubReleasesAPI constant in internal/upgrade/version.go")
-					fmt.Printf("📖 For manual installation, visit: %s\n", upgrade.GetManualDownloadURL())
+					fmt.Printf("📖 For manual installation, visit: %s\n", version.GetManualDownloadURL())
 					return nil
 				}
 				return fmt.Errorf("failed to check for updates: %v", err)
@@ -68,9 +67,7 @@ automatically download and install updates.`,
 					fmt.Println(utils.WarnColor("⚠️  No newer version available, but --force specified"))
 				}
 				return nil
-			}
-
-			// Proceed with upgrade
+			}			// Proceed with upgrade
 			if versionInfo.IsNewer || force {
 				// Check if we have a download URL
 				if versionInfo.DownloadURL == "" {
@@ -80,7 +77,7 @@ automatically download and install updates.`,
 					fmt.Println("   1. Create binary releases in your GitHub repository")
 					fmt.Println("   2. Name assets like: js-linux-amd64, js-windows-amd64.exe, js-darwin-arm64")
 					fmt.Println("   3. Update GitHubReleasesAPI in internal/upgrade/version.go")
-					fmt.Printf("📖 For manual installation, visit: %s\n", upgrade.GetManualDownloadURL())
+					fmt.Printf("📖 For manual installation, visit: %s\n", version.GetManualDownloadURL())
 					return nil
 				}
 
@@ -88,14 +85,14 @@ automatically download and install updates.`,
 				fmt.Printf("Download URL: %s\n", versionInfo.DownloadURL)
 
 				// Download the binary
-				platform := upgrade.GetPlatformInfo()
-				downloadInfo, err := upgrade.DownloadBinary(versionInfo.DownloadURL, platform)
+				platform := installer.GetPlatformInfo()
+				downloadInfo, err := installer.DownloadBinary(versionInfo.DownloadURL, platform)
 				if err != nil {
 					return fmt.Errorf("download failed: %v", err)
 				}
 
 				// Install the binary
-				err = upgrade.InstallBinary(downloadInfo)
+				err = installer.InstallBinary(downloadInfo)
 				if err != nil {
 					return fmt.Errorf("installation failed: %v", err)
 				}

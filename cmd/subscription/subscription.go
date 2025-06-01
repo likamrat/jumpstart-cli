@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"jumpstartcli/internal/table"
 	"jumpstartcli/internal/utils"
 
 	"github.com/spf13/cobra"
@@ -155,7 +156,7 @@ Use different output formats to integrate with scripts or automation tools.`,
 						rows = append(rows, []string{"User Name", sub.User.Name})
 						rows = append(rows, []string{"User Type", sub.User.Type})
 					}
-					utils.PrintASCIITable(headers, rows)
+					table.PrintASCIITable(headers, rows)
 				} else {
 					defaultIndicator := ""
 					if sub.IsDefault {
@@ -229,7 +230,7 @@ Use different output formats to integrate with scripts or automation tools.`,
 					}
 					rows = append(rows, []string{sub.Name, sub.ID, marker})
 				}
-				utils.PrintASCIITable(headers, rows)
+				table.PrintASCIITable(headers, rows)
 				fmt.Println("* = current/default subscription")
 			}
 		},

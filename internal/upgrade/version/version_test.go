@@ -1,4 +1,4 @@
-package upgrade
+package version
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/fatih/color"
+	"jumpstartcli/internal/upgrade/installer"
 )
 
 var (
@@ -100,7 +101,7 @@ func TestCleanVersionTag(t *testing.T) {
 func TestGetPlatformInfo(t *testing.T) {
 	fmt.Printf("\n%s\n", upgradeTestHeaderColor("=== Testing Platform Information ==="))
 	
-	platform := GetPlatformInfo()
+	platform := installer.GetPlatformInfo()
 
 	if platform.OS == "" {
 		printUpgradeTestStatus(t, "OS detection", false, "OS should not be empty")

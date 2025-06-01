@@ -1,5 +1,5 @@
 // validator.go - Extensible preflight validation system for Jumpstart CLI
-package preflight
+package validator
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"jumpstartcli/internal/resourceproviders"
 	"jumpstartcli/internal/utils"
 )
 
@@ -871,22 +872,22 @@ func setAzureSubscription(subID string) error {
 	return cmd.Run()
 }
 
-func getResourceProviderConfig(solution string) *utils.ResourceProviderConfig {
+func getResourceProviderConfig(solution string) *resourceproviders.ResourceProviderConfig {
 	switch strings.ToLower(solution) {
 	case "arcbox":
-		config := utils.GetArcBoxProviders()
+		config := resourceproviders.GetArcBoxProviders()
 		return &config
 	default:
 		return nil
 	}
 }
 
-func checkAllResourceProviders(config utils.ResourceProviderConfig) (bool, []string) {
+func checkAllResourceProviders(config resourceproviders.ResourceProviderConfig) (bool, []string) {
 	missing := false
 	missingProviders := []string{}
 
 	for _, rp := range config.RequiredProviders {
-		isRegistered, err := utils.CheckProviderRegistration(rp)
+		isRegistered, err := resourceproviders.CheckProviderRegistration(rp)
 		if err != nil || !isRegistered {
 			missing = true
 			missingProviders = append(missingProviders, rp)

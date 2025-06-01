@@ -1,11 +1,10 @@
-package preflight
+package validator
 
 import (
 	"fmt"
 	"testing"
 
 	"github.com/fatih/color"
-	"jumpstartcli/internal/preflight/validator"
 )
 
 var (
@@ -68,8 +67,9 @@ func TestValidationResult(t *testing.T) {
 
 func TestValidationContext(t *testing.T) {
 	fmt.Printf("\n%s\n", validatorTestHeaderColor("=== Testing ValidationContext Struct ==="))
-		// Test ValidationContext struct creation
-	ctx := validator.ValidationContext{
+	
+	// Test ValidationContext struct creation
+	ctx := ValidationContext{
 		Solution:   "arcbox",
 		Flavor:     "ITPro",
 		Location:   "eastus",

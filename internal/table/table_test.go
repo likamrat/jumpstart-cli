@@ -1,9 +1,11 @@
-package utils
+package table
 
 import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/fatih/color"
 )
 
 func TestPrintASCIITable(t *testing.T) {
@@ -361,4 +363,20 @@ func BenchmarkStripANSI(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		stripANSI(testString)
 	}
+}
+
+// Test helper functions
+var (
+	testHeaderColor  = color.New(color.FgMagenta, color.Bold).SprintFunc()
+	testInfoColor    = color.New(color.FgCyan).SprintFunc()
+	testSuccessColor = color.New(color.FgGreen, color.Bold).SprintFunc()
+	testErrorColor   = color.New(color.FgRed, color.Bold).SprintFunc()
+)
+
+func printTestStatus(t *testing.T, testName string, success bool, message string) {
+	status := testSuccessColor("✅")
+	if !success {
+		status = testErrorColor("❌")
+	}
+	fmt.Printf("  %s %s: %s\n", status, testInfoColor(testName), message)
 }

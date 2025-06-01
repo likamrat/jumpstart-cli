@@ -1,4 +1,4 @@
-package upgrade
+package version
 
 import (
 	"encoding/json"
@@ -7,21 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"jumpstartcli/internal/upgrade/config"
+	"jumpstartcli/internal/upgrade/installer"
 	"jumpstartcli/internal/utils"
 )
-
-// GitHubRelease represents a GitHub release response
-type GitHubRelease struct {
-	TagName     string    `json:"tag_name"`
-	Name        string    `json:"name"`
-	Body        string    `json:"body"`
-	PublishedAt time.Time `json:"published_at"`
-	Prerelease  bool      `json:"prerelease"`
-	Assets      []struct {
-		Name               string `json:"name"`
-		BrowserDownloadURL string `json:"browser_download_url"`
-	} `json:"assets"`
-}
 
 // VersionInfo contains version comparison information
 type VersionInfo struct {
@@ -40,7 +29,7 @@ const (
 
 // CheckForUpdates checks GitHub for the latest release version
 func CheckForUpdates(includePrereleases bool) (*VersionInfo, error) {
-	apiURL := GetRepositoryURL()
+	apiURL := config.GetRepositoryURL()
 
 	if utils.DebugMode {
 		utils.Debug("Checking for updates from: %s", apiURL)
@@ -63,7 +52,7 @@ func CheckForUpdates(includePrereleases bool) (*VersionInfo, error) {
 	}
 
 	// Parse response
-	var release GitHubRelease
+	var release config.GitHubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return nil, fmt.Errorf("failed to parse release information: %v", err)
 	}
@@ -83,8 +72,8 @@ func CheckForUpdates(includePrereleases bool) (*VersionInfo, error) {
 	}
 
 	// Find download URL for current platform
-	platform := GetPlatformInfo()
-	downloadURL, err := FindDownloadURL(&release, platform)
+	platform := installer.GetPlatformInfo()
+	downloadURL, err := installer.FindDownloadURL(&release, platform)
 	if err != nil {
 		if utils.DebugMode {
 			utils.Debug("Could not find download URL: %v", err)
@@ -182,5 +171,5 @@ func (v *VersionInfo) FormatVersionInfo() string {
 
 // GetManualDownloadURL returns the manual download URL
 func GetManualDownloadURL() string {
-	return GetRepositoryWebURL()
+	return config.GetRepositoryWebURL()
 }

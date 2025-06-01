@@ -1,4 +1,19 @@
-package upgrade
+package config
+
+import "time"
+
+// GitHubRelease represents a GitHub release response
+type GitHubRelease struct {
+	TagName     string    `json:"tag_name"`
+	Name        string    `json:"name"`
+	Body        string    `json:"body"`
+	PublishedAt time.Time `json:"published_at"`
+	Prerelease  bool      `json:"prerelease"`
+	Assets      []struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
+	} `json:"assets"`
+}
 
 // Configuration for the upgrade system
 // Update these values when you have a proper release repository

@@ -1,7 +1,7 @@
 // resourceproviders.go - Shared Azure resource provider management utilities
 // This package provides reusable resource provider management functionality
 // for all Jumpstart solutions (ArcBox, LocalBox, Agora, etc.)
-package utils
+package resourceproviders
 
 import (
 	"context"
@@ -10,6 +10,13 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/fatih/color"
+)
+
+var (
+	InfoColor  = color.New(color.FgCyan).SprintFunc()
+	ErrorColor = color.New(color.FgRed).SprintFunc()
 )
 
 // ResourceProviderConfig defines the configuration for a solution's resource providers

@@ -12,7 +12,11 @@ import (
 
 	"jumpstartcli/internal/artifacts/regions"
 	"jumpstartcli/internal/examples"
-	"jumpstartcli/internal/preflight"
+	"jumpstartcli/internal/preflight/arcbox"
+	"jumpstartcli/internal/preflight/validator"
+	"jumpstartcli/internal/resourceproviders"
+	"jumpstartcli/internal/table"
+	"jumpstartcli/internal/urlutils"
 	"jumpstartcli/internal/utils"
 
 	"github.com/fatih/color"
@@ -99,7 +103,7 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 			utils.PrintMissingRequiredArgumentsError(cmd, requiredArguments)
 
 			// Validate conditional requirements (before preflight checks)
-			if !preflight.ValidateConditionalRequirements(cmd) {
+			if !arcbox.ValidateConditionalRequirements(cmd) {
 				os.Exit(1)
 			}
 
@@ -109,7 +113,7 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 				fmt.Println(utils.WarnColor("⚠️  [WARNING] Preflight checks have been skipped. Deployment may fail if prerequisites are not met."))
 			} else {
 				// Run comprehensive preflight checks including parameter validation
-				if !preflight.RunArcBoxPreflightChecks(cmd) {
+				if !arcbox.RunArcBoxPreflightChecks(cmd) {
 					fmt.Println(utils.ErrorColor("❌ [ERROR] Preflight checks failed. Please resolve the issues above before proceeding."))
 					fmt.Println(utils.InfoColor("💡 [TIP] You can use --skip-preflight to bypass these checks (not recommended)."))
 					os.Exit(1)
@@ -406,7 +410,7 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 			for i, location := range locations {
 				// Clear quota cache between locations to ensure fresh data
 				if i > 0 {
-					preflight.ClearQuotaCache()
+					validator.ClearQuotaCache()
 				}
 
 				if len(locations) > 1 {
@@ -485,8 +489,8 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 
 ` + examples.GetExamples("arcbox.preflight.rp.show").FormatExamples(),
 		Run: func(cmd *cobra.Command, args []string) {
-			config := utils.GetArcBoxProviders()
-			utils.CheckAllProviders(config)
+			config := resourceproviders.GetArcBoxProviders()
+			resourceproviders.CheckAllProviders(config)
 		},
 	}
 
@@ -498,8 +502,8 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 
 ` + examples.GetExamples("arcbox.preflight.rp.list").FormatExamples(),
 		Run: func(cmd *cobra.Command, args []string) {
-			config := utils.GetArcBoxProviders()
-			utils.ListProviders(config)
+			config := resourceproviders.GetArcBoxProviders()
+			resourceproviders.ListProviders(config)
 		},
 	}
 
@@ -515,7 +519,7 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 			utils.PrintMissingRequiredArgumentsError(cmd, requiredArguments)
 
 			provider, _ := cmd.Flags().GetString("name")
-			if err := utils.RegisterProvider(provider); err != nil {
+			if err := resourceproviders.RegisterProvider(provider); err != nil {
 				os.Exit(1)
 			}
 		},
@@ -835,7 +839,7 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 
 		// Try to shorten the URL (with a brief indication)
 		fmt.Print(utils.InfoColor("🔗 [INFO] Generating portal link... "))
-		shortURL := utils.ShortenURL(portalUrl)
+		shortURL := urlutils.ShortenURL(portalUrl)
 		fmt.Print("\r\033[2K") // Clear the "generating" message
 
 		fmt.Println(utils.InfoColor("🔗 [INFO] Track your deployment in the Azure Portal:"))
@@ -1598,7 +1602,7 @@ func outputArcBoxDeploymentsTable(deployments []ArcBoxDeployment) error {
 		})
 	}
 
-	utils.PrintASCIITable(headers, rows)
+	table.PrintASCIITable(headers, rows)
 	fmt.Println()
 
 	return nil
@@ -2088,7 +2092,7 @@ func runQuotaChecksWithTable(cmd *cobra.Command, location, flavor string) bool {
 	}()
 
 	// Call the batch SKU availability check function
-	unavailableSKUs := preflight.CheckBatchSKUAvailability(allSKUs, location, subscription)
+	unavailableSKUs := validator.CheckBatchSKUAvailability(allSKUs, location, subscription)
 
 	// Stop spinner and wait for cleanup
 	close(stopSpinner)
@@ -2157,7 +2161,7 @@ func runQuotaChecksWithTable(cmd *cobra.Command, location, flavor string) bool {
 		}()
 
 		// Use the real checkQuotaForSKU function from preflight/validator.go
-		quotaOK, _, limit, available := preflight.CheckQuotaForSKU(sku, required, location, subscription, flavor)
+		quotaOK, _, limit, available := validator.CheckQuotaForSKU(sku, required, location, subscription, flavor)
 
 		// Stop spinner and wait for cleanup
 		close(stopQuotaSpinner)
@@ -2225,7 +2229,7 @@ func runQuotaChecksWithTable(cmd *cobra.Command, location, flavor string) bool {
 
 	// Print the table
 	fmt.Printf("\n")
-	utils.PrintASCIITable(headers, rows)
+	table.PrintASCIITable(headers, rows)
 	fmt.Printf("\n")
 
 	// Print summary

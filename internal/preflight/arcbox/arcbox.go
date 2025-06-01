@@ -1,9 +1,10 @@
 // arcbox.go - ArcBox-specific preflight validation functions
-package preflight
+package arcbox
 
 import (
 	"fmt"
 
+	"jumpstartcli/internal/preflight/validator"
 	"jumpstartcli/internal/utils"
 
 	"github.com/spf13/cobra"
@@ -15,16 +16,16 @@ func RunArcBoxPreflightChecks(cmd *cobra.Command) bool {
 	ctx := buildArcBoxValidationContext(cmd)
 
 	// Create validation engine
-	engine := NewValidationEngine()
+	engine := validator.NewValidationEngine()
 
 	// Run all applicable validations
 	results := engine.ValidateAll(ctx)
 
 	// Print results
-	PrintResults(results)
+	validator.PrintResults(results)
 
 	// Return whether all checks passed (no errors)
-	return !HasErrors(results)
+	return !validator.HasErrors(results)
 }
 
 // RunParameterValidation runs only parameter-specific validation checks
@@ -32,12 +33,12 @@ func RunParameterValidation(cmd *cobra.Command) bool {
 	ctx := buildArcBoxValidationContext(cmd)
 
 	// Create engine with only parameter validators
-	engine := &ValidationEngine{}
-	engine.RegisterValidator(&SSHKeyValidator{})
-	engine.RegisterValidator(&WindowsPasswordValidator{})
-	engine.RegisterValidator(&ResourceTagsValidator{})
-	engine.RegisterValidator(&GitHubUsernameValidator{})
-	engine.RegisterValidator(&FlavorSpecificValidator{})
+	engine := &validator.ValidationEngine{}
+	engine.RegisterValidator(&validator.SSHKeyValidator{})
+	engine.RegisterValidator(&validator.WindowsPasswordValidator{})
+	engine.RegisterValidator(&validator.ResourceTagsValidator{})
+	engine.RegisterValidator(&validator.GitHubUsernameValidator{})
+	engine.RegisterValidator(&validator.FlavorSpecificValidator{})
 
 	results := engine.ValidateAll(ctx)
 
@@ -65,32 +66,32 @@ func RunArcBoxQuotaChecks(cmd *cobra.Command) bool {
 	ctx := buildArcBoxValidationContext(cmd)
 
 	// Create validation engine with only quota-related validators for speed
-	engine := &ValidationEngine{}
+	engine := &validator.ValidationEngine{}
 
 	// Add critical Azure check first (fail fast if Azure CLI not working)
-	engine.RegisterValidator(&AzureCLIHealthValidator{})
+	engine.RegisterValidator(&validator.AzureCLIHealthValidator{})
 
 	// Add core infrastructure validators needed for quota checks
-	engine.RegisterValidator(&SubscriptionAccessValidator{})
+	engine.RegisterValidator(&validator.SubscriptionAccessValidator{})
 
 	// NOTE: Resource provider validation is handled separately by the 'rp' command
 	// This quota command focuses only on quota and SKU validation
 
 	// Add the main quota validators
-	engine.RegisterValidator(&SKUAvailabilityValidator{})
-	engine.RegisterValidator(&QuotaValidator{})
+	engine.RegisterValidator(&validator.SKUAvailabilityValidator{})
+	engine.RegisterValidator(&validator.QuotaValidator{})
 
 	// Add region validation to ensure quota checks are meaningful
-	engine.RegisterValidator(&RegionValidator{})
+	engine.RegisterValidator(&validator.RegionValidator{})
 
 	// Run validations
 	results := engine.ValidateAll(ctx)
 
 	// Print results with quota-focused messaging
-	PrintResults(results)
+	validator.PrintResults(results)
 
 	// Return whether all checks passed (no errors)
-	return !HasErrors(results)
+	return !validator.HasErrors(results)
 }
 
 // ValidateConditionalRequirements checks flavor-specific requirements and prints errors
@@ -125,8 +126,8 @@ func ValidateConditionalRequirements(cmd *cobra.Command) bool {
 }
 
 // buildArcBoxValidationContext creates a validation context from command flags
-func buildArcBoxValidationContext(cmd *cobra.Command) *ValidationContext {
-	ctx := &ValidationContext{
+func buildArcBoxValidationContext(cmd *cobra.Command) *validator.ValidationContext {
+	ctx := &validator.ValidationContext{
 		Solution:   "arcbox",
 		Parameters: make(map[string]string),
 		SkipChecks: []string{},

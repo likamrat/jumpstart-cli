@@ -12,6 +12,7 @@ import (
 	"unicode"
 
 	"jumpstartcli/internal/examples"
+	"jumpstartcli/internal/table"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -1148,7 +1149,7 @@ func PrintOutput(data interface{}, headers []string, rows [][]string) error {
 
 	switch format {
 	case "table":
-		PrintASCIITable(headers, rows)
+		table.PrintASCIITable(headers, rows)
 	case "json":
 		return PrintJSON(data)
 	case "yaml":

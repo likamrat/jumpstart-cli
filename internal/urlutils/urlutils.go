@@ -1,5 +1,5 @@
 // urlutils.go - Shared URL utility functions
-package utils
+package urlutils
 
 import (
 	"io"
