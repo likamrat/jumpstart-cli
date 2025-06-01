@@ -81,12 +81,15 @@ integration-test-results/
 *.bak
 *.backup
 
+# Node.js (if any frontend tooling is added)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+.dockerignore
+
 # Local scripts that shouldn't be committed
 local-*
 *.local.*
-
-# Go build cache
-.cache/
-
-# Integration test artifacts
-integration-test-results/
