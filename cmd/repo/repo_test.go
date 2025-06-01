@@ -22,7 +22,7 @@ var (
 func printTestStatus(t *testing.T, testName string, success bool, message string) {
 	var icon string
 	var colorFunc func(a ...interface{}) string
-	
+
 	if success {
 		icon = "✅"
 		colorFunc = testSuccessColor
@@ -31,21 +31,21 @@ func printTestStatus(t *testing.T, testName string, success bool, message string
 		colorFunc = testErrorColor
 		t.Errorf("Test failed: %s", message)
 	}
-	
+
 	fmt.Printf("%s %s: %s\n", colorFunc("PASS"), icon, testInfoColor(fmt.Sprintf("%s: %s", testName, message)))
 }
 
 func TestNewRepoCmd(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing New Repo Command ==="))
-	
+
 	cmd := NewRepoCmd()
-	
+
 	// Test basic command structure
 	testName := "Command Use Field"
 	success := cmd.Use == "repo"
 	message := fmt.Sprintf("Expected 'repo', got '%s'", cmd.Use)
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test Short description
 	testName = "Short Description"
 	success = cmd.Short != ""
@@ -55,7 +55,7 @@ func TestNewRepoCmd(t *testing.T) {
 		message = "Short description should not be empty"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test Long description
 	testName = "Long Description"
 	success = cmd.Long != ""
@@ -65,7 +65,7 @@ func TestNewRepoCmd(t *testing.T) {
 		message = "Long description should not be empty"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test that RunE function exists
 	testName = "RunE Function"
 	success = cmd.RunE != nil
@@ -75,7 +75,7 @@ func TestNewRepoCmd(t *testing.T) {
 		message = "RunE function should not be nil"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test command configuration
 	testName = "Disable Suggestions"
 	success = cmd.DisableSuggestions
@@ -85,7 +85,7 @@ func TestNewRepoCmd(t *testing.T) {
 		message = "DisableSuggestions should be true"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	testName = "Silence Errors"
 	success = cmd.SilenceErrors
 	if success {
@@ -94,7 +94,7 @@ func TestNewRepoCmd(t *testing.T) {
 		message = "SilenceErrors should be true"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	testName = "Silence Usage"
 	success = cmd.SilenceUsage
 	if success {
@@ -107,16 +107,16 @@ func TestNewRepoCmd(t *testing.T) {
 
 func TestRepoCommandSubcommands(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Repo Command Subcommands ==="))
-	
+
 	cmd := NewRepoCmd()
 	// Test that subcommands are registered
 	expectedSubcommands := []string{"clone", "update", "delete"}
 	actualSubcommands := make([]string, 0)
-	
+
 	for _, subCmd := range cmd.Commands() {
 		actualSubcommands = append(actualSubcommands, subCmd.Use)
 	}
-	
+
 	for _, expected := range expectedSubcommands {
 		testName := fmt.Sprintf("Subcommand: %s", expected)
 		found := false
@@ -158,18 +158,18 @@ func TestRepoCommandInvalidSubcommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := NewRepoCmd()
 			cmd.SetArgs(tt.args)
-			
+
 			// Capture output
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			err := cmd.Execute()
-			
+
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")
 			}
-			
+
 			if !tt.expectError && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -179,7 +179,7 @@ func TestRepoCommandInvalidSubcommand(t *testing.T) {
 
 func TestRepoCloneCommandFlags(t *testing.T) {
 	cmd := NewRepoCmd()
-	
+
 	// Find the clone subcommand
 	var cloneCmd *cobra.Command
 	for _, subCmd := range cmd.Commands() {
@@ -188,16 +188,16 @@ func TestRepoCloneCommandFlags(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if cloneCmd == nil {
 		t.Fatal("clone subcommand not found")
 	}
-	
+
 	// Test that path flag exists
 	pathFlag := cloneCmd.Flags().Lookup("path")
 	if pathFlag == nil {
 		t.Error("clone subcommand should have 'path' flag")
-	}	// Test shorthand flag
+	} // Test shorthand flag
 	pFlag := cloneCmd.Flags().ShorthandLookup("p")
 	if pFlag == nil {
 		t.Error("clone subcommand should have 'p' shorthand flag")
@@ -206,7 +206,7 @@ func TestRepoCloneCommandFlags(t *testing.T) {
 
 func TestRepoUpdateCommandFlags(t *testing.T) {
 	cmd := NewRepoCmd()
-	
+
 	// Find the update subcommand
 	var updateCmd *cobra.Command
 	for _, subCmd := range cmd.Commands() {
@@ -215,17 +215,17 @@ func TestRepoUpdateCommandFlags(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if updateCmd == nil {
 		t.Fatal("update subcommand not found")
 	}
-	
+
 	// Test that path flag exists
 	pathFlag := updateCmd.Flags().Lookup("path")
 	if pathFlag == nil {
 		t.Error("update subcommand should have 'path' flag")
 	}
-		// Test shorthand flag
+	// Test shorthand flag
 	pFlag := updateCmd.Flags().ShorthandLookup("p")
 	if pFlag == nil {
 		t.Error("update subcommand should have 'p' shorthand flag")
@@ -234,7 +234,7 @@ func TestRepoUpdateCommandFlags(t *testing.T) {
 
 func TestRepoDeleteCommandFlags(t *testing.T) {
 	cmd := NewRepoCmd()
-	
+
 	// Find the delete subcommand
 	var deleteCmd *cobra.Command
 	for _, subCmd := range cmd.Commands() {
@@ -243,17 +243,17 @@ func TestRepoDeleteCommandFlags(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if deleteCmd == nil {
 		t.Fatal("delete subcommand not found")
 	}
-	
+
 	// Test that path flag exists
 	pathFlag := deleteCmd.Flags().Lookup("path")
 	if pathFlag == nil {
 		t.Error("delete subcommand should have 'path' flag")
 	}
-		// Test shorthand flag
+	// Test shorthand flag
 	pFlag := deleteCmd.Flags().ShorthandLookup("p")
 	if pFlag == nil {
 		t.Error("delete subcommand should have 'p' shorthand flag")
@@ -262,20 +262,20 @@ func TestRepoDeleteCommandFlags(t *testing.T) {
 
 func TestRepoCommandStructure(t *testing.T) {
 	cmd := NewRepoCmd()
-	
+
 	// Verify command properties
 	expectedProperties := map[string]bool{
 		"DisableSuggestions": true,
 		"SilenceErrors":      true,
 		"SilenceUsage":       true,
 	}
-	
+
 	actualProperties := map[string]bool{
 		"DisableSuggestions": cmd.DisableSuggestions,
 		"SilenceErrors":      cmd.SilenceErrors,
 		"SilenceUsage":       cmd.SilenceUsage,
 	}
-	
+
 	for property, expected := range expectedProperties {
 		if actual := actualProperties[property]; actual != expected {
 			t.Errorf("Command.%s = %v, want %v", property, actual, expected)
@@ -286,22 +286,22 @@ func TestRepoCommandStructure(t *testing.T) {
 func TestRepoSubcommandStructure(t *testing.T) {
 	cmd := NewRepoCmd()
 	subcommands := cmd.Commands()
-	
+
 	// Test each subcommand has required properties
 	for _, subCmd := range subcommands {
 		t.Run("subcommand_"+subCmd.Use, func(t *testing.T) {
 			if subCmd.Use == "" {
 				t.Error("Subcommand Use should not be empty")
 			}
-			
+
 			if subCmd.Short == "" {
 				t.Error("Subcommand Short should not be empty")
 			}
-			
+
 			if subCmd.Long == "" {
 				t.Error("Subcommand Long should not be empty")
 			}
-			
+
 			if subCmd.Run == nil {
 				t.Error("Subcommand Run should not be nil")
 			}
@@ -311,17 +311,17 @@ func TestRepoSubcommandStructure(t *testing.T) {
 
 func TestRepoCommandBasicFunctionality(t *testing.T) {
 	cmd := NewRepoCmd()
-	
+
 	// Test that command has the expected structure
 	if len(cmd.Commands()) != 3 {
 		t.Errorf("Expected 3 subcommands, got %d", len(cmd.Commands()))
 	}
-	
+
 	// Test that each subcommand exists and has basic properties
 	subcommandNames := make(map[string]bool)
 	for _, subCmd := range cmd.Commands() {
 		subcommandNames[subCmd.Use] = true
-		
+
 		// Each subcommand should have basic properties
 		if subCmd.Short == "" {
 			t.Errorf("Subcommand %s should have a Short description", subCmd.Use)
@@ -330,7 +330,7 @@ func TestRepoCommandBasicFunctionality(t *testing.T) {
 			t.Errorf("Subcommand %s should have a Long description", subCmd.Use)
 		}
 	}
-	
+
 	// Verify expected subcommands exist
 	expectedSubcommands := []string{"clone", "update", "delete"}
 	for _, expected := range expectedSubcommands {

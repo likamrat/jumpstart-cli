@@ -10,7 +10,7 @@ import (
 
 func TestPrintASCIITable(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ASCII Table Printing ==="))
-	
+
 	t.Run("basic_table", func(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing basic table"))
 		headers := []string{"Name", "Status", "Location"}
@@ -107,7 +107,7 @@ func TestPrintASCIITable(t *testing.T) {
 
 func TestStripANSI(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ANSI Stripping ==="))
-	
+
 	testCases := []struct {
 		name     string
 		input    string
@@ -157,7 +157,7 @@ func TestStripANSI(t *testing.T) {
 
 func TestVisualWidth(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Visual Width Calculation ==="))
-	
+
 	testCases := []struct {
 		name     string
 		input    string
@@ -217,7 +217,7 @@ func TestVisualWidth(t *testing.T) {
 
 func TestIsWideCharacter(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Wide Character Detection ==="))
-	
+
 	testCases := []struct {
 		name     string
 		char     rune
@@ -272,14 +272,14 @@ func TestIsWideCharacter(t *testing.T) {
 
 func TestTableConsistency(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Table Function Consistency ==="))
-	
+
 	// Test that stripANSI and visualWidth work together correctly
 	t.Run("ansi_and_visual_width", func(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing ANSI stripping with visual width"))
 		ansiText := "\x1b[31mRed text\x1b[0m"
 		stripped := stripANSI(ansiText)
 		width := visualWidth(stripped)
-		
+
 		expectedWidth := len("Red text")
 		success := width == expectedWidth
 		printTestStatus(t, "ANSI + Visual Width", success,
@@ -290,7 +290,7 @@ func TestTableConsistency(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing emoji visual width"))
 		emojiText := "Status: ✅"
 		width := visualWidth(emojiText)
-		
+
 		// "Status: " = 8 characters, "✅" = 2 character widths
 		expectedWidth := 10
 		success := width == expectedWidth
@@ -301,15 +301,15 @@ func TestTableConsistency(t *testing.T) {
 
 func TestTableHelperFunctions(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Table Helper Functions ==="))
-	
+
 	t.Run("ansi_regexp_validity", func(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing ANSI regexp validity"))
 		// Test that the ANSI regexp is valid and doesn't panic
 		testString := "\x1b[31mTest\x1b[0m"
 		result := ansiRegexp.ReplaceAllString(testString, "")
-		
+
 		success := result == "Test"
-		printTestStatus(t, "ANSI Regexp", success, 
+		printTestStatus(t, "ANSI Regexp", success,
 			fmt.Sprintf("Expected 'Test', got '%s'", result))
 	})
 
@@ -319,7 +319,7 @@ func TestTableHelperFunctions(t *testing.T) {
 		edgeCases := []string{
 			"\x00\x01\x02", // Control characters
 			"\u200B\u200C", // Zero-width characters
-			"Normal text",   // Regular text
+			"Normal text",  // Regular text
 		}
 
 		for _, testCase := range edgeCases {
@@ -331,7 +331,7 @@ func TestTableHelperFunctions(t *testing.T) {
 					return
 				}
 			}()
-			
+
 			_ = visualWidth(testCase)
 		}
 		printTestStatus(t, "Edge Cases", true, "All edge cases handled without panic")
@@ -358,7 +358,7 @@ func BenchmarkVisualWidth(b *testing.B) {
 
 func BenchmarkStripANSI(b *testing.B) {
 	testString := "\x1b[1;31;40mComplex ANSI\x1b[0m with \x1b[32mmultiple\x1b[0m \x1b[33mcolors\x1b[0m"
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		stripANSI(testString)

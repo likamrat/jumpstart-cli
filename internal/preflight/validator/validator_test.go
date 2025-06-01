@@ -25,7 +25,7 @@ func printValidatorTestStatus(t *testing.T, testName string, success bool, messa
 
 func TestValidationResult(t *testing.T) {
 	fmt.Printf("\n%s\n", validatorTestHeaderColor("=== Testing ValidationResult Struct ==="))
-	
+
 	// Test ValidationResult struct creation and basic functionality
 	result := ValidationResult{
 		CheckName:  "TestCheck",
@@ -67,7 +67,7 @@ func TestValidationResult(t *testing.T) {
 
 func TestValidationContext(t *testing.T) {
 	fmt.Printf("\n%s\n", validatorTestHeaderColor("=== Testing ValidationContext Struct ==="))
-	
+
 	// Test ValidationContext struct creation
 	ctx := ValidationContext{
 		Solution:   "arcbox",
@@ -121,9 +121,9 @@ func TestValidationContext(t *testing.T) {
 
 func TestNewValidationEngine(t *testing.T) {
 	fmt.Printf("\n%s\n", validatorTestHeaderColor("=== Testing ValidationEngine Creation ==="))
-	
+
 	engine := NewValidationEngine()
-	
+
 	if engine == nil {
 		printValidatorTestStatus(t, "Engine creation", false, "NewValidationEngine should not return nil")
 		t.Fatal("NewValidationEngine should not return nil")
@@ -139,7 +139,7 @@ func TestNewValidationEngine(t *testing.T) {
 
 func TestValidationEngineRegisterValidator(t *testing.T) {
 	engine := &ValidationEngine{}
-	
+
 	// Create a mock validator
 	mockValidator := &mockValidator{
 		name:        "MockValidator",
@@ -147,7 +147,7 @@ func TestValidationEngineRegisterValidator(t *testing.T) {
 	}
 
 	engine.RegisterValidator(mockValidator)
-	
+
 	// Verify the validator was registered
 	if len(engine.validators) != 1 {
 		t.Errorf("Expected 1 validator after registration, got %d", len(engine.validators))
@@ -160,7 +160,7 @@ func TestValidationEngineRegisterValidator(t *testing.T) {
 
 func TestValidationEngineValidateAll(t *testing.T) {
 	engine := &ValidationEngine{}
-	
+
 	// Add mock validators
 	passingValidator := &mockValidator{
 		name:        "PassingValidator",
@@ -170,7 +170,7 @@ func TestValidationEngineValidateAll(t *testing.T) {
 	}
 
 	failingValidator := &mockValidator{
-		name:        "FailingValidator", 
+		name:        "FailingValidator",
 		description: "Always fails",
 		shouldPass:  false,
 		applicable:  true,
@@ -286,7 +286,7 @@ func TestHasErrors(t *testing.T) {
 func TestValidationSeverityLevels(t *testing.T) {
 	// Test different severity levels
 	severities := []string{"error", "warning", "info"}
-	
+
 	for _, severity := range severities {
 		t.Run("severity_"+severity, func(t *testing.T) {
 			result := ValidationResult{
@@ -297,7 +297,7 @@ func TestValidationSeverityLevels(t *testing.T) {
 			}
 
 			hasErrors := HasErrors([]ValidationResult{result})
-			
+
 			if severity == "error" && !hasErrors {
 				t.Error("Error severity should be detected by HasErrors")
 			}

@@ -26,7 +26,7 @@ func printExampleTestStatus(t *testing.T, testName string, success bool, message
 
 func TestExample(t *testing.T) {
 	fmt.Printf("\n%s\n", exampleTestHeaderColor("=== Testing Example Struct ==="))
-	
+
 	// Test Example struct creation and basic functionality
 	example := Example{
 		Description: "Test example description",
@@ -50,7 +50,7 @@ func TestExample(t *testing.T) {
 
 func TestExampleSet(t *testing.T) {
 	fmt.Printf("\n%s\n", exampleTestHeaderColor("=== Testing ExampleSet ==="))
-	
+
 	// Test ExampleSet with multiple examples
 	examples := []Example{
 		{
@@ -58,7 +58,7 @@ func TestExampleSet(t *testing.T) {
 			Command:     "js first",
 		},
 		{
-			Description: "Second example", 
+			Description: "Second example",
 			Command:     "js second --flag",
 		},
 	}
@@ -89,13 +89,13 @@ func TestExampleSet(t *testing.T) {
 
 func TestFormatExamples(t *testing.T) {
 	fmt.Printf("\n%s\n", exampleTestHeaderColor("=== Testing Example Formatting ==="))
-	
+
 	t.Run("empty_examples", func(t *testing.T) {
 		fmt.Printf("  %s Testing empty example set\n", exampleTestInfoColor("Testing:"))
-		
+
 		emptySet := ExampleSet{}
 		result := emptySet.FormatExamples()
-		
+
 		if result != "" {
 			printExampleTestStatus(t, "Empty set formatting", false, fmt.Sprintf("Expected empty string for empty example set, got '%s'", result))
 			t.Errorf("Expected empty string for empty example set, got '%s'", result)
@@ -106,7 +106,7 @@ func TestFormatExamples(t *testing.T) {
 
 	t.Run("single_example", func(t *testing.T) {
 		fmt.Printf("  %s Testing single example formatting\n", exampleTestInfoColor("Testing:"))
-		
+
 		singleSet := ExampleSet{
 			Examples: []Example{
 				{
@@ -117,7 +117,7 @@ func TestFormatExamples(t *testing.T) {
 		}
 
 		result := singleSet.FormatExamples()
-		
+
 		// Should contain "Examples" header
 		if !strings.Contains(result, "Examples") {
 			printExampleTestStatus(t, "Examples header", false, "Formatted output should contain 'Examples' header")
@@ -173,7 +173,7 @@ func TestFormatExamples(t *testing.T) {
 	})
 	t.Run("multiple_examples", func(t *testing.T) {
 		fmt.Printf("  %s Testing multiple examples formatting\n", exampleTestInfoColor("Testing:"))
-		
+
 		multiSet := ExampleSet{
 			Examples: []Example{
 				{
@@ -203,7 +203,7 @@ func TestFormatExamples(t *testing.T) {
 				missingDescriptions++
 			}
 		}
-		
+
 		if missingDescriptions == 0 {
 			printExampleTestStatus(t, "All descriptions", true, fmt.Sprintf("All %d descriptions found in output", len(descriptions)))
 		}
@@ -222,7 +222,7 @@ func TestFormatExamples(t *testing.T) {
 				missingCommands++
 			}
 		}
-		
+
 		if missingCommands == 0 {
 			printExampleTestStatus(t, "All commands", true, fmt.Sprintf("All %d commands found in output", len(commands)))
 		}
@@ -248,14 +248,14 @@ func TestFormatExamples(t *testing.T) {
 
 func TestGetExamples(t *testing.T) {
 	fmt.Printf("\n%s\n", exampleTestHeaderColor("=== Testing GetExamples Function ==="))
-	
+
 	t.Run("existing_command", func(t *testing.T) {
 		fmt.Printf("  %s Testing example retrieval for existing command\n", exampleTestInfoColor("Testing:"))
-		
+
 		// Test with a command that should exist in the registry
 		// We'll need to check what's actually in the registry
 		result := GetExamples("arcbox")
-		
+
 		// Should return a valid ExampleSet (even if empty)
 		if result == nil {
 			printExampleTestStatus(t, "Non-nil result", false, "GetExamples should never return nil")
@@ -263,7 +263,7 @@ func TestGetExamples(t *testing.T) {
 		} else {
 			printExampleTestStatus(t, "Non-nil result", true, "GetExamples returned valid ExampleSet")
 		}
-		
+
 		// Log what we got for debugging
 		printExampleTestStatus(t, "Example count", true, fmt.Sprintf("Examples for 'arcbox': %d examples", len(result.Examples)))
 		t.Logf("Examples for 'arcbox': %d examples", len(result.Examples))
@@ -271,9 +271,9 @@ func TestGetExamples(t *testing.T) {
 
 	t.Run("non_existing_command", func(t *testing.T) {
 		fmt.Printf("  %s Testing example retrieval for non-existing command\n", exampleTestInfoColor("Testing:"))
-		
+
 		result := GetExamples("nonexistent-command")
-		
+
 		// Should return empty ExampleSet for non-existent commands
 		if result == nil {
 			printExampleTestStatus(t, "Non-nil result", false, "GetExamples should never return nil")
@@ -292,9 +292,9 @@ func TestGetExamples(t *testing.T) {
 
 	t.Run("empty_command_path", func(t *testing.T) {
 		fmt.Printf("  %s Testing example retrieval for empty command path\n", exampleTestInfoColor("Testing:"))
-		
+
 		result := GetExamples("")
-		
+
 		if result == nil {
 			printExampleTestStatus(t, "Non-nil result", false, "GetExamples should never return nil")
 			t.Error("GetExamples should never return nil")
@@ -313,11 +313,11 @@ func TestGetExamples(t *testing.T) {
 
 func TestExampleRegistryIntegration(t *testing.T) {
 	fmt.Printf("\n%s\n", exampleTestHeaderColor("=== Testing Example Registry Integration ==="))
-	
+
 	// Test that the example registry is properly initialized and accessible
 	t.Run("registry_initialization", func(t *testing.T) {
 		fmt.Printf("  %s Testing registry initialization with various command paths\n", exampleTestInfoColor("Testing:"))
-		
+
 		// Try to get examples for various command paths that might exist
 		commandPaths := []string{
 			"arcbox",
@@ -339,7 +339,7 @@ func TestExampleRegistryIntegration(t *testing.T) {
 			} else {
 				validResponses++
 			}
-			
+
 			// Log the number of examples found for each path
 			exampleCount := 0
 			if result != nil {
@@ -368,7 +368,7 @@ func TestExampleFormatting(t *testing.T) {
 		}
 
 		result := longExample.FormatExamples()
-		
+
 		// Should handle long commands without issues
 		if !strings.Contains(result, "Deploy ArcBox with all optional parameters") {
 			t.Error("Should contain long description")
@@ -390,7 +390,7 @@ func TestExampleFormatting(t *testing.T) {
 		}
 
 		result := specialExample.FormatExamples()
-		
+
 		// Should handle special characters without issues
 		if !strings.Contains(result, "!@#$%^&*()") {
 			t.Error("Should contain special characters in description")

@@ -31,9 +31,9 @@ func printTestStatus(t *testing.T, testName string, success bool, message string
 
 func TestNewUpgradeCmd(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Upgrade Command Creation ==="))
-	
+
 	cmd := NewUpgradeCmd()
-	
+
 	// Test basic command structure
 	printTestStatus(t, "Command Use", cmd.Use == "upgrade", fmt.Sprintf("Expected 'upgrade', got '%s'", cmd.Use))
 	printTestStatus(t, "Command Short Description", cmd.Short != "", "Short description should not be empty")
@@ -43,24 +43,24 @@ func TestNewUpgradeCmd(t *testing.T) {
 
 func TestUpgradeCommandFlags(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Upgrade Command Flags ==="))
-	
+
 	cmd := NewUpgradeCmd()
-	
+
 	// Test that expected flags exist
 	expectedFlags := []string{"check", "pre-release", "force"}
 	for _, flagName := range expectedFlags {
 		flag := cmd.Flags().Lookup(flagName)
 		success := flag != nil
-		printTestStatus(t, fmt.Sprintf("Flag '%s'", flagName), success, 
+		printTestStatus(t, fmt.Sprintf("Flag '%s'", flagName), success,
 			fmt.Sprintf("Flag '%s' should exist", flagName))
 	}
 }
 
 func TestUpgradeCommandFlagDefaults(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Upgrade Command Flag Defaults ==="))
-	
+
 	cmd := NewUpgradeCmd()
-	
+
 	// Test flag default values
 	flagTests := []struct {
 		name         string
@@ -75,7 +75,7 @@ func TestUpgradeCommandFlagDefaults(t *testing.T) {
 			expectBool:   false,
 		},
 		{
-			name:         "pre-release flag default", 
+			name:         "pre-release flag default",
 			flagName:     "pre-release",
 			expectedType: "bool",
 			expectBool:   false,
@@ -92,16 +92,16 @@ func TestUpgradeCommandFlagDefaults(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			flag := cmd.Flags().Lookup(tt.flagName)
 			if flag == nil {
-				printTestStatus(t, fmt.Sprintf("Flag '%s' exists", tt.flagName), false, 
+				printTestStatus(t, fmt.Sprintf("Flag '%s' exists", tt.flagName), false,
 					fmt.Sprintf("Flag '%s' not found", tt.flagName))
 				return
 			}
-			
+
 			// Test flag type
 			typeCorrect := flag.Value.Type() == tt.expectedType
 			printTestStatus(t, fmt.Sprintf("Flag '%s' type", tt.flagName), typeCorrect,
 				fmt.Sprintf("Expected type '%s', got '%s'", tt.expectedType, flag.Value.Type()))
-			
+
 			// Test default value for bool flags
 			if tt.expectedType == "bool" {
 				value, err := cmd.Flags().GetBool(tt.flagName)
@@ -120,9 +120,9 @@ func TestUpgradeCommandFlagDefaults(t *testing.T) {
 
 func TestUpgradeCommandFlagShorthands(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Upgrade Command Flag Shorthands ==="))
-	
+
 	cmd := NewUpgradeCmd()
-	
+
 	// Test shorthand flags exist
 	shorthandTests := []struct {
 		flagName  string
@@ -141,7 +141,7 @@ func TestUpgradeCommandFlagShorthands(t *testing.T) {
 					fmt.Sprintf("Flag '%s' not found", tt.flagName))
 				return
 			}
-			
+
 			shorthandCorrect := flag.Shorthand == tt.shorthand
 			printTestStatus(t, fmt.Sprintf("Flag '%s' shorthand", tt.flagName), shorthandCorrect,
 				fmt.Sprintf("Expected shorthand '%s', got '%s'", tt.shorthand, flag.Shorthand))
@@ -151,7 +151,7 @@ func TestUpgradeCommandFlagShorthands(t *testing.T) {
 
 func TestUpgradeCommandExecution(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Upgrade Command Execution ==="))
-	
+
 	// Store original debug mode
 	originalDebugMode := utils.DebugMode
 	defer func() {
@@ -193,40 +193,40 @@ func TestUpgradeCommandExecution(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor(tt.name))
-			
+
 			// Set debug mode for test
 			utils.DebugMode = tt.debugMode
-			
+
 			cmd := NewUpgradeCmd()
 			cmd.SetArgs(tt.args)
-			
+
 			// Capture output
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			err := cmd.Execute()
-			
+
 			// Since the actual upgrade logic involves network calls and file operations,
 			// we mainly test that the command structure is correct and doesn't panic
 			// The actual upgrade functionality would require more complex mocking
-			
+
 			if tt.expectError && err == nil {
 				printTestStatus(t, "Error expectation", false, "Expected error but got none")
 				return
 			}
-			
+
 			// For non-error cases, we can check if certain expected messages appear
 			if !tt.expectError {
 				output := buf.String()
 				// Should at least attempt to check for updates or show repository guidance
-				hasExpectedOutput := strings.Contains(output, "Checking for updates") || 
-				                   strings.Contains(output, "Repository not found") ||
-				                   strings.Contains(output, "failed to check for updates")
-				                   
-				printTestStatus(t, "Command execution", err == nil, 
+				hasExpectedOutput := strings.Contains(output, "Checking for updates") ||
+					strings.Contains(output, "Repository not found") ||
+					strings.Contains(output, "failed to check for updates")
+
+				printTestStatus(t, "Command execution", err == nil,
 					fmt.Sprintf("Command executed with args: %v", tt.args))
-				
+
 				if hasExpectedOutput || len(output) > 0 {
 					fmt.Printf("      %s Output captured: %s\n", testInfoColor("ℹ"), testInfoColor("success"))
 				}
@@ -237,9 +237,9 @@ func TestUpgradeCommandExecution(t *testing.T) {
 
 func TestUpgradeCommandStructure(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Upgrade Command Structure ==="))
-	
+
 	cmd := NewUpgradeCmd()
-	
+
 	// Test command description contains key information
 	expectedInLong := []string{
 		"Check for and install",
@@ -250,7 +250,7 @@ func TestUpgradeCommandStructure(t *testing.T) {
 		"--pre-release",
 		"--force",
 	}
-	
+
 	for _, expected := range expectedInLong {
 		contains := strings.Contains(cmd.Long, expected)
 		printTestStatus(t, fmt.Sprintf("Long description contains '%s'", expected), contains,
@@ -260,7 +260,7 @@ func TestUpgradeCommandStructure(t *testing.T) {
 
 func TestUpgradeCommandFlagParsing(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Upgrade Command Flag Parsing ==="))
-	
+
 	// Test various flag combinations
 	flagCombinations := [][]string{
 		{"--check"},
@@ -277,11 +277,11 @@ func TestUpgradeCommandFlagParsing(t *testing.T) {
 	for i, args := range flagCombinations {
 		t.Run("flag_combination_"+string(rune(i+'0')), func(t *testing.T) {
 			fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor(fmt.Sprintf("Testing flag combination: %v", args)))
-			
+
 			// Create a fresh command for each test
 			cmd := NewUpgradeCmd()
 			cmd.SetArgs(args)
-			
+
 			// Just test that flags can be parsed without error
 			err := cmd.ParseFlags(args)
 			success := err == nil

@@ -29,10 +29,10 @@ func printTestStatus(t *testing.T, testName string, success bool, message string
 
 func TestBuildNormalizedAgoraRegionMap(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Agora Region Map Building ==="))
-	
+
 	// Test the buildNormalizedAgoraRegionMap function
 	regionMap := buildNormalizedAgoraRegionMap()
-	
+
 	// The map should not be nil
 	testName := "Region Map Not Nil"
 	success := regionMap != nil
@@ -41,7 +41,7 @@ func TestBuildNormalizedAgoraRegionMap(t *testing.T) {
 		message = "buildNormalizedAgoraRegionMap() returned nil"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	// Note: This test may not have entries if the JSON file doesn't exist
 	// but should not panic or return nil
 	testName = "Region Map Info"
@@ -52,15 +52,15 @@ func TestBuildNormalizedAgoraRegionMap(t *testing.T) {
 
 func TestNewAgoraCmd(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Agora Command Creation ==="))
-	
+
 	cmd := NewAgoraCmd()
-	
+
 	// Test basic command structure
 	testName := "Command Use"
 	success := cmd.Use == "agora"
 	message := fmt.Sprintf("Expected 'agora', got '%s'", cmd.Use)
 	printTestStatus(t, testName, success, message)
-	
+
 	testName = "Command Short Description"
 	success = cmd.Short != ""
 	message = "Short description should not be empty"
@@ -68,7 +68,7 @@ func TestNewAgoraCmd(t *testing.T) {
 		message = "Short description is empty"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	testName = "Command Long Description"
 	success = cmd.Long != ""
 	message = "Long description should not be empty"
@@ -76,7 +76,7 @@ func TestNewAgoraCmd(t *testing.T) {
 		message = "Long description is empty"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test that Run function exists
 	testName = "Run Function Exists"
 	success = cmd.Run != nil
@@ -89,9 +89,9 @@ func TestNewAgoraCmd(t *testing.T) {
 
 func TestAgoraCommandFlags(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Agora Command Flags ==="))
-	
+
 	cmd := NewAgoraCmd()
-	
+
 	// Agora command should not have any custom flags currently
 	testName := "No Custom Flags"
 	flagCount := cmd.Flags().NFlag()
@@ -125,11 +125,11 @@ func TestAgoraCommandValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := NewAgoraCmd()
 			cmd.SetArgs(tt.args)
-			
+
 			// Redirect stdout/stderr to avoid actual output during tests
 			cmd.SetOut(os.Stdout)
 			cmd.SetErr(os.Stderr)
-			
+
 			// Note: Since the Run function contains os.Exit calls and user prompts,
 			// we can't easily test the actual execution without mocking
 			// This test mainly verifies command structure
@@ -139,14 +139,14 @@ func TestAgoraCommandValidation(t *testing.T) {
 
 func TestAgoraCommandStructure(t *testing.T) {
 	cmd := NewAgoraCmd()
-	
+
 	// Verify command properties
 	expectedProperties := map[string]interface{}{
 		"Use":   "agora",
 		"Short": cmd.Short, // Should not be empty
 		"Long":  cmd.Long,  // Should not be empty
 	}
-	
+
 	for property, expected := range expectedProperties {
 		switch property {
 		case "Use":
@@ -171,11 +171,11 @@ func TestAgoraHelperFunctions(t *testing.T) {
 	t.Run("region map consistency", func(t *testing.T) {
 		map1 := buildNormalizedAgoraRegionMap()
 		map2 := buildNormalizedAgoraRegionMap()
-		
+
 		if len(map1) != len(map2) {
 			t.Errorf("buildNormalizedAgoraRegionMap() not consistent: %d vs %d entries", len(map1), len(map2))
 		}
-		
+
 		// Verify all keys in map1 exist in map2
 		for key, value := range map1 {
 			if map2Value, exists := map2[key]; !exists || map2Value != value {

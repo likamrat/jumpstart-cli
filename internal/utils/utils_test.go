@@ -31,7 +31,7 @@ func printTestStatus(t *testing.T, testName string, success bool, message string
 
 func TestIsAzureLoggedIn(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Azure CLI Login Status ==="))
-	
+
 	// Test the IsAzureLoggedIn function
 	// Note: This test may fail if Azure CLI is not installed or configured
 	t.Run("azure_cli_check", func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestIsAzureLoggedIn(t *testing.T) {
 
 func TestResourceGroupExists(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Resource Group Existence ==="))
-	
+
 	// Test with a resource group that likely doesn't exist
 	t.Run("nonexistent_rg", func(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing non-existent resource group"))
@@ -74,7 +74,7 @@ func TestResourceGroupExists(t *testing.T) {
 
 func TestCreateResourceGroup(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Resource Group Creation ==="))
-	
+
 	// Test with invalid parameters to ensure error handling
 	t.Run("invalid_location", func(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing invalid location"))
@@ -96,11 +96,11 @@ func TestCreateResourceGroup(t *testing.T) {
 
 func TestColoredLogging(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Colored Logging Functions ==="))
-	
+
 	// Save original debug mode
 	originalDebugMode := DebugMode
 	defer func() { DebugMode = originalDebugMode }()
-	
+
 	// Capture output for testing logging functions
 	testCases := []struct {
 		name     string
@@ -117,12 +117,12 @@ func TestColoredLogging(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor(fmt.Sprintf("Testing %s logging", tc.name)))
-			
+
 			// Enable debug mode for Debug function
 			if tc.name == "Debug" {
 				DebugMode = true
 			}
-			
+
 			// Capture stdout
 			old := os.Stdout
 			r, w, _ := os.Pipe()
@@ -149,7 +149,7 @@ func TestColoredLogging(t *testing.T) {
 
 func TestErrorLogging(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Error Logging ==="))
-	
+
 	// Test Error function which writes to stderr
 	old := os.Stderr
 	r, w, _ := os.Pipe()
@@ -171,14 +171,14 @@ func TestErrorLogging(t *testing.T) {
 
 func TestDebugMode(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Debug Mode ==="))
-	
+
 	// Save original debug mode
 	originalDebugMode := DebugMode
 
 	t.Run("debug_enabled", func(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing debug mode enabled"))
 		DebugMode = true
-		
+
 		// Capture stdout
 		old := os.Stdout
 		r, w, _ := os.Pipe()
@@ -200,7 +200,7 @@ func TestDebugMode(t *testing.T) {
 	t.Run("debug_disabled", func(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing debug mode disabled"))
 		DebugMode = false
-		
+
 		// Capture stdout
 		old := os.Stdout
 		r, w, _ := os.Pipe()
@@ -225,7 +225,7 @@ func TestDebugMode(t *testing.T) {
 
 func TestFriendlyResourceName(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Friendly Resource Name Mapping ==="))
-	
+
 	testCases := []struct {
 		resourceType     string
 		resourceName     string
@@ -259,7 +259,7 @@ func TestFriendlyResourceName(t *testing.T) {
 
 func TestGlobalVariables(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Global Variables ==="))
-	
+
 	// Test that global variables have reasonable defaults
 	t.Run("cli_version", func(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing CLI version"))
@@ -273,7 +273,7 @@ func TestGlobalVariables(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing color functions"))
 		// Test that color functions don't panic
 		testStr := "test"
-		
+
 		printTestStatus(t, "InfoColor Function", InfoColor(testStr) != "", "InfoColor should not return empty string")
 		printTestStatus(t, "WarnColor Function", WarnColor(testStr) != "", "WarnColor should not return empty string")
 		printTestStatus(t, "ErrorColor Function", ErrorColor(testStr) != "", "ErrorColor should not return empty string")
@@ -307,11 +307,11 @@ func TestGlobalVariables(t *testing.T) {
 
 func TestLoggingFormats(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Logging Formats ==="))
-	
+
 	// Test logging with format strings
 	t.Run("formatted_logging", func(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing formatted logging"))
-		
+
 		// Capture stdout
 		old := os.Stdout
 		r, w, _ := os.Pipe()
@@ -333,11 +333,11 @@ func TestLoggingFormats(t *testing.T) {
 // Test helper function to check if all required functions are exported
 func TestExportedFunctions(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Exported Functions ==="))
-	
+
 	// Test that main utility functions are accessible
 	t.Run("main_functions_accessible", func(t *testing.T) {
 		fmt.Printf("    %s %s\n", testInfoColor("→"), testInfoColor("Testing function accessibility"))
-		
+
 		// These should not panic when called with valid parameters
 		defer func() {
 			if r := recover(); r != nil {

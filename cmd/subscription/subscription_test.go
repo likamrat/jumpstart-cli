@@ -21,7 +21,7 @@ var (
 func printTestStatus(t *testing.T, testName string, success bool, message string) {
 	var icon string
 	var colorFunc func(a ...interface{}) string
-	
+
 	if success {
 		icon = "✅"
 		colorFunc = testSuccessColor
@@ -30,13 +30,13 @@ func printTestStatus(t *testing.T, testName string, success bool, message string
 		colorFunc = testErrorColor
 		t.Errorf("Test failed: %s", message)
 	}
-	
+
 	fmt.Printf("%s %s: %s\n", colorFunc("PASS"), icon, testInfoColor(fmt.Sprintf("%s: %s", testName, message)))
 }
 
 func TestIsValidGUID(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing GUID Validation ==="))
-	
+
 	tests := []struct {
 		name string
 		guid string
@@ -112,15 +112,15 @@ func TestIsValidGUID(t *testing.T) {
 
 func TestNewSubscriptionCmd(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing New Subscription Command ==="))
-	
+
 	cmd := NewSubscriptionCmd()
-	
+
 	// Test basic command structure
 	testName := "Command Use Field"
 	success := cmd.Use == "subscription"
 	message := fmt.Sprintf("Expected 'subscription', got '%s'", cmd.Use)
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test Short description
 	testName = "Short Description"
 	success = cmd.Short != ""
@@ -130,7 +130,7 @@ func TestNewSubscriptionCmd(t *testing.T) {
 		message = "Short description should not be empty"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test Long description
 	testName = "Long Description"
 	success = cmd.Long != ""
@@ -140,15 +140,15 @@ func TestNewSubscriptionCmd(t *testing.T) {
 		message = "Long description should not be empty"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test that subcommands are registered
 	expectedSubcommands := []string{"list", "set", "show"}
 	actualSubcommands := make([]string, 0)
-	
+
 	for _, subCmd := range cmd.Commands() {
 		actualSubcommands = append(actualSubcommands, subCmd.Use)
 	}
-	
+
 	for _, expected := range expectedSubcommands {
 		testName = fmt.Sprintf("Subcommand: %s", expected)
 		found := false
@@ -169,7 +169,7 @@ func TestNewSubscriptionCmd(t *testing.T) {
 
 func TestSubscriptionSetCommandFlags(t *testing.T) {
 	cmd := NewSubscriptionCmd()
-	
+
 	// Find the set subcommand
 	var setCmd *cobra.Command
 	for _, subCmd := range cmd.Commands() {
@@ -178,11 +178,11 @@ func TestSubscriptionSetCommandFlags(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if setCmd == nil {
 		t.Fatal("set subcommand not found")
 	}
-	
+
 	// Test that required flags exist
 	requiredFlags := []string{"subscription", "name"}
 	for _, flagName := range requiredFlags {
@@ -195,7 +195,7 @@ func TestSubscriptionSetCommandFlags(t *testing.T) {
 
 func TestSubscriptionShowCommandFlags(t *testing.T) {
 	cmd := NewSubscriptionCmd()
-	
+
 	// Find the show subcommand
 	var showCmd *cobra.Command
 	for _, subCmd := range cmd.Commands() {
@@ -204,11 +204,11 @@ func TestSubscriptionShowCommandFlags(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if showCmd == nil {
 		t.Fatal("show subcommand not found")
 	}
-	
+
 	// Test that optional flags exist
 	optionalFlags := []string{"id", "name"}
 	for _, flagName := range optionalFlags {

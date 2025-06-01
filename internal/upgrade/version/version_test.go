@@ -27,7 +27,7 @@ func printUpgradeTestStatus(t *testing.T, testName string, success bool, message
 
 func TestCompareVersions(t *testing.T) {
 	fmt.Printf("\n%s\n", upgradeTestHeaderColor("=== Testing Version Comparison ==="))
-	
+
 	tests := []struct {
 		v1       string
 		v2       string
@@ -49,17 +49,17 @@ func TestCompareVersions(t *testing.T) {
 	for _, test := range tests {
 		result := CompareVersions(test.v1, test.v2)
 		if result != test.expected {
-			printUpgradeTestStatus(t, fmt.Sprintf("Compare %s vs %s", test.v1, test.v2), false, 
+			printUpgradeTestStatus(t, fmt.Sprintf("Compare %s vs %s", test.v1, test.v2), false,
 				fmt.Sprintf("Got %d, expected %d (%s)", result, test.expected, test.desc))
 			t.Errorf("CompareVersions(%s, %s) = %d, expected %d (%s)",
 				test.v1, test.v2, result, test.expected, test.desc)
 		} else {
-			printUpgradeTestStatus(t, fmt.Sprintf("Compare %s vs %s", test.v1, test.v2), true, 
+			printUpgradeTestStatus(t, fmt.Sprintf("Compare %s vs %s", test.v1, test.v2), true,
 				fmt.Sprintf("Correctly returned %d (%s)", result, test.desc))
 			successfulTests++
 		}
 	}
-	
+
 	if successfulTests == len(tests) {
 		printUpgradeTestStatus(t, "All version comparisons", true, fmt.Sprintf("All %d version comparison tests passed", successfulTests))
 	}
@@ -67,7 +67,7 @@ func TestCompareVersions(t *testing.T) {
 
 func TestCleanVersionTag(t *testing.T) {
 	fmt.Printf("\n%s\n", upgradeTestHeaderColor("=== Testing Version Tag Cleaning ==="))
-	
+
 	tests := []struct {
 		input    string
 		expected string
@@ -92,7 +92,7 @@ func TestCleanVersionTag(t *testing.T) {
 			successfulTests++
 		}
 	}
-	
+
 	if successfulTests == len(tests) {
 		printUpgradeTestStatus(t, "All version cleanings", true, fmt.Sprintf("All %d version cleaning tests passed", successfulTests))
 	}
@@ -100,7 +100,7 @@ func TestCleanVersionTag(t *testing.T) {
 
 func TestGetPlatformInfo(t *testing.T) {
 	fmt.Printf("\n%s\n", upgradeTestHeaderColor("=== Testing Platform Information ==="))
-	
+
 	platform := installer.GetPlatformInfo()
 
 	if platform.OS == "" {

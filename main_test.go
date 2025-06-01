@@ -32,48 +32,48 @@ func printTestStatus(success bool, message string) {
 func captureOutput(f func()) string {
 	// Create a pipe to capture stdout
 	r, w, _ := os.Pipe()
-	
+
 	// Save original stdout
 	originalStdout := os.Stdout
-	
+
 	// Replace stdout with our writer
 	os.Stdout = w
-	
+
 	// Create a channel to receive the captured output
 	outputChan := make(chan string)
-	
+
 	// Start a goroutine to read from the pipe
 	go func() {
 		var buf bytes.Buffer
 		io.Copy(&buf, r)
 		outputChan <- buf.String()
 	}()
-	
+
 	// Execute the function
 	f()
-	
+
 	// Restore original stdout
 	w.Close()
 	os.Stdout = originalStdout
-	
+
 	// Get the captured output
 	output := <-outputChan
 	r.Close()
-	
+
 	return output
 }
 
 func TestPrintWelcome(t *testing.T) {
 	color.Cyan("\n" + testHeaderColor("=== Testing main.go printWelcome Function ==="))
-	
+
 	t.Run("PrintWelcome", func(t *testing.T) {
 		color.Cyan(testInfoColor("Testing printWelcome output content and format..."))
-		
+
 		// Capture the output of printWelcome function
 		output := captureOutput(func() {
 			printWelcome()
 		})
-		
+
 		// Verify the output is not empty
 		if len(strings.TrimSpace(output)) == 0 {
 			t.Error(testErrorColor("printWelcome produced no output"))
@@ -81,7 +81,7 @@ func TestPrintWelcome(t *testing.T) {
 			return
 		}
 		printTestStatus(true, "Output length validation")
-		
+
 		// Test cases for expected content
 		testCases := []struct {
 			name     string
@@ -159,7 +159,7 @@ func TestPrintWelcome(t *testing.T) {
 				desc:     "Contains command help usage instructions",
 			},
 		}
-		
+
 		// Check each test case
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -171,11 +171,11 @@ func TestPrintWelcome(t *testing.T) {
 				printTestStatus(true, tc.desc)
 			})
 		}
-		
+
 		// Verify structure: ASCII art should come before commands
 		asciiIndex := strings.Index(output, "jumpstart")
 		commandsIndex := strings.Index(output, "Here are the base commands:")
-		
+
 		if asciiIndex == -1 {
 			t.Error(testErrorColor("ASCII art not found in output"))
 			printTestStatus(false, "ASCII art presence")
@@ -188,7 +188,7 @@ func TestPrintWelcome(t *testing.T) {
 		} else {
 			printTestStatus(true, "Content structure validation")
 		}
-		
+
 		// Verify all expected commands are present in the correct format
 		expectedCommands := []string{
 			"agora         : Manage Jumpstart Agora automation",
@@ -200,21 +200,21 @@ func TestPrintWelcome(t *testing.T) {
 			"upgrade       : Upgrade the Jumpstart CLI to the latest version",
 			"version       : Display the current version of the CLI",
 		}
-		
+
 		commandsFound := 0
 		for _, cmd := range expectedCommands {
 			if strings.Contains(output, cmd) {
 				commandsFound++
 			}
 		}
-		
+
 		if commandsFound == len(expectedCommands) {
 			printTestStatus(true, "All commands properly formatted and present")
 		} else {
 			t.Errorf(testErrorColor("Expected %d commands in proper format, found %d"), len(expectedCommands), commandsFound)
 			printTestStatus(false, "Command formatting validation")
 		}
-		
+
 		// Verify the output contains newlines for proper formatting
 		if !strings.Contains(output, "\n") {
 			t.Error(testErrorColor("Output should contain newlines for proper formatting"))
@@ -222,21 +222,21 @@ func TestPrintWelcome(t *testing.T) {
 		} else {
 			printTestStatus(true, "Output formatting validation")
 		}
-		
+
 		color.Green(testInfoColor("✅ printWelcome function test completed successfully"))
 	})
 }
 
 func TestPrintWelcomeOutputFormat(t *testing.T) {
 	color.Cyan("\n" + testHeaderColor("=== Testing printWelcome Output Format ==="))
-	
+
 	t.Run("OutputFormat", func(t *testing.T) {
 		color.Cyan(testInfoColor("Testing printWelcome output formatting and structure..."))
-		
+
 		output := captureOutput(func() {
 			printWelcome()
 		})
-		
+
 		// Count lines to ensure we have substantial output
 		lines := strings.Split(strings.TrimSpace(output), "\n")
 		if len(lines) < 15 {
@@ -245,7 +245,7 @@ func TestPrintWelcomeOutputFormat(t *testing.T) {
 		} else {
 			printTestStatus(true, "Minimum output lines check")
 		}
-		
+
 		// Verify it starts with newline and ASCII art
 		if !strings.HasPrefix(output, "\n") {
 			t.Error(testErrorColor("Output should start with a newline"))
@@ -253,7 +253,7 @@ func TestPrintWelcomeOutputFormat(t *testing.T) {
 		} else {
 			printTestStatus(true, "Output starts with newline")
 		}
-		
+
 		// Verify it contains proper spacing and formatting
 		if !strings.Contains(output, "    agora") {
 			t.Error(testErrorColor("Commands should be properly indented"))
@@ -261,7 +261,7 @@ func TestPrintWelcomeOutputFormat(t *testing.T) {
 		} else {
 			printTestStatus(true, "Command indentation")
 		}
-		
+
 		color.Green(testInfoColor("✅ printWelcome output format test completed successfully"))
 	})
 }
@@ -269,18 +269,18 @@ func TestPrintWelcomeOutputFormat(t *testing.T) {
 // Benchmark the printWelcome function
 func BenchmarkPrintWelcome(b *testing.B) {
 	color.Cyan(testHeaderColor("=== Benchmarking printWelcome Function ==="))
-	
+
 	// Capture output during benchmark to avoid polluting benchmark results
 	originalStdout := os.Stdout
 	devNull, _ := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	defer devNull.Close()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		os.Stdout = devNull
 		printWelcome()
 		os.Stdout = originalStdout
 	}
-	
+
 	color.Green(testInfoColor("✅ printWelcome benchmark completed"))
 }

@@ -26,7 +26,7 @@ func printPreflightTestStatus(t *testing.T, testName string, success bool, messa
 
 func TestBuildArcBoxValidationContext(t *testing.T) {
 	fmt.Printf("\n%s\n", preflightTestHeaderColor("=== Testing ArcBox Validation Context ==="))
-	
+
 	// Create a mock command with flags
 	cmd := &cobra.Command{}
 	cmd.Flags().String("flavor", "ITPro", "ArcBox flavor")
@@ -100,7 +100,7 @@ func TestBuildArcBoxValidationContext(t *testing.T) {
 
 func TestGetFlavorSpecificChecks(t *testing.T) {
 	fmt.Printf("\n%s\n", preflightTestHeaderColor("=== Testing Flavor-Specific Checks ==="))
-	
+
 	tests := []struct {
 		flavor   string
 		expected []string
@@ -115,7 +115,7 @@ func TestGetFlavorSpecificChecks(t *testing.T) {
 	for _, test := range tests {
 		t.Run("flavor_"+test.flavor, func(t *testing.T) {
 			fmt.Printf("  %s Testing flavor: %s\n", preflightTestInfoColor("Testing:"), test.flavor)
-			
+
 			result := GetFlavorSpecificChecks(test.flavor)
 
 			if len(result) != len(test.expected) {
@@ -140,7 +140,7 @@ func TestGetFlavorSpecificChecks(t *testing.T) {
 					unexpectedChecks++
 				}
 			}
-			
+
 			if unexpectedChecks == 0 && len(result) > 0 {
 				printPreflightTestStatus(t, fmt.Sprintf("All checks for %s", test.flavor), true, fmt.Sprintf("All %d checks are expected", len(result)))
 			} else if len(result) == 0 {
@@ -152,11 +152,11 @@ func TestGetFlavorSpecificChecks(t *testing.T) {
 
 func TestValidateConditionalRequirements(t *testing.T) {
 	fmt.Printf("\n%s\n", preflightTestHeaderColor("=== Testing Conditional Requirements Validation ==="))
-	
+
 	// Test DevOps flavor requirements
 	t.Run("devops_missing_ssh_key", func(t *testing.T) {
 		fmt.Printf("  %s Testing DevOps flavor missing SSH key\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("flavor", "DevOps", "ArcBox flavor")
 		cmd.Flags().String("ssh-rsa-public-key", "", "SSH public key")
@@ -180,7 +180,7 @@ func TestValidateConditionalRequirements(t *testing.T) {
 
 	t.Run("devops_missing_github_user", func(t *testing.T) {
 		fmt.Printf("  %s Testing DevOps flavor missing GitHub user\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("flavor", "DevOps", "ArcBox flavor")
 		cmd.Flags().String("ssh-rsa-public-key", "ssh-rsa AAAAB3...", "SSH public key")
@@ -201,7 +201,7 @@ func TestValidateConditionalRequirements(t *testing.T) {
 
 	t.Run("devops_microsoft_github_user", func(t *testing.T) {
 		fmt.Printf("  %s Testing DevOps flavor with 'microsoft' GitHub user\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("flavor", "DevOps", "ArcBox flavor")
 		cmd.Flags().String("ssh-rsa-public-key", "ssh-rsa AAAAB3...", "SSH public key")
@@ -221,7 +221,7 @@ func TestValidateConditionalRequirements(t *testing.T) {
 	})
 	t.Run("dataops_missing_ssh_key", func(t *testing.T) {
 		fmt.Printf("  %s Testing DataOps flavor missing SSH key\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("flavor", "DataOps", "ArcBox flavor")
 		cmd.Flags().String("ssh-rsa-public-key", "", "SSH public key")
@@ -241,7 +241,7 @@ func TestValidateConditionalRequirements(t *testing.T) {
 
 	t.Run("dataops_valid", func(t *testing.T) {
 		fmt.Printf("  %s Testing valid DataOps configuration\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("flavor", "DataOps", "ArcBox flavor")
 		cmd.Flags().String("ssh-rsa-public-key", "ssh-rsa AAAAB3...", "SSH public key")
@@ -261,7 +261,7 @@ func TestValidateConditionalRequirements(t *testing.T) {
 
 	t.Run("itpro_no_requirements", func(t *testing.T) {
 		fmt.Printf("  %s Testing ITPro flavor (no additional requirements)\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("flavor", "ITPro", "ArcBox flavor")
 		cmd.Flags().String("ssh-rsa-public-key", "", "SSH public key")
@@ -280,7 +280,7 @@ func TestValidateConditionalRequirements(t *testing.T) {
 
 	t.Run("devops_valid", func(t *testing.T) {
 		fmt.Printf("  %s Testing valid DevOps configuration\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("flavor", "DevOps", "ArcBox flavor")
 		cmd.Flags().String("ssh-rsa-public-key", "ssh-rsa AAAAB3...", "SSH public key")
@@ -302,12 +302,12 @@ func TestValidateConditionalRequirements(t *testing.T) {
 
 func TestRunArcBoxPreflightChecks(t *testing.T) {
 	fmt.Printf("\n%s\n", preflightTestHeaderColor("=== Testing ArcBox Preflight Checks ==="))
-	
+
 	// Test that the function can be called without panicking
 	// This is more of an integration test since it depends on external validators
 	t.Run("basic_execution", func(t *testing.T) {
 		fmt.Printf("  %s Testing basic preflight checks execution\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("flavor", "ITPro", "ArcBox flavor")
 		cmd.Flags().String("location", "eastus", "Azure region")
@@ -340,11 +340,11 @@ func TestRunArcBoxPreflightChecks(t *testing.T) {
 
 func TestRunParameterValidation(t *testing.T) {
 	fmt.Printf("\n%s\n", preflightTestHeaderColor("=== Testing Parameter Validation ==="))
-	
+
 	// Test parameter-only validation
 	t.Run("basic_execution", func(t *testing.T) {
 		fmt.Printf("  %s Testing parameter validation execution\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("flavor", "ITPro", "ArcBox flavor")
 		cmd.Flags().String("location", "eastus", "Azure region")
@@ -376,11 +376,11 @@ func TestRunParameterValidation(t *testing.T) {
 
 func TestRunArcBoxQuotaChecks(t *testing.T) {
 	fmt.Printf("\n%s\n", preflightTestHeaderColor("=== Testing ArcBox Quota Checks ==="))
-	
+
 	// Test quota-specific validation
 	t.Run("basic_execution", func(t *testing.T) {
 		fmt.Printf("  %s Testing quota checks execution\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("flavor", "ITPro", "ArcBox flavor")
 		cmd.Flags().String("location", "eastus", "Azure region")
@@ -409,11 +409,11 @@ func TestRunArcBoxQuotaChecks(t *testing.T) {
 
 func TestArcBoxValidationContextResourceTags(t *testing.T) {
 	fmt.Printf("\n%s\n", preflightTestHeaderColor("=== Testing Resource Tags Validation Context ==="))
-	
+
 	// Test that resource-tags parameter is only included when explicitly set
 	t.Run("resource_tags_not_changed", func(t *testing.T) {
 		fmt.Printf("  %s Testing resource tags not explicitly set\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("resource-tags", `{"Solution":"jumpstart_arcbox"}`, "Resource tags")
 
@@ -431,7 +431,7 @@ func TestArcBoxValidationContextResourceTags(t *testing.T) {
 
 	t.Run("resource_tags_explicitly_set", func(t *testing.T) {
 		fmt.Printf("  %s Testing resource tags explicitly set\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		cmd.Flags().String("resource-tags", `{"Solution":"jumpstart_arcbox"}`, "Resource tags")
 
@@ -455,14 +455,14 @@ func TestArcBoxValidationContextResourceTags(t *testing.T) {
 
 func TestPrintFlavorRequirements(t *testing.T) {
 	fmt.Printf("\n%s\n", preflightTestHeaderColor("=== Testing Print Flavor Requirements ==="))
-	
+
 	// Test that PrintFlavorRequirements doesn't panic for different flavors
 	flavors := []string{"DevOps", "DataOps", "ITPro", "Unknown", ""}
 
 	for _, flavor := range flavors {
 		t.Run("flavor_"+flavor, func(t *testing.T) {
 			fmt.Printf("  %s Testing print requirements for flavor: %s\n", preflightTestInfoColor("Testing:"), flavor)
-			
+
 			defer func() {
 				if r := recover(); r != nil {
 					printPreflightTestStatus(t, fmt.Sprintf("Panic prevention for %s", flavor), false, fmt.Sprintf("PrintFlavorRequirements panicked for flavor '%s': %v", flavor, r))
@@ -479,12 +479,12 @@ func TestPrintFlavorRequirements(t *testing.T) {
 
 func TestArcBoxValidationEdgeCases(t *testing.T) {
 	fmt.Printf("\n%s\n", preflightTestHeaderColor("=== Testing ArcBox Validation Edge Cases ==="))
-	
+
 	t.Run("empty_command", func(t *testing.T) {
 		fmt.Printf("  %s Testing with empty command\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
-		
+
 		defer func() {
 			if r := recover(); r != nil {
 				printPreflightTestStatus(t, "Empty command panic prevention", false, fmt.Sprintf("buildArcBoxValidationContext panicked with empty command: %v", r))
@@ -495,7 +495,7 @@ func TestArcBoxValidationEdgeCases(t *testing.T) {
 		}()
 
 		ctx := buildArcBoxValidationContext(cmd)
-		
+
 		// Should have default values
 		if ctx.Solution != "arcbox" {
 			printPreflightTestStatus(t, "Default solution", false, "Expected Solution to be 'arcbox' even with empty command")
@@ -514,10 +514,10 @@ func TestArcBoxValidationEdgeCases(t *testing.T) {
 
 	t.Run("nil_parameters_map", func(t *testing.T) {
 		fmt.Printf("  %s Testing parameters map initialization\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		ctx := buildArcBoxValidationContext(cmd)
-		
+
 		// Parameters map should be initialized
 		if ctx.Parameters == nil {
 			printPreflightTestStatus(t, "Parameters map initialization", false, "Expected Parameters map to be initialized")
@@ -529,10 +529,10 @@ func TestArcBoxValidationEdgeCases(t *testing.T) {
 
 	t.Run("nil_skip_checks_slice", func(t *testing.T) {
 		fmt.Printf("  %s Testing skip checks slice initialization\n", preflightTestInfoColor("Testing:"))
-		
+
 		cmd := &cobra.Command{}
 		ctx := buildArcBoxValidationContext(cmd)
-		
+
 		// SkipChecks slice should be initialized
 		if ctx.SkipChecks == nil {
 			printPreflightTestStatus(t, "SkipChecks slice initialization", false, "Expected SkipChecks slice to be initialized")

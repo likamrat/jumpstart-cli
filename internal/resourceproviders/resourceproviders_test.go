@@ -25,7 +25,7 @@ func printRPTestStatus(t *testing.T, testName string, success bool, message stri
 
 func TestGetArcBoxProviders(t *testing.T) {
 	fmt.Printf("\n%s\n", rpTestHeaderColor("=== Testing ArcBox Providers ==="))
-	
+
 	config := GetArcBoxProviders()
 
 	// Test basic configuration structure
@@ -92,7 +92,7 @@ func TestGetArcBoxProviders(t *testing.T) {
 
 func TestGetLocalBoxProviders(t *testing.T) {
 	fmt.Printf("\n%s\n", rpTestHeaderColor("=== Testing LocalBox Providers ==="))
-	
+
 	config := GetLocalBoxProviders()
 
 	// Test basic configuration structure
@@ -155,7 +155,7 @@ func TestGetLocalBoxProviders(t *testing.T) {
 
 func TestGetAgoraProviders(t *testing.T) {
 	fmt.Printf("\n%s\n", rpTestHeaderColor("=== Testing Agora Providers ==="))
-	
+
 	config := GetAgoraProviders()
 
 	// Test basic configuration structure
@@ -191,7 +191,7 @@ func TestGetAgoraProviders(t *testing.T) {
 
 func TestResourceProviderConfig(t *testing.T) {
 	fmt.Printf("\n%s\n", rpTestHeaderColor("=== Testing ResourceProviderConfig Struct ==="))
-	
+
 	// Test that ResourceProviderConfig struct works as expected
 	testConfig := ResourceProviderConfig{
 		SolutionName:      "TestSolution",
@@ -233,7 +233,7 @@ func TestResourceProviderConfig(t *testing.T) {
 
 func TestProviderConfigurationConsistency(t *testing.T) {
 	fmt.Printf("\n%s\n", rpTestHeaderColor("=== Testing Provider Configuration Consistency ==="))
-	
+
 	// Test that all solution configurations have consistent structure
 	solutions := []ResourceProviderConfig{
 		GetArcBoxProviders(),
@@ -244,7 +244,7 @@ func TestProviderConfigurationConsistency(t *testing.T) {
 	for _, config := range solutions {
 		t.Run("solution_"+config.SolutionName, func(t *testing.T) {
 			fmt.Printf("  %s Testing consistency for solution: %s\n", rpTestInfoColor("Testing:"), rpTestInfoColor(config.SolutionName))
-			
+
 			// Every solution should have a name
 			if config.SolutionName == "" {
 				printRPTestStatus(t, "Solution name", false, "SolutionName should not be empty")
@@ -304,7 +304,7 @@ func TestProviderConfigurationConsistency(t *testing.T) {
 
 func TestProviderNameValidation(t *testing.T) {
 	fmt.Printf("\n%s\n", rpTestHeaderColor("=== Testing Provider Name Validation ==="))
-	
+
 	// Test validation of provider names
 	validProviders := []string{
 		"Microsoft.Compute",
@@ -354,13 +354,13 @@ func TestProviderNameValidation(t *testing.T) {
 		})
 	}
 
-	fmt.Printf("  %s Validated %d valid and %d invalid provider names\n", 
+	fmt.Printf("  %s Validated %d valid and %d invalid provider names\n",
 		rpTestInfoColor("Summary:"), validCount, invalidCount)
 }
 
 func TestSolutionSpecificProviders(t *testing.T) {
 	fmt.Printf("\n%s\n", rpTestHeaderColor("=== Testing Solution-Specific Providers ==="))
-	
+
 	// Test that different solutions have appropriate provider sets
 	arcboxConfig := GetArcBoxProviders()
 	localboxConfig := GetLocalBoxProviders()
@@ -374,7 +374,7 @@ func TestSolutionSpecificProviders(t *testing.T) {
 
 	arcSpecificProviders := []string{
 		"Microsoft.Kubernetes",
-		"Microsoft.KubernetesConfiguration", 
+		"Microsoft.KubernetesConfiguration",
 		"Microsoft.AzureArcData",
 	}
 
@@ -456,7 +456,7 @@ func startsWithMicrosoft(provider string) bool {
 // Test performance of provider configuration functions
 func BenchmarkGetArcBoxProviders(b *testing.B) {
 	fmt.Printf("\n%s\n", rpTestHeaderColor("=== Benchmarking ArcBox Providers ==="))
-	
+
 	for i := 0; i < b.N; i++ {
 		GetArcBoxProviders()
 	}
@@ -464,7 +464,7 @@ func BenchmarkGetArcBoxProviders(b *testing.B) {
 
 func BenchmarkGetLocalBoxProviders(b *testing.B) {
 	fmt.Printf("\n%s\n", rpTestHeaderColor("=== Benchmarking LocalBox Providers ==="))
-	
+
 	for i := 0; i < b.N; i++ {
 		GetLocalBoxProviders()
 	}
@@ -472,7 +472,7 @@ func BenchmarkGetLocalBoxProviders(b *testing.B) {
 
 func BenchmarkGetAgoraProviders(b *testing.B) {
 	fmt.Printf("\n%s\n", rpTestHeaderColor("=== Benchmarking Agora Providers ==="))
-	
+
 	for i := 0; i < b.N; i++ {
 		GetAgoraProviders()
 	}

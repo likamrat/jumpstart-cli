@@ -27,7 +27,7 @@ Examples:
 
 The upgrade command checks GitHub releases for the latest version and can
 automatically download and install updates.`,
-		RunE: func(cmd *cobra.Command, args []string) error {			// Get flag values
+		RunE: func(cmd *cobra.Command, args []string) error { // Get flag values
 			checkOnly, _ := cmd.Flags().GetBool("check")
 			preRelease, _ := cmd.Flags().GetBool("pre-release")
 			force, _ := cmd.Flags().GetBool("force")
@@ -67,7 +67,7 @@ automatically download and install updates.`,
 					fmt.Println(utils.WarnColor("⚠️  No newer version available, but --force specified"))
 				}
 				return nil
-			}			// Proceed with upgrade
+			} // Proceed with upgrade
 			if versionInfo.IsNewer || force {
 				// Check if we have a download URL
 				if versionInfo.DownloadURL == "" {

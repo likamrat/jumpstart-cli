@@ -30,7 +30,7 @@ func printTestStatus(t *testing.T, testName string, success bool, message string
 
 func TestNewArcboxCmd(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Command Creation ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Test command basic structure
@@ -70,7 +70,7 @@ func TestNewArcboxCmd(t *testing.T) {
 
 func TestArcboxDeployCommand(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Deploy Command ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Find the deploy subcommand
@@ -110,7 +110,7 @@ func TestArcboxDeployCommand(t *testing.T) {
 	testName = "Deploy Command Use"
 	success = deployCmd.Use == "deploy"
 	message = fmt.Sprintf("Expected 'deploy', got '%s'", deployCmd.Use)
-	printTestStatus(t, testName, success, message)	// Test that command has the expected flags without setting values that would trigger deployment
+	printTestStatus(t, testName, success, message) // Test that command has the expected flags without setting values that would trigger deployment
 	expectedFlags := []string{"location", "resource-group", "flavor", "windows-user", "windows-password"}
 	for _, flagName := range expectedFlags {
 		testName = fmt.Sprintf("Required Flag '%s'", flagName)
@@ -152,7 +152,7 @@ func TestArcboxDeployCommand(t *testing.T) {
 		success = flag != nil
 		message = fmt.Sprintf("Flag '%s' exists", of.name)
 		printTestStatus(t, testName, success, message)
-		
+
 		if flag != nil {
 			testName = fmt.Sprintf("Default Value for '%s'", of.name)
 			success = flag.DefValue == of.defaultValue
@@ -168,7 +168,7 @@ func TestArcboxDeployCommand(t *testing.T) {
 		success = flag != nil
 		message = fmt.Sprintf("Boolean flag '%s' exists", bf)
 		printTestStatus(t, testName, success, message)
-		
+
 		if flag != nil {
 			testName = fmt.Sprintf("Flag Type for '%s'", bf)
 			success = flag.Value.Type() == "bool"
@@ -180,7 +180,7 @@ func TestArcboxDeployCommand(t *testing.T) {
 			message = fmt.Sprintf("Expected 'false', got '%s'", flag.DefValue)
 			printTestStatus(t, testName, success, message)
 		}
-	}	// Test shorthand flags that actually exist
+	} // Test shorthand flags that actually exist
 	shorthandFlags := []struct {
 		shorthand string
 		fullName  string
@@ -200,7 +200,7 @@ func TestArcboxDeployCommand(t *testing.T) {
 
 func TestArcboxDeleteCommand(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Delete Command ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Find the delete subcommand
@@ -228,7 +228,7 @@ func TestArcboxDeleteCommand(t *testing.T) {
 	expected := "Delete a Jumpstart ArcBox deployment"
 	success = deleteCmd.Short == expected
 	message = fmt.Sprintf("Expected '%s', got '%s'", expected, deleteCmd.Short)
-	printTestStatus(t, testName, success, message)	// Test flags (actual implementation has limited shorthand flags)
+	printTestStatus(t, testName, success, message) // Test flags (actual implementation has limited shorthand flags)
 	expectedFlags := []struct {
 		name         string
 		shorthand    string
@@ -246,7 +246,7 @@ func TestArcboxDeleteCommand(t *testing.T) {
 		success = flag != nil
 		message = fmt.Sprintf("Flag '%s' exists", ef.name)
 		printTestStatus(t, testName, success, message)
-		
+
 		if flag == nil {
 			continue
 		}
@@ -273,7 +273,7 @@ func TestArcboxDeleteCommand(t *testing.T) {
 
 func TestArcboxListCommand(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox List Command ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Find the list subcommand
@@ -301,7 +301,7 @@ func TestArcboxListCommand(t *testing.T) {
 	expected := "List Jumpstart ArcBox deployments"
 	success = listCmd.Short == expected
 	message = fmt.Sprintf("Expected '%s', got '%s'", expected, listCmd.Short)
-	printTestStatus(t, testName, success, message)	// Test flags
+	printTestStatus(t, testName, success, message) // Test flags
 	expectedFlags := []struct {
 		name         string
 		shorthand    string
@@ -319,7 +319,7 @@ func TestArcboxListCommand(t *testing.T) {
 		success = flag != nil
 		message = fmt.Sprintf("Flag '%s' exists", ef.name)
 		printTestStatus(t, testName, success, message)
-		
+
 		if flag == nil {
 			continue
 		}
@@ -346,7 +346,7 @@ func TestArcboxListCommand(t *testing.T) {
 
 func TestArcboxPreflightCommand(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Preflight Command ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Find the preflight subcommand
@@ -401,7 +401,7 @@ func TestArcboxPreflightCommand(t *testing.T) {
 
 func TestArcboxPreflightQuotaCommand(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Preflight Quota Command ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Navigate to preflight quota subcommand
@@ -466,11 +466,11 @@ func TestArcboxPreflightQuotaCommand(t *testing.T) {
 		success = flag != nil
 		message = fmt.Sprintf("Flag '%s' exists", ef.name)
 		printTestStatus(t, testName, success, message)
-		
+
 		if flag == nil {
 			continue
 		}
-		
+
 		if ef.shorthand != "" {
 			testName = fmt.Sprintf("Shorthand '%s' for '%s'", ef.shorthand, ef.name)
 			shortFlag := quotaCmd.Flags().ShorthandLookup(ef.shorthand)
@@ -493,7 +493,7 @@ func TestArcboxPreflightQuotaCommand(t *testing.T) {
 
 func TestArcboxPreflightRpCommand(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Preflight RP Command ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Navigate to preflight rp subcommand
@@ -564,7 +564,7 @@ func TestArcboxPreflightRpCommand(t *testing.T) {
 
 func TestArcboxPreflightRpRegisterCommand(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Preflight RP Register Command ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Navigate to preflight rp register subcommand
@@ -641,11 +641,11 @@ func TestArcboxPreflightRpRegisterCommand(t *testing.T) {
 		success = flag != nil
 		message = fmt.Sprintf("Flag '%s' exists", ef.name)
 		printTestStatus(t, testName, success, message)
-		
+
 		if flag == nil {
 			continue
 		}
-		
+
 		if ef.shorthand != "" {
 			testName = fmt.Sprintf("Shorthand '%s' for '%s'", ef.shorthand, ef.name)
 			shortFlag := registerCmd.Flags().ShorthandLookup(ef.shorthand)
@@ -668,7 +668,7 @@ func TestArcboxPreflightRpRegisterCommand(t *testing.T) {
 
 func TestQuotaCacheHelpers(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Quota Cache Helpers ==="))
-	
+
 	// Test clearQuotaCache function
 	// Set some dummy data in cache
 	quotaCache["test-region"] = []map[string]interface{}{
@@ -699,7 +699,7 @@ func getSubcommand(cmd *cobra.Command, name string) *cobra.Command {
 
 func TestArcboxCommandStructure(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Command Structure ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Test that command has proper error handling setup
@@ -727,7 +727,7 @@ func TestArcboxCommandStructure(t *testing.T) {
 
 func TestArcboxSubcommandFlags(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Subcommand Flags ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Test deploy command has all expected flags
@@ -739,7 +739,7 @@ func TestArcboxSubcommandFlags(t *testing.T) {
 	if !success {
 		return
 	}
-	
+
 	// Count total flags for deploy command
 	flagCount := 0
 	deployCmd.Flags().VisitAll(func(flag *pflag.Flag) {
@@ -761,7 +761,7 @@ func TestArcboxSubcommandFlags(t *testing.T) {
 	if !success {
 		return
 	}
-	
+
 	deleteFlagCount := 0
 	deleteCmd.Flags().VisitAll(func(flag *pflag.Flag) {
 		deleteFlagCount++
@@ -781,7 +781,7 @@ func TestArcboxSubcommandFlags(t *testing.T) {
 	if !success {
 		return
 	}
-	
+
 	listFlagCount := 0
 	listCmd.Flags().VisitAll(func(flag *pflag.Flag) {
 		listFlagCount++
@@ -795,7 +795,7 @@ func TestArcboxSubcommandFlags(t *testing.T) {
 
 func TestArcboxComplexStructure(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Complex Structure ==="))
-	
+
 	cmd := NewArcboxCmd()
 
 	// Test nested command structure: arcbox preflight rp show
@@ -856,7 +856,7 @@ func getNestedSubcommand(cmd *cobra.Command, path ...string) *cobra.Command {
 
 func TestArcboxCommandPersistence(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Command Persistence ==="))
-	
+
 	// Test that creating multiple instances returns consistent structure
 	cmd1 := NewArcboxCmd()
 	cmd2 := NewArcboxCmd()
@@ -879,7 +879,7 @@ func TestArcboxCommandPersistence(t *testing.T) {
 	success = deploy1 != nil && deploy2 != nil
 	message = "Deploy commands should exist in both instances"
 	printTestStatus(t, testName, success, message)
-	
+
 	if deploy1 != nil && deploy2 != nil {
 		flag1Count := 0
 		deploy1.Flags().VisitAll(func(flag *pflag.Flag) {

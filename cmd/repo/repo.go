@@ -14,7 +14,7 @@ import (
 func NewRepoCmd() *cobra.Command {
 	var repoCmd = &cobra.Command{
 		Use:   "repo",
-		Short: "Manage Jumpstart user local source code repository",		Long: `Manage the Jumpstart source code repository.
+		Short: "Manage Jumpstart user local source code repository", Long: `Manage the Jumpstart source code repository.
 
 Subcommands:
   • clone    Clone the Jumpstart source code repository
@@ -27,7 +27,7 @@ Use 'js repo <subcommand> --help' for more details.`,
 		SilenceErrors:      true,
 		SilenceUsage:       true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {				// List of valid subcommands for repo
+			if len(args) > 0 { // List of valid subcommands for repo
 				validSubcommands := []string{"clone", "update", "delete"}
 
 				// Check if the provided argument is a valid subcommand

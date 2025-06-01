@@ -51,11 +51,11 @@ func main() {
 	rootCmd.PersistentFlags().StringVarP(&utils.OutputFormat, "output", "o", "table", "Output format: table, json, yaml, tsv")
 
 	// Add commands in alphabetical order
-	rootCmd.AddCommand(agora.NewAgoraCmd())                // agora
-	rootCmd.AddCommand(arcbox.NewArcboxCmd())              // ArcBox parent command
-	rootCmd.AddCommand(completion.NewCompletionCmd())      // completion
-	rootCmd.AddCommand(localbox.NewLocalboxCmd())          // localbox
-	rootCmd.AddCommand(subscription.NewSubscriptionCmd())  // subscription command
+	rootCmd.AddCommand(agora.NewAgoraCmd())               // agora
+	rootCmd.AddCommand(arcbox.NewArcboxCmd())             // ArcBox parent command
+	rootCmd.AddCommand(completion.NewCompletionCmd())     // completion
+	rootCmd.AddCommand(localbox.NewLocalboxCmd())         // localbox
+	rootCmd.AddCommand(subscription.NewSubscriptionCmd()) // subscription command
 
 	// Add remaining commands in alphabetical order
 	rootCmd.AddCommand(repo.NewRepoCmd())
@@ -68,7 +68,7 @@ func main() {
 
 	// Note: Cobra automatically provides --version/-v flag when Version is set on root command
 	// No need to manually add version flag
-	
+
 	// Set custom version template to match our subcommand format
 	rootCmd.SetVersionTemplate("Jumpstart CLI version: {{.Version}}\n")
 

@@ -22,7 +22,7 @@ var (
 func printTestStatus(t *testing.T, testName string, success bool, message string) {
 	var icon string
 	var colorFunc func(a ...interface{}) string
-	
+
 	if success {
 		icon = "✅"
 		colorFunc = testSuccessColor
@@ -31,16 +31,16 @@ func printTestStatus(t *testing.T, testName string, success bool, message string
 		colorFunc = testErrorColor
 		t.Errorf("Test failed: %s", message)
 	}
-	
+
 	fmt.Printf("%s %s: %s\n", colorFunc("PASS"), icon, testInfoColor(fmt.Sprintf("%s: %s", testName, message)))
 }
 
 func TestBuildNormalizedLocalboxRegionMap(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Build Normalized Localbox Region Map ==="))
-	
+
 	// Test the buildNormalizedLocalboxRegionMap function
 	regionMap := buildNormalizedLocalboxRegionMap()
-	
+
 	// The map should not be nil
 	success := regionMap != nil
 	var message string
@@ -49,21 +49,21 @@ func TestBuildNormalizedLocalboxRegionMap(t *testing.T) {
 	} else {
 		message = fmt.Sprintf("Region map has %d entries", len(regionMap))
 	}
-	
+
 	printTestStatus(t, "Region Map Creation", success, message)
 }
 
 func TestNewLocalboxCmd(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing New Localbox Command ==="))
-	
+
 	cmd := NewLocalboxCmd()
-	
+
 	// Test basic command structure
 	testName := "Command Use Field"
 	success := cmd.Use == "localbox"
 	message := fmt.Sprintf("Expected 'localbox', got '%s'", cmd.Use)
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test Short description
 	testName = "Short Description"
 	success = cmd.Short != ""
@@ -73,7 +73,7 @@ func TestNewLocalboxCmd(t *testing.T) {
 		message = "Short description should not be empty"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test Long description
 	testName = "Long Description"
 	success = cmd.Long != ""
@@ -83,7 +83,7 @@ func TestNewLocalboxCmd(t *testing.T) {
 		message = "Long description should not be empty"
 	}
 	printTestStatus(t, testName, success, message)
-	
+
 	// Test that Run function exists
 	testName = "Run Function"
 	success = cmd.Run != nil
@@ -97,9 +97,9 @@ func TestNewLocalboxCmd(t *testing.T) {
 
 func TestLocalboxCommandFlags(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Localbox Command Flags ==="))
-	
+
 	cmd := NewLocalboxCmd()
-	
+
 	// Localbox command should not have any custom flags currently
 	testName := "Custom Flags Count"
 	flagCount := cmd.Flags().NFlag()
@@ -115,7 +115,7 @@ func TestLocalboxCommandFlags(t *testing.T) {
 
 func TestLocalboxCommandValidation(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Localbox Command Validation ==="))
-	
+
 	tests := []struct {
 		name           string
 		args           []string
@@ -141,11 +141,11 @@ func TestLocalboxCommandValidation(t *testing.T) {
 			testName := fmt.Sprintf("Validation Test: %s", tt.name)
 			cmd := NewLocalboxCmd()
 			cmd.SetArgs(tt.args)
-			
+
 			// Redirect stdout/stderr to avoid actual output during tests
 			cmd.SetOut(os.Stdout)
 			cmd.SetErr(os.Stderr)
-			
+
 			// Note: Since the Run function contains os.Exit calls and user prompts,
 			// we can't easily test the actual execution without mocking
 			// This test mainly verifies command structure
@@ -157,9 +157,9 @@ func TestLocalboxCommandValidation(t *testing.T) {
 
 func TestLocalboxCommandStructure(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Localbox Command Structure ==="))
-	
+
 	cmd := NewLocalboxCmd()
-	
+
 	// Verify command properties
 	tests := []struct {
 		property string
@@ -202,7 +202,7 @@ func TestLocalboxCommandStructure(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, test := range tests {
 		success, message := test.check()
 		printTestStatus(t, test.property, success, message)
@@ -212,13 +212,13 @@ func TestLocalboxCommandStructure(t *testing.T) {
 // Test helper functions if any are exported in the future
 func TestLocalboxHelperFunctions(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Localbox Helper Functions ==="))
-	
+
 	// Test buildNormalizedLocalboxRegionMap with different scenarios
 	t.Run("region map consistency", func(t *testing.T) {
 		testName := "Region Map Consistency"
 		map1 := buildNormalizedLocalboxRegionMap()
 		map2 := buildNormalizedLocalboxRegionMap()
-		
+
 		success := len(map1) == len(map2)
 		var message string
 		if !success {
@@ -238,16 +238,16 @@ func TestLocalboxHelperFunctions(t *testing.T) {
 			}
 			success = allMatch
 		}
-		
+
 		printTestStatus(t, testName, success, message)
 	})
 }
 
 func TestLocalboxCommandLongDescription(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Localbox Command Long Description ==="))
-	
+
 	cmd := NewLocalboxCmd()
-	
+
 	// Test that the long description contains expected content
 	expectedContents := []string{
 		"LocalBox",
@@ -255,7 +255,7 @@ func TestLocalboxCommandLongDescription(t *testing.T) {
 		"Implementation in progress",
 		"js localbox --help",
 	}
-	
+
 	for _, expected := range expectedContents {
 		testName := fmt.Sprintf("Long Description Contains: %s", expected)
 		success := strings.Contains(cmd.Long, expected)
@@ -271,13 +271,13 @@ func TestLocalboxCommandLongDescription(t *testing.T) {
 
 func TestLocalboxRegionValidation(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Localbox Region Validation ==="))
-	
+
 	// Test region map building doesn't panic with missing file
 	t.Run("missing_file_handling", func(t *testing.T) {
 		testName := "Missing File Handling"
 		var success bool
 		var message string
-		
+
 		// This should not panic even if the JSON file doesn't exist
 		defer func() {
 			if r := recover(); r != nil {
@@ -286,7 +286,7 @@ func TestLocalboxRegionValidation(t *testing.T) {
 				printTestStatus(t, testName, success, message)
 			}
 		}()
-		
+
 		regionMap := buildNormalizedLocalboxRegionMap()
 		success = regionMap != nil
 		if success {
@@ -294,7 +294,7 @@ func TestLocalboxRegionValidation(t *testing.T) {
 		} else {
 			message = "buildNormalizedLocalboxRegionMap() should not return nil even with missing file"
 		}
-		
+
 		printTestStatus(t, testName, success, message)
 	})
 }

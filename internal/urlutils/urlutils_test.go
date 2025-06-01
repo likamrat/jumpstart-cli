@@ -27,7 +27,7 @@ func printURLTestStatus(t *testing.T, testName string, success bool, message str
 
 func TestShortenURL(t *testing.T) {
 	fmt.Printf("\n%s\n", urlTestHeaderColor("=== Testing URL Shortening ==="))
-	
+
 	testCases := []struct {
 		name        string
 		longURL     string
@@ -39,7 +39,7 @@ func TestShortenURL(t *testing.T) {
 			description: "should handle valid HTTP URLs",
 		},
 		{
-			name:        "valid_https_url", 
+			name:        "valid_https_url",
 			longURL:     "https://github.com/microsoft/azure_arc/releases/tag/v1.0.0",
 			description: "should handle valid HTTPS URLs",
 		},
@@ -63,10 +63,10 @@ func TestShortenURL(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			fmt.Printf("  %s %s\n", urlTestInfoColor("Testing:"), tc.description)
-			
+
 			// Set a reasonable timeout for the test
 			done := make(chan string, 1)
-			
+
 			go func() {
 				result := ShortenURL(tc.longURL)
 				done <- result
@@ -99,7 +99,7 @@ func TestShortenURL(t *testing.T) {
 					if strings.Contains(result, "tinyurl.com") {
 						if len(result) >= len(tc.longURL) {
 							printURLTestStatus(t, "URL length reduction", false, fmt.Sprintf("Shortened URL should be shorter than original. Original: %d chars, Shortened: %d chars", len(tc.longURL), len(result)))
-							t.Errorf("Shortened URL should be shorter than original. Original: %d chars, Shortened: %d chars", 
+							t.Errorf("Shortened URL should be shorter than original. Original: %d chars, Shortened: %d chars",
 								len(tc.longURL), len(result))
 							return
 						}
@@ -118,7 +118,7 @@ func TestShortenURL(t *testing.T) {
 
 func TestShortenURLErrorHandling(t *testing.T) {
 	fmt.Printf("\n%s\n", urlTestHeaderColor("=== Testing URL Error Handling ==="))
-	
+
 	testCases := []struct {
 		name        string
 		input       string
@@ -154,10 +154,10 @@ func TestShortenURLErrorHandling(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			fmt.Printf("  %s %s\n", urlTestInfoColor("Testing:"), tc.description)
-			
+
 			// These should not panic and should return the original URL
 			result := ShortenURL(tc.input)
-			
+
 			if result != tc.input {
 				// If the URL was actually shortened (unlikely for invalid URLs), that's fine too
 				printURLTestStatus(t, "URL modification", true, fmt.Sprintf("URL was modified: %s -> %s", urlTestInfoColor(tc.input), urlTestSuccessColor(result)))
@@ -165,7 +165,7 @@ func TestShortenURLErrorHandling(t *testing.T) {
 			} else {
 				printURLTestStatus(t, "Graceful handling", true, "URL returned unchanged (expected for invalid/edge case URLs)")
 			}
-			
+
 			// Main requirement: should not panic or return empty string (unless input was empty)
 			if tc.input != "" && result == "" {
 				printURLTestStatus(t, "Non-empty result", false, "ShortenURL should not return empty string for non-empty input")
@@ -179,18 +179,18 @@ func TestShortenURLErrorHandling(t *testing.T) {
 
 func TestShortenURLTimeout(t *testing.T) {
 	fmt.Printf("\n%s\n", urlTestHeaderColor("=== Testing URL Timeout Handling ==="))
-	
+
 	// Test that the function respects its internal timeout
 	t.Run("timeout_handling", func(t *testing.T) {
 		fmt.Printf("  %s Testing timeout behavior with slow URL\n", urlTestInfoColor("Testing:"))
-		
+
 		// Use a URL that might be slow to respond
 		slowURL := "https://httpbin.org/delay/5"
-		
+
 		start := time.Now()
 		result := ShortenURL(slowURL)
 		duration := time.Since(start)
-		
+
 		// Should complete within reasonable time (function has 3s timeout + some buffer)
 		if duration > 6*time.Second {
 			printURLTestStatus(t, "Timeout compliance", false, fmt.Sprintf("ShortenURL took too long: %v", duration))
@@ -198,7 +198,7 @@ func TestShortenURLTimeout(t *testing.T) {
 		} else {
 			printURLTestStatus(t, "Timeout compliance", true, fmt.Sprintf("Function completed within acceptable time: %v", duration))
 		}
-		
+
 		// Should return the original URL on timeout
 		if result != slowURL {
 			printURLTestStatus(t, "Timeout result", true, fmt.Sprintf("URL was processed despite potential timeout: %s -> %s", urlTestInfoColor(slowURL), urlTestSuccessColor(result)))
@@ -211,16 +211,16 @@ func TestShortenURLTimeout(t *testing.T) {
 
 func TestShortenURLConsistency(t *testing.T) {
 	fmt.Printf("\n%s\n", urlTestHeaderColor("=== Testing URL Consistency ==="))
-	
+
 	// Test that the same URL gives consistent results
 	t.Run("consistency", func(t *testing.T) {
 		fmt.Printf("  %s Testing result consistency for same URL\n", urlTestInfoColor("Testing:"))
-		
+
 		testURL := "https://github.com/microsoft/azure_arc"
-		
+
 		result1 := ShortenURL(testURL)
 		result2 := ShortenURL(testURL)
-		
+
 		// Results should be consistent (either both shortened the same way, or both returned original)
 		if result1 != result2 {
 			// Note: TinyURL might return different short URLs for the same long URL,
@@ -235,14 +235,14 @@ func TestShortenURLConsistency(t *testing.T) {
 
 func TestShortenURLValidation(t *testing.T) {
 	fmt.Printf("\n%s\n", urlTestHeaderColor("=== Testing URL Result Validation ==="))
-	
+
 	// Test validation of shortened URLs
 	t.Run("result_validation", func(t *testing.T) {
 		fmt.Printf("  %s Testing validation of shortened URL results\n", urlTestInfoColor("Testing:"))
-		
+
 		testURL := "https://example.com/test/path"
 		result := ShortenURL(testURL)
-		
+
 		// Result should be a valid URL format
 		if !strings.HasPrefix(result, "http://") && !strings.HasPrefix(result, "https://") {
 			printURLTestStatus(t, "Valid URL format", false, fmt.Sprintf("Result should be a valid URL, got: %s", result))
@@ -250,7 +250,7 @@ func TestShortenURLValidation(t *testing.T) {
 		} else {
 			printURLTestStatus(t, "Valid URL format", true, "Result has valid HTTP/HTTPS format")
 		}
-		
+
 		// Should not contain obvious malformed elements
 		if strings.Contains(result, " ") {
 			printURLTestStatus(t, "No spaces", false, fmt.Sprintf("Result should not contain spaces: %s", result))
@@ -258,7 +258,7 @@ func TestShortenURLValidation(t *testing.T) {
 		} else {
 			printURLTestStatus(t, "No spaces", true, "Result contains no spaces")
 		}
-		
+
 		if strings.Contains(result, "\n") || strings.Contains(result, "\r") {
 			printURLTestStatus(t, "No newlines", false, fmt.Sprintf("Result should not contain newlines: %s", result))
 			t.Errorf("Result should not contain newlines: %s", result)
@@ -270,7 +270,7 @@ func TestShortenURLValidation(t *testing.T) {
 
 func TestShortenURLSpecialCharacters(t *testing.T) {
 	fmt.Printf("\n%s\n", urlTestHeaderColor("=== Testing URLs with Special Characters ==="))
-	
+
 	// Test URLs with special characters
 	testCases := []struct {
 		name string
@@ -293,13 +293,13 @@ func TestShortenURLSpecialCharacters(t *testing.T) {
 			url:  "https://example.com/测试",
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			fmt.Printf("  %s Testing URL: %s\n", urlTestInfoColor("Testing:"), urlTestInfoColor(tc.url))
-			
+
 			result := ShortenURL(tc.url)
-			
+
 			// Should not panic and should return a valid result
 			if result == "" {
 				printURLTestStatus(t, "Non-empty result", false, "ShortenURL should not return empty string")
@@ -307,7 +307,7 @@ func TestShortenURLSpecialCharacters(t *testing.T) {
 			} else {
 				printURLTestStatus(t, "Non-empty result", true, "Function returned a result")
 			}
-			
+
 			// Should start with http/https
 			if !strings.HasPrefix(result, "http") {
 				printURLTestStatus(t, "Valid URL format", false, fmt.Sprintf("Result should be a URL, got: %s", result))
@@ -322,9 +322,9 @@ func TestShortenURLSpecialCharacters(t *testing.T) {
 // Benchmark the URL shortening function
 func BenchmarkShortenURL(b *testing.B) {
 	fmt.Printf("\n%s\n", urlTestHeaderColor("=== Benchmarking URL Shortening ==="))
-	
+
 	testURL := "https://github.com/microsoft/azure_arc/releases/tag/v1.0.0"
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ShortenURL(testURL)
@@ -334,15 +334,15 @@ func BenchmarkShortenURL(b *testing.B) {
 // Test concurrent access to URL shortening
 func TestShortenURLConcurrency(t *testing.T) {
 	fmt.Printf("\n%s\n", urlTestHeaderColor("=== Testing URL Concurrency ==="))
-	
+
 	t.Run("concurrent_requests", func(t *testing.T) {
 		fmt.Printf("  %s Testing concurrent URL shortening requests\n", urlTestInfoColor("Testing:"))
-		
+
 		testURL := "https://example.com/concurrent/test"
 		numGoroutines := 5
-		
+
 		results := make(chan string, numGoroutines)
-		
+
 		// Start multiple goroutines
 		for i := 0; i < numGoroutines; i++ {
 			go func() {
@@ -350,7 +350,7 @@ func TestShortenURLConcurrency(t *testing.T) {
 				results <- result
 			}()
 		}
-		
+
 		// Collect results
 		var allResults []string
 		for i := 0; i < numGoroutines; i++ {
@@ -362,7 +362,7 @@ func TestShortenURLConcurrency(t *testing.T) {
 				t.Fatal("Concurrent test timed out")
 			}
 		}
-		
+
 		// Verify all goroutines completed
 		if len(allResults) != numGoroutines {
 			printURLTestStatus(t, "Goroutine completion", false, fmt.Sprintf("Expected %d results, got %d", numGoroutines, len(allResults)))
@@ -370,7 +370,7 @@ func TestShortenURLConcurrency(t *testing.T) {
 		} else {
 			printURLTestStatus(t, "Goroutine completion", true, fmt.Sprintf("All %d goroutines completed successfully", numGoroutines))
 		}
-		
+
 		// All results should be valid URLs
 		validResults := 0
 		for i, result := range allResults {
@@ -381,7 +381,7 @@ func TestShortenURLConcurrency(t *testing.T) {
 				validResults++
 			}
 		}
-		
+
 		if validResults == len(allResults) {
 			printURLTestStatus(t, "Result validity", true, fmt.Sprintf("All %d concurrent results are valid URLs", validResults))
 		}
