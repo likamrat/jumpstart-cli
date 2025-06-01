@@ -124,7 +124,7 @@ jobs:
         
         rm $TEST_BINARY
 
-    - name: �� Test Upgrade System (Dry Run)
+    - name: 🔄 Test Upgrade System (Dry Run)
       run: |
         echo "🔄 Testing upgrade system configuration..."
         
@@ -216,7 +216,7 @@ jobs:
   # Integration Testing
   # ===============================================
   integration-test:
-    name: �� Integration Tests
+    name: 🧪 Integration Tests
     runs-on: ${{ matrix.os }}
     needs: [validate, build]
     
