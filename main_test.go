@@ -1,18 +1,18 @@
 package main
 
 import (
-"bytes"
-"io"
-"os"
-"strings"
-"testing"
+	"bytes"
+	"io"
+	"os"
+	"strings"
+	"testing"
 
-"github.com/fatih/color"
+	"github.com/fatih/color"
 )
 
 // Color functions for test output
 var (
-testSuccessColor = color.New(color.FgGreen, color.Bold).SprintFunc()
+	testSuccessColor = color.New(color.FgGreen, color.Bold).SprintFunc()
 	testInfoColor    = color.New(color.FgCyan).SprintFunc()
 	testWarnColor    = color.New(color.FgYellow).SprintFunc()
 	testErrorColor   = color.New(color.FgRed, color.Bold).SprintFunc()
@@ -67,10 +67,10 @@ func TestPrintWelcome(t *testing.T) {
 	color.Cyan("\n" + testHeaderColor("=== Testing main.go printWelcome Function ==="))
 	
 	t.Run("PrintWelcome", func(t *testing.T) {
-color.Cyan(testInfoColor("Testing printWelcome output content and format..."))
-
-// Capture the output of printWelcome function
-output := captureOutput(func() {
+		color.Cyan(testInfoColor("Testing printWelcome output content and format..."))
+		
+		// Capture the output of printWelcome function
+		output := captureOutput(func() {
 			printWelcome()
 		})
 		
@@ -163,13 +163,13 @@ output := captureOutput(func() {
 		// Check each test case
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
-if !strings.Contains(output, tc.expected) {
-t.Errorf(testErrorColor("Expected output to contain '%s' (%s), but it didn't"), tc.expected, tc.desc)
-printTestStatus(false, tc.desc)
-return
-}
-printTestStatus(true, tc.desc)
-})
+				if !strings.Contains(output, tc.expected) {
+					t.Errorf(testErrorColor("Expected output to contain '%s' (%s), but it didn't"), tc.expected, tc.desc)
+					printTestStatus(false, tc.desc)
+					return
+				}
+				printTestStatus(true, tc.desc)
+			})
 		}
 		
 		// Verify structure: ASCII art should come before commands
@@ -231,9 +231,9 @@ func TestPrintWelcomeOutputFormat(t *testing.T) {
 	color.Cyan("\n" + testHeaderColor("=== Testing printWelcome Output Format ==="))
 	
 	t.Run("OutputFormat", func(t *testing.T) {
-color.Cyan(testInfoColor("Testing printWelcome output formatting and structure..."))
-
-output := captureOutput(func() {
+		color.Cyan(testInfoColor("Testing printWelcome output formatting and structure..."))
+		
+		output := captureOutput(func() {
 			printWelcome()
 		})
 		

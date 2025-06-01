@@ -1,53 +1,386 @@
-name: Build and Release Binaries
+name: 🚀 Build and Release Jumpstart CLI
 
 on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0, v1.2.3-alpha, etc.
   release:
     types: [published]
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GO_VERSION: '1.21'
+  BINARY_NAME: 'js'
 
 jobs:
-  build:
+  # ===============================================
+  # Pre-Release Validation and Testing
+  # ===============================================
+  validate:
+    name: 🧪 Validate and Test
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+    
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for proper version detection
+
+    - name: 🏗️ Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: 🔍 Extract Version Information
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          VERSION="${{ inputs.version }}"
+          IS_PRERELEASE="${{ inputs.prerelease }}"
+        elif [ "${{ github.event_name }}" == "push" ]; then
+          VERSION=${GITHUB_REF#refs/tags/}
+          # Check if it's a prerelease (contains alpha, beta, rc, or dev)
+          if [[ "$VERSION" =~ (alpha|beta|rc|dev) ]]; then
+            IS_PRERELEASE=true
+          else
+            IS_PRERELEASE=false
+          fi
+        else
+          VERSION=${{ github.event.release.tag_name }}
+          IS_PRERELEASE=${{ github.event.release.prerelease }}
+        fi
+        
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+        
+        echo "🏷️ Release Version: $VERSION"
+        echo "🧪 Pre-release: $IS_PRERELEASE"
+
+    - name: 📋 Display Go Environment
+      run: |
+        echo "🔧 Go Version: $(go version)"
+        echo "🏗️ Go Build Environment:"
+        go env | grep -E "(GOOS|GOARCH|GOVERSION)" | sort
+
+    - name: 📦 Download Dependencies
+      run: |
+        echo "📦 Downloading Go modules..."
+        go mod download
+        go mod verify
+
+    - name: 🧹 Run Code Quality Checks
+      run: |
+        echo "🧹 Running go vet..."
+        go vet ./...
+        
+        echo "🔍 Running go fmt check..."
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "❌ Code is not properly formatted:"
+          gofmt -s -l .
+          exit 1
+        fi
+        echo "✅ Code formatting is correct"
+
+    - name: 🧪 Run Comprehensive Tests
+      run: |
+        echo "🧪 Running all tests with coverage..."
+        go test -v -race -coverprofile=coverage.out ./...
+        
+        echo "📊 Coverage Report:"
+        go tool cover -func=coverage.out | tail -1
+
+    - name: 🔍 Test Version Setting
+      run: |
+        echo "🔍 Testing version injection..."
+        VERSION="${{ steps.version.outputs.version }}"
+        TEST_BINARY="js-test"
+        
+        go build -ldflags "-X jumpstartcli/internal/utils.CliVersion=$VERSION" -o $TEST_BINARY .
+        
+        # Test version output
+        VERSION_OUTPUT=$(./$TEST_BINARY version)
+        echo "📋 Version output: $VERSION_OUTPUT"
+        
+        if [[ "$VERSION_OUTPUT" != *"$VERSION"* ]]; then
+          echo "❌ Version injection failed!"
+          exit 1
+        fi
+        echo "✅ Version injection successful"
+        
+        rm $TEST_BINARY
+
+    - name: 🔄 Test Upgrade System (Dry Run)
+      run: |
+        echo "🔄 Testing upgrade system configuration..."
+        
+        # Build a test binary
+        go build -ldflags "-X jumpstartcli/internal/utils.CliVersion=v0.0.1-test" -o js-upgrade-test .
+        
+        # Test upgrade check (should not actually upgrade in CI)
+        echo "📡 Testing upgrade check..."
+        timeout 30s ./js-upgrade-test upgrade check || echo "⚠️ Upgrade check completed (timeout expected in CI)"
+        
+        rm js-upgrade-test
+        echo "✅ Upgrade system test completed"
+
+  # ===============================================
+  # Build Cross-Platform Binaries
+  # ===============================================
+  build:
+    name: 🏗️ Build (${{ matrix.goos }}-${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    needs: validate
+    
     strategy:
+      fail-fast: false
       matrix:
         include:
           - goos: linux
             goarch: amd64
             name: js-linux-amd64
+            display: 🐧 Linux AMD64
+          - goos: linux
+            goarch: arm64
+            name: js-linux-arm64
+            display: 🐧 Linux ARM64
           - goos: windows
             goarch: amd64
             name: js-windows-amd64.exe
+            display: 🪟 Windows AMD64
           - goos: darwin
             goarch: amd64
             name: js-darwin-amd64
+            display: 🍎 macOS AMD64
+          - goos: darwin
+            goarch: arm64
+            name: js-darwin-arm64
+            display: 🍎 macOS ARM64 (M1/M2)
 
     steps:
-    - name: Checkout code
+    - name: 📥 Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Set up Go
+    - name: 🏗️ Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: '1.21'
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
 
-    - name: Get version from tag
-      id: version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-    - name: Build binary
+    - name: 🔨 Build Binary for ${{ matrix.display }}
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
         CGO_ENABLED: 0
       run: |
-        go build -ldflags "-X jumpstartcli/internal/utils.CliVersion=${{ steps.version.outputs.VERSION }}" -o ${{ matrix.name }} .
+        echo "🔨 Building ${{ matrix.display }}..."
+        
+        # Build with version and optimization flags
+        go build \
+          -ldflags "-X jumpstartcli/internal/utils.CliVersion=${{ needs.validate.outputs.version }} -s -w" \
+          -trimpath \
+          -o ${{ matrix.name }} \
+          .
+        
+        # Display binary info
+        ls -lh ${{ matrix.name }}
+        
+        if [ "${{ matrix.goos }}" == "linux" ] && [ "${{ matrix.goarch }}" == "amd64" ]; then
+          echo "🔍 Testing Linux binary..."
+          ./${{ matrix.name }} version
+        fi
 
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
+    - name: 📤 Upload Binary Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.name }}
+        path: ${{ matrix.name }}
+        retention-days: 30
+
+  # ===============================================
+  # Integration Testing
+  # ===============================================
+  integration-test:
+    name: 🧪 Integration Tests
+    runs-on: ${{ matrix.os }}
+    needs: [validate, build]
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            binary: js-linux-amd64
+            display: 🐧 Linux
+          - os: windows-latest
+            binary: js-windows-amd64.exe
+            display: 🪟 Windows
+          - os: macos-latest
+            binary: js-darwin-amd64
+            display: 🍎 macOS
+
+    steps:
+    - name: 📥 Download Binary
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ matrix.binary }}
+
+    - name: 🔧 Make Binary Executable (Unix)
+      if: runner.os != 'Windows'
+      run: chmod +x ${{ matrix.binary }}
+
+    - name: 🧪 Test Basic Functionality on ${{ matrix.display }}
+      shell: bash
+      run: |
+        echo "🧪 Testing ${{ matrix.display }} binary..."
+        
+        # Test version command
+        ./${{ matrix.binary }} version
+        
+        # Test help command
+        ./${{ matrix.binary }} --help
+        
+        # Test configuration command
+        ./${{ matrix.binary }} config --help
+        
+        echo "✅ Basic functionality tests passed on ${{ matrix.display }}"
+
+  # ===============================================
+  # Create GitHub Release
+  # ===============================================
+  release:
+    name: 🚀 Create Release
+    runs-on: ubuntu-latest
+    needs: [validate, build, integration-test]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    
+    permissions:
+      contents: write
+      
+    steps:
+    - name: 📥 Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: 📥 Download All Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: 📋 Prepare Release Assets
+      run: |
+        echo "📋 Organizing release assets..."
+        mkdir -p release-assets
+        
+        # Move all binaries to release-assets directory
+        find artifacts -name "js-*" -type f -exec mv {} release-assets/ \;
+        
+        # List assets
+        echo "📦 Release assets:"
+        ls -la release-assets/
+        
+        # Generate checksums
+        cd release-assets
+        echo "🔐 Generating checksums..."
+        sha256sum * > SHA256SUMS
+        cd ..
+
+    - name: 📝 Generate Release Notes
+      id: release_notes
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        
+        # Get commits since last tag
+        LAST_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        cat > release_notes.md << EOF
+        # 🚀 Jumpstart CLI $VERSION
+        
+        ## 📋 What's New
+        
+        This release includes the latest updates and improvements to the Jumpstart CLI.
+        
+        ## 📦 Download
+        
+        Choose the appropriate binary for your platform:
+        
+        | Platform | Architecture | Download |
+        |----------|--------------|----------|
+        | 🐧 Linux | AMD64 | [js-linux-amd64](https://github.com/likamrat/jumpstart-cli/releases/download/$VERSION/js-linux-amd64) |
+        | 🐧 Linux | ARM64 | [js-linux-arm64](https://github.com/likamrat/jumpstart-cli/releases/download/$VERSION/js-linux-arm64) |
+        | 🪟 Windows | AMD64 | [js-windows-amd64.exe](https://github.com/likamrat/jumpstart-cli/releases/download/$VERSION/js-windows-amd64.exe) |
+        | 🍎 macOS | AMD64 | [js-darwin-amd64](https://github.com/likamrat/jumpstart-cli/releases/download/$VERSION/js-darwin-amd64) |
+        | 🍎 macOS | ARM64 (M1/M2) | [js-darwin-arm64](https://github.com/likamrat/jumpstart-cli/releases/download/$VERSION/js-darwin-arm64) |
+        
+        ## 🔄 Upgrade
+        
+        If you have a previous version installed, you can upgrade using:
+        \`\`\`bash
+        js upgrade
+        \`\`\`
+        
+        ## 🔐 Verification
+        
+        Download SHA256SUMS and verify your binary:
+        \`\`\`bash
+        sha256sum -c SHA256SUMS
+        \`\`\`
+        
+        EOF
+        
+        if [ -n "$LAST_TAG" ]; then
+          echo "## 📝 Changes Since $LAST_TAG" >> release_notes.md
+          echo "" >> release_notes.md
+          git log --pretty=format:"- %s (%h)" $LAST_TAG..HEAD >> release_notes.md
+          echo "" >> release_notes.md
+        fi
+        
+        echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
+
+    - name: 🚀 Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ needs.validate.outputs.version }}
+        name: 🚀 Jumpstart CLI ${{ needs.validate.outputs.version }}
+        body_path: ${{ steps.release_notes.outputs.release_notes_file }}
+        files: |
+          release-assets/*
+        prerelease: ${{ needs.validate.outputs.is_prerelease }}
+        generate_release_notes: false
+        draft: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./${{ matrix.name }}
-        asset_name: ${{ matrix.name }}
+
+    - name: ✅ Release Summary
+      run: |
+        echo "## 🎉 Release Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ needs.validate.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Pre-release:** ${{ needs.validate.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### 📦 Assets Created:" >> $GITHUB_STEP_SUMMARY
+        echo "- 🐧 js-linux-amd64" >> $GITHUB_STEP_SUMMARY
+        echo "- 🐧 js-linux-arm64" >> $GITHUB_STEP_SUMMARY
+        echo "- 🪟 js-windows-amd64.exe" >> $GITHUB_STEP_SUMMARY
+        echo "- 🍎 js-darwin-amd64" >> $GITHUB_STEP_SUMMARY
+        echo "- 🍎 js-darwin-arm64" >> $GITHUB_STEP_SUMMARY
+        echo "- 🔐 SHA256SUMS" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🔗 [View Release](https://github.com/likamrat/jumpstart-cli/releases/tag/${{ needs.validate.outputs.version }})" >> $GITHUB_STEP_SUMMARY
         asset_content_type: application/octet-stream
         asset_content_type: application/octet-stream

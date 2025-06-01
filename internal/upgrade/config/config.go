@@ -16,18 +16,20 @@ type GitHubRelease struct {
 }
 
 // Configuration for the upgrade system
-// Update these values when you have a proper release repository
+// Updated to point to the fork for testing and development
 
 const (
 	// Repository configuration
-	DefaultOwner = "Azure"
+	DefaultOwner = "likamrat"
 	DefaultRepo  = "jumpstart-cli"
 
 	// Binary naming patterns
-	// These should match how your CI/CD system names the release binaries
+	// These match the release workflow binary names
 	LinuxBinaryPattern   = "js-linux-amd64"
+	LinuxARM64Pattern    = "js-linux-arm64"
 	WindowsBinaryPattern = "js-windows-amd64.exe"
 	DarwinBinaryPattern  = "js-darwin-amd64"
+	DarwinARM64Pattern   = "js-darwin-arm64"
 
 	// Release configuration
 	IncludePrereleases = false
