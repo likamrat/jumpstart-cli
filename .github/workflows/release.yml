@@ -392,5 +392,3 @@ jobs:
         echo "- 🔐 SHA256SUMS" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "🔗 [View Release](https://github.com/likamrat/jumpstart-cli/releases/tag/${{ needs.validate.outputs.version }})" >> $GITHUB_STEP_SUMMARY
-        asset_content_type: application/octet-stream
-        asset_content_type: application/octet-stream
