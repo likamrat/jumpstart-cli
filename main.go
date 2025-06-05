@@ -18,8 +18,16 @@ import (
 	"jumpstartcli/internal/utils"
 )
 
-func main() {
-	// Set debugMode from utils
+// ExitFunc is a function type for handling application exit
+type ExitFunc func(int)
+
+// defaultExitFunc is the default exit function that calls os.Exit
+func defaultExitFunc(code int) {
+	os.Exit(code)
+}
+
+// createRootCommand creates and configures the root cobra command
+func createRootCommand() *cobra.Command {
 	var rootCmd = &cobra.Command{
 		Use:     "js",
 		Short:   "Jumpstart CLI",
@@ -80,31 +88,47 @@ func main() {
 		utils.ShowHelpWithoutTypes(cmd)
 	})
 
-	if err := rootCmd.Execute(); err != nil {
-		// Check if it's an "unknown command" error and try to suggest
-		errorStr := err.Error()
-		if strings.Contains(errorStr, "unknown command") {
-			// Extract the invalid command from error message
-			// Error format is usually: "unknown command \"invalidcmd\" for \"js\""
-			if strings.Contains(errorStr, "\"") {
-				parts := strings.Split(errorStr, "\"")
-				if len(parts) >= 2 {
-					invalidCommand := parts[1]
-					validCommands := []string{"arcbox", "agora", "localbox", "subscription", "repo", "version", "completion", "upgrade"}
+	return rootCmd
+}
 
-					if suggestion := utils.SuggestSimilarCommand(invalidCommand, validCommands, 2); suggestion != "" {
-						utils.PrintDidYouMean(invalidCommand, suggestion)
-						return
-					}
+// handleCommandError processes command execution errors and suggests alternatives
+func handleCommandError(err error, exitFunc ExitFunc) {
+	errorStr := err.Error()
+	if strings.Contains(errorStr, "unknown command") {
+		// Extract the invalid command from error message
+		// Error format is usually: "unknown command \"invalidcmd\" for \"js\""
+		if strings.Contains(errorStr, "\"") {
+			parts := strings.Split(errorStr, "\"")
+			if len(parts) >= 2 {
+				invalidCommand := parts[1]
+				validCommands := []string{"arcbox", "agora", "localbox", "subscription", "repo", "version", "completion", "upgrade"}
+
+				if suggestion := utils.SuggestSimilarCommand(invalidCommand, validCommands, 2); suggestion != "" {
+					utils.PrintDidYouMean(invalidCommand, suggestion)
+					return
 				}
 			}
 		}
-		// For other errors, show them normally
-		if !strings.Contains(errorStr, "unknown command") {
-			utils.Error("%v", err)
-		}
-		os.Exit(1)
 	}
+	// For other errors, show them normally
+	if !strings.Contains(errorStr, "unknown command") {
+		utils.Error("%v", err)
+	}
+	exitFunc(1)
+}
+
+// runMain is the testable version of main that accepts an exit function
+func runMain(exitFunc ExitFunc) {
+	rootCmd := createRootCommand()
+	
+	if err := rootCmd.Execute(); err != nil {
+		handleCommandError(err, exitFunc)
+	}
+}
+
+// main is the entry point that calls runMain with the default exit function
+func main() {
+	runMain(defaultExitFunc)
 }
 
 // printWelcome displays the welcome message with ASCII art and basic usage information

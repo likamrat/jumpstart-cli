@@ -1,0 +1,24 @@
+# Jumpstart CLI Test Configuration
+# Edit this file to customize test execution
+
+# Test Types
+unit_tests: true
+integration_tests: false
+e2e_tests: false
+benchmark_tests: false
+
+# Coverage
+coverage_threshold: 80
+
+# Execution
+timeout: 300
+parallel: true
+verbose: false
+fail_fast: false
+
+# Test Tags (space-separated)
+# tags: "unit integration"
+
+# Environment Variables
+# AZURE_SUBSCRIPTION_ID: "your-subscription-id"
+# INTEGRATION_TESTS: "true"

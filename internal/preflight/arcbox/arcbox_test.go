@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/fatih/color"
+	"github.com/jumpstart-cli/internal/testutils"
 	"github.com/spf13/cobra"
 )
 
@@ -541,4 +542,132 @@ func TestArcBoxValidationEdgeCases(t *testing.T) {
 			printPreflightTestStatus(t, "SkipChecks slice initialization", true, "SkipChecks slice correctly initialized")
 		}
 	})
+}
+
+// Add tests for error conditions
+func TestValidateConditionalRequirementsErrors(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing Conditional Requirements Error Cases ===")
+
+	t.Run("nil_command", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				testutils.PrintTestStatus(t, "Nil command handling", true,
+					"Recovered from panic as expected")
+			} else {
+				testutils.PrintTestStatus(t, "Nil command handling", false,
+					"Expected panic for nil command")
+			}
+		}()
+
+		// This should panic or handle gracefully
+		ValidateConditionalRequirements(nil)
+	})
+
+	t.Run("flags_not_initialized", func(t *testing.T) {
+		cmd := &cobra.Command{}
+		// Don't initialize any flags
+
+		defer func() {
+			if r := recover(); r == nil {
+				testutils.PrintTestStatus(t, "Uninitialized flags", true,
+					"Handled uninitialized flags gracefully")
+			}
+		}()
+
+		result := ValidateConditionalRequirements(cmd)
+		testutils.PrintTestStatus(t, "Result with no flags", result,
+			"Should handle command with no flags")
+	})
+}
+
+// Add tests for complex flag combinations
+func TestComplexFlagCombinations(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing Complex Flag Combinations ===")
+
+	testCases := []struct {
+		name         string
+		flavor       string
+		sshKey       string
+		githubUser   string
+		windowsPass  string
+		expectedPass bool
+	}{
+		{
+			name:         "DevOps all valid",
+			flavor:       "DevOps",
+			sshKey:       "ssh-rsa AAAAB3...",
+			githubUser:   "validuser",
+			windowsPass:  "Complex!Pass123",
+			expectedPass: true,
+		},
+		{
+			name:         "DevOps invalid combo",
+			flavor:       "DevOps",
+			sshKey:       "",
+			githubUser:   "validuser",
+			windowsPass:  "Complex!Pass123",
+			expectedPass: false,
+		},
+		{
+			name:         "DataOps minimal valid",
+			flavor:       "DataOps",
+			sshKey:       "ssh-rsa AAAAB3...",
+			githubUser:   "",
+			windowsPass:  "",
+			expectedPass: true,
+		},
+		{
+			name:         "Unknown flavor",
+			flavor:       "UnknownFlavor",
+			sshKey:       "",
+			githubUser:   "",
+			windowsPass:  "",
+			expectedPass: true, // Unknown flavors pass by default
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := &cobra.Command{}
+			cmd.Flags().String("flavor", "", "")
+			cmd.Flags().String("ssh-rsa-public-key", "", "")
+			cmd.Flags().String("github-user", "", "")
+			cmd.Flags().String("windows-password", "", "")
+
+			cmd.Flags().Set("flavor", tc.flavor)
+			if tc.sshKey != "" {
+				cmd.Flags().Set("ssh-rsa-public-key", tc.sshKey)
+			}
+			if tc.githubUser != "" {
+				cmd.Flags().Set("github-user", tc.githubUser)
+			}
+			if tc.windowsPass != "" {
+				cmd.Flags().Set("windows-password", tc.windowsPass)
+			}
+
+			result := ValidateConditionalRequirements(cmd)
+			success := result == tc.expectedPass
+			testutils.PrintTestStatus(t, tc.name, success,
+				fmt.Sprintf("Expected %v, got %v", tc.expectedPass, result))
+		})
+	}
+}
+
+// Add performance benchmarks
+func BenchmarkBuildValidationContext(b *testing.B) {
+	cmd := &cobra.Command{}
+	// Initialize all flags
+	cmd.Flags().String("flavor", "ITPro", "")
+	cmd.Flags().String("location", "eastus", "")
+	cmd.Flags().String("ssh-rsa-public-key", "ssh-rsa AAAAB3...", "")
+	cmd.Flags().String("windows-password", "Complex!Pass123", "")
+	cmd.Flags().String("resource-tags", `{"env":"test"}`, "")
+	cmd.Flags().String("github-user", "testuser", "")
+	cmd.Flags().String("resource-group", "test-rg", "")
+	cmd.Flags().String("windows-user", "azureuser", "")
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = buildArcBoxValidationContext(cmd)
+	}
 }

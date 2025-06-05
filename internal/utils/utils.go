@@ -186,11 +186,18 @@ func PrintMissingRequiredFlagsError(cmd *cobra.Command, requiredFlags []string) 
 
 // isFlagMissing returns true if the required flag is missing (unset or empty string)
 func isFlagMissing(cmd *cobra.Command, f *pflag.Flag) bool {
+	if f == nil {
+		return true
+	}
 	if !f.Changed {
 		return true
 	}
 	val := f.Value.String()
-	return val == "" || val == "[]" // handle string and string slice
+	// Handle string and string slice cases:
+	// - Empty string: ""
+	// - Empty slice: "[]" 
+	// - Slice with empty string element: "[[]]" (when set to "[]")
+	return val == "" || val == "[]" || val == "[[]]"
 }
 
 // ShowHelpWithoutTypes displays help for a command with type annotations removed and [Required] text added
@@ -212,6 +219,14 @@ func buildCustomHelpOutput(cmd *cobra.Command) string {
 	}
 	if cmd.HasAvailableSubCommands() {
 		result.WriteString("  " + cmd.CommandPath() + " [command]\n")
+	}
+
+	// Description section
+	if cmd.Short != "" {
+		result.WriteString("\n" + cmd.Short + "\n")
+	}
+	if cmd.Long != "" {
+		result.WriteString("\n" + cmd.Long + "\n")
 	}
 
 	// Available Commands section
@@ -242,13 +257,13 @@ func buildCustomHelpOutput(cmd *cobra.Command) string {
 
 	// Local Flags section
 	if cmd.HasAvailableLocalFlags() {
-		result.WriteString("\nArguments:\n")
+		result.WriteString("\nFLAGS:\n")
 		result.WriteString(buildFlagsOutput(cmd, cmd.LocalFlags(), terminalWidth))
 	}
 
 	// Global Flags section
 	if cmd.HasAvailableInheritedFlags() {
-		result.WriteString("\nGlobal Arguments:\n")
+		result.WriteString("\nGlobal FLAGS:\n")
 		result.WriteString(buildFlagsOutput(cmd, cmd.InheritedFlags(), terminalWidth))
 	}
 
@@ -601,6 +616,17 @@ func isRequiredFlag(cmd *cobra.Command, flagName string) bool {
 
 // isHardcodedRequiredFlag checks against hardcoded lists of required flags for specific commands
 func isHardcodedRequiredFlag(cmd *cobra.Command, flagName string) bool {
+	// Check general hardcoded required flags (regardless of command)
+	generalRequiredFlags := []string{
+		"subscription-id",
+	}
+	
+	for _, required := range generalRequiredFlags {
+		if required == flagName {
+			return true
+		}
+	}
+
 	cmdPath := cmd.CommandPath()
 
 	// Map command paths to their required flags
@@ -924,17 +950,22 @@ func validateStringFlag(cmd *cobra.Command, flagName, flagValue string) error {
 
 // validateBooleanFlag validates traditional boolean flags
 func validateBooleanFlag(cmd *cobra.Command, flagName, flagValue string) error {
-	// Traditional bool flags should only accept true/false
-	if flagValue != "true" && flagValue != "false" {
-		return fmt.Errorf("Invalid value '%s' for boolean flag --%s. Expected: true or false", flagValue, flagName)
+	// Accept common boolean representations
+	validBoolValues := []string{"true", "false", "1", "0", "yes", "no", "y", "n", "Y", "N"}
+	
+	for _, valid := range validBoolValues {
+		if flagValue == valid {
+			return nil
+		}
 	}
-	return nil
+	
+	return fmt.Errorf("Invalid value '%s' for boolean flag --%s. Expected: true or false", flagValue, flagName)
 }
 
 // validateIntFlag validates integer flags
 func validateIntFlag(cmd *cobra.Command, flagName, flagValue string) error {
 	if flagValue == "" {
-		return nil
+		return fmt.Errorf("Invalid value '%s' for integer flag --%s. Expected: valid integer", flagValue, flagName)
 	}
 
 	// Parse as int to validate
@@ -998,6 +1029,10 @@ func validateSpecificStringFlag(flagName, flagValue string) error {
 		if !containsCaseInsensitive(validEditions, flagValue) {
 			return fmt.Errorf("Invalid value '%s' for flag --%s. Expected one of: %s (case-insensitive)", flagValue, flagName, strings.Join(validEditions, ", "))
 		}
+	case "output-format":
+		if !ValidateOutputFormat(flagValue) {
+			return fmt.Errorf("Invalid value '%s' for flag --%s. Expected one of: table, json, yaml, tsv", flagValue, flagName)
+		}
 	case "location":
 		// Basic location validation - must not be empty and should be lowercase
 		if flagValue == "" {
@@ -1057,8 +1092,15 @@ func validateSpecificStringSliceFlag(flagName, flagValue string) error {
 	switch flagName {
 	case "resource-tags":
 		// Basic JSON validation for resource tags
-		if flagValue != "" && !strings.HasPrefix(flagValue, "{") {
-			return fmt.Errorf("Invalid value for flag --%s. Expected JSON format: '{\"key\":\"value\"}'", flagName)
+		if flagValue != "" {
+			if !strings.HasPrefix(flagValue, "{") {
+				return fmt.Errorf("Invalid value for flag --%s. Expected JSON format: '{\"key\":\"value\"}'", flagName)
+			}
+			// Validate JSON syntax by attempting to parse
+			var jsonData map[string]interface{}
+			if err := json.Unmarshal([]byte(flagValue), &jsonData); err != nil {
+				return fmt.Errorf("Invalid value for flag --%s. Invalid JSON format: %s", flagName, err.Error())
+			}
 		}
 	}
 	return nil

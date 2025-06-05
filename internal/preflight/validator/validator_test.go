@@ -3,8 +3,10 @@ package validator
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/fatih/color"
+	"github.com/jumpstart-cli/internal/testutils"
 )
 
 var (
@@ -428,4 +430,146 @@ func BenchmarkValidationEngine(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		engine.ValidateAll(ctx)
 	}
+}
+
+// Add tests for concurrent validation
+func TestConcurrentValidation(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing Concurrent Validation ===")
+
+	engine := NewValidationEngine()
+	ctx := &ValidationContext{
+		Solution: "test",
+		Flavor:   "test",
+	}
+
+	// Run multiple validations concurrently
+	done := make(chan []ValidationResult, 5)
+
+	for i := 0; i < 5; i++ {
+		go func() {
+			results := engine.ValidateAll(ctx)
+			done <- results
+		}()
+	}
+
+	// Collect results
+	var allResults [][]ValidationResult
+	for i := 0; i < 5; i++ {
+		allResults = append(allResults, <-done)
+	}
+
+	// Verify consistency
+	consistent := true
+	if len(allResults) > 1 {
+		firstLen := len(allResults[0])
+		for i := 1; i < len(allResults); i++ {
+			if len(allResults[i]) != firstLen {
+				consistent = false
+				break
+			}
+		}
+	}
+
+	testutils.PrintTestStatus(t, "Concurrent validation consistency", consistent,
+		"All concurrent validations should return consistent results")
+}
+
+// Add performance tests
+func TestValidationPerformance(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing Validation Performance ===")
+
+	engine := &ValidationEngine{}
+
+	// Add many validators
+	for i := 0; i < 100; i++ {
+		engine.RegisterValidator(&mockValidator{
+			name:        fmt.Sprintf("Validator%d", i),
+			description: "Performance test validator",
+			shouldPass:  i%2 == 0,
+			applicable:  true,
+		})
+	}
+
+	ctx := &ValidationContext{
+		Solution: "test",
+		Flavor:   "test",
+	}
+
+	start := time.Now()
+	results := engine.ValidateAll(ctx)
+	duration := time.Since(start)
+
+	testutils.PrintTestStatus(t, "Performance", duration < 1*time.Second,
+		fmt.Sprintf("100 validators completed in %v", duration))
+
+	testutils.PrintTestStatus(t, "Results count", len(results) == 100,
+		fmt.Sprintf("Expected 100 results, got %d", len(results)))
+}
+
+// Add edge case tests for ValidationResult
+func TestValidationResultEdgeCases(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing ValidationResult Edge Cases ===")
+
+	t.Run("empty_severity", func(t *testing.T) {
+		result := ValidationResult{
+			CheckName: "Test",
+			Passed:    false,
+			Severity:  "", // empty severity
+		}
+
+		hasErrors := HasErrors([]ValidationResult{result})
+		testutils.PrintTestStatus(t, "Empty severity", !hasErrors,
+			"Empty severity should not be treated as error")
+	})
+
+	t.Run("nil_message_fields", func(t *testing.T) {
+		result := ValidationResult{
+			CheckName:  "Test",
+			Passed:     true,
+			Message:    "",
+			Suggestion: "",
+			Details:    "",
+		}
+
+		// Should not panic with empty strings
+		defer func() {
+			if r := recover(); r != nil {
+				testutils.PrintTestStatus(t, "Nil fields handling", false,
+					fmt.Sprintf("Should not panic with empty fields: %v", r))
+			} else {
+				testutils.PrintTestStatus(t, "Nil fields handling", true,
+					"Handles empty string fields correctly")
+			}
+		}()
+
+		PrintResults([]ValidationResult{result})
+	})
+}
+
+// Add mutation tests for ValidationContext
+func TestValidationContextMutation(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing ValidationContext Mutation ===")
+
+	ctx := &ValidationContext{
+		Parameters: map[string]string{"key1": "value1"},
+		SkipChecks: []string{"check1"},
+	}
+
+	// Test parameter mutation
+	originalParams := make(map[string]string)
+	for k, v := range ctx.Parameters {
+		originalParams[k] = v
+	}
+
+	ctx.Parameters["key2"] = "value2"
+
+	testutils.PrintTestStatus(t, "Parameter mutation", len(ctx.Parameters) == 2,
+		"Should be able to add parameters")
+
+	// Test skip checks mutation
+	originalSkipLen := len(ctx.SkipChecks)
+	ctx.SkipChecks = append(ctx.SkipChecks, "check2")
+
+	testutils.PrintTestStatus(t, "Skip checks mutation", len(ctx.SkipChecks) == originalSkipLen+1,
+		"Should be able to add skip checks")
 }

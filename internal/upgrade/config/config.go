@@ -41,6 +41,11 @@ func GetRepositoryURL() string {
 	return "https://api.github.com/repos/" + DefaultOwner + "/" + DefaultRepo + "/releases/latest"
 }
 
+// GetRepositoryAllReleasesURL returns the GitHub API URL for all releases
+func GetRepositoryAllReleasesURL() string {
+	return "https://api.github.com/repos/" + DefaultOwner + "/" + DefaultRepo + "/releases"
+}
+
 // GetRepositoryWebURL returns the web URL for manual downloads
 func GetRepositoryWebURL() string {
 	return "https://github.com/" + DefaultOwner + "/" + DefaultRepo + "/releases"

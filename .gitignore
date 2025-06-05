@@ -58,7 +58,12 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Log files and testing artifacts
+logs/
 *.log
+test-artifacts.log
+cleanup-*.log
 
 # Local environment files
 .env

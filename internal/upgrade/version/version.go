@@ -29,37 +29,71 @@ const (
 
 // CheckForUpdates checks GitHub for the latest release version
 func CheckForUpdates(includePrereleases bool) (*VersionInfo, error) {
-	apiURL := config.GetRepositoryURL()
-
-	if utils.DebugMode {
-		utils.Debug("Checking for updates from: %s", apiURL)
-	}
-
+	var apiURL string
+	var release config.GitHubRelease
+	
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
 
-	// Make request to GitHub API
-	resp, err := client.Get(apiURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check for updates: %v", err)
-	}
-	defer resp.Body.Close()
+	if includePrereleases {
+		// When including prereleases, get all releases and find the latest
+		apiURL = config.GetRepositoryAllReleasesURL()
+		
+		if utils.DebugMode {
+			utils.Debug("Checking for updates (including prereleases) from: %s", apiURL)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
-	}
+		resp, err := client.Get(apiURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check for updates: %v", err)
+		}
+		defer resp.Body.Close()
 
-	// Parse response
-	var release config.GitHubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return nil, fmt.Errorf("failed to parse release information: %v", err)
-	}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+		}
 
-	// Skip prereleases unless explicitly requested
-	if release.Prerelease && !includePrereleases {
-		return nil, fmt.Errorf("latest release is a prerelease, use --pre-release flag to include")
+		// Parse response as array of releases
+		var releases []config.GitHubRelease
+		if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+			return nil, fmt.Errorf("failed to parse release information: %v", err)
+		}
+
+		if len(releases) == 0 {
+			return nil, fmt.Errorf("no releases found")
+		}
+
+		// Find the latest release (first in the list is latest)
+		release = releases[0]
+	} else {
+		// For stable releases only, use the /releases/latest endpoint
+		apiURL = config.GetRepositoryURL()
+		
+		if utils.DebugMode {
+			utils.Debug("Checking for updates (stable only) from: %s", apiURL)
+		}
+
+		resp, err := client.Get(apiURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check for updates: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+		}
+
+		// Parse response as single release
+		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+			return nil, fmt.Errorf("failed to parse release information: %v", err)
+		}
+
+		// Skip prereleases unless explicitly requested
+		if release.Prerelease && !includePrereleases {
+			return nil, fmt.Errorf("latest release is a prerelease, use --pre-release flag to include")
+		}
 	}
 
 	// Create version info
@@ -97,6 +131,7 @@ func CheckForUpdates(includePrereleases bool) (*VersionInfo, error) {
 
 // CompareVersions compares two semantic version strings
 // Returns: -1 if v1 < v2, 0 if v1 == v2, 1 if v1 > v2
+// Supports semantic versioning with pre-release and build metadata
 func CompareVersions(v1, v2 string) int {
 	// Clean version strings (remove 'v' prefix if present)
 	v1 = cleanVersionTag(v1)
@@ -106,10 +141,50 @@ func CompareVersions(v1, v2 string) int {
 		return 0
 	}
 
-	// Split versions into parts
-	parts1 := strings.Split(v1, ".")
-	parts2 := strings.Split(v2, ".")
+	// Parse versions to handle pre-release and build metadata
+	ver1 := parseVersion(v1)
+	ver2 := parseVersion(v2)
 
+	// Compare core version parts (major.minor.patch)
+	result := compareCoreVersion(ver1.core, ver2.core)
+	if result != 0 {
+		return result
+	}
+
+	// If core versions are equal, compare pre-release versions
+	return comparePreRelease(ver1.preRelease, ver2.preRelease)
+}
+
+// versionParts represents parsed version components
+type versionParts struct {
+	core       []string
+	preRelease string
+	build      string
+}
+
+// parseVersion parses a version string into its components
+func parseVersion(version string) versionParts {
+	var parts versionParts
+	
+	// Split on '+' to separate build metadata
+	buildSplit := strings.Split(version, "+")
+	if len(buildSplit) > 1 {
+		parts.build = buildSplit[1]
+	}
+	
+	// Split on '-' to separate pre-release
+	preReleaseSplit := strings.Split(buildSplit[0], "-")
+	parts.core = strings.Split(preReleaseSplit[0], ".")
+	
+	if len(preReleaseSplit) > 1 {
+		parts.preRelease = strings.Join(preReleaseSplit[1:], "-")
+	}
+	
+	return parts
+}
+
+// compareCoreVersion compares core version numbers (major.minor.patch)
+func compareCoreVersion(parts1, parts2 []string) int {
 	// Pad shorter version with zeros
 	maxLen := len(parts1)
 	if len(parts2) > maxLen {
@@ -138,6 +213,33 @@ func CompareVersions(v1, v2 string) int {
 		}
 	}
 
+	return 0
+}
+
+// comparePreRelease compares pre-release versions
+// Pre-release versions have lower precedence than normal versions
+func comparePreRelease(pre1, pre2 string) int {
+	// If neither has pre-release, they're equal
+	if pre1 == "" && pre2 == "" {
+		return 0
+	}
+	
+	// Version without pre-release has higher precedence
+	if pre1 == "" && pre2 != "" {
+		return 1
+	}
+	if pre1 != "" && pre2 == "" {
+		return -1
+	}
+	
+	// Both have pre-release, compare them lexically
+	if pre1 < pre2 {
+		return -1
+	}
+	if pre1 > pre2 {
+		return 1
+	}
+	
 	return 0
 }
 

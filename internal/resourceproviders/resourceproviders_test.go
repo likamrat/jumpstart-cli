@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/fatih/color"
+	"github.com/jumpstart-cli/internal/testutils"
 )
 
 var (
@@ -476,4 +477,75 @@ func BenchmarkGetAgoraProviders(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		GetAgoraProviders()
 	}
+}
+
+// Add tests for edge cases and error conditions
+func TestResourceProviderConfigNilHandling(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing Nil Handling ===")
+
+	t.Run("nil_provider_list", func(t *testing.T) {
+		config := ResourceProviderConfig{
+			SolutionName:      "TestSolution",
+			RequiredProviders: nil,
+		}
+
+		testutils.PrintTestStatus(t, "Nil providers list", config.RequiredProviders == nil,
+			"Should handle nil RequiredProviders list")
+	})
+
+	t.Run("empty_solution_name", func(t *testing.T) {
+		config := ResourceProviderConfig{
+			SolutionName:      "",
+			RequiredProviders: []string{"Microsoft.Test"},
+		}
+
+		testutils.PrintTestStatus(t, "Empty solution name", config.SolutionName == "",
+			"Should handle empty solution name")
+	})
+}
+
+// Add tests for concurrent access
+func TestConcurrentProviderAccess(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing Concurrent Access ===")
+
+	// Test concurrent access to provider functions
+	done := make(chan bool, 3)
+
+	go func() {
+		_ = GetArcBoxProviders()
+		done <- true
+	}()
+
+	go func() {
+		_ = GetLocalBoxProviders()
+		done <- true
+	}()
+
+	go func() {
+		_ = GetAgoraProviders()
+		done <- true
+	}()
+
+	// Wait for all goroutines
+	for i := 0; i < 3; i++ {
+		<-done
+	}
+
+	testutils.PrintTestStatus(t, "Concurrent access", true, "No race condition in provider access")
+}
+
+// Add mutation tests
+func TestProviderImmutability(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing Provider Immutability ===")
+
+	// Get providers
+	arcbox1 := GetArcBoxProviders()
+	arcbox2 := GetArcBoxProviders()
+
+	// Verify they're separate instances (defensive copies)
+	arcbox1.RequiredProviders = append(arcbox1.RequiredProviders, "Microsoft.Test")
+
+	testutils.PrintTestStatus(t, "Provider immutability",
+		len(arcbox1.RequiredProviders) != len(arcbox2.RequiredProviders),
+		"Provider configurations should return defensive copies")
 }

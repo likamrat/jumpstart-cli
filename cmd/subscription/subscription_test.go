@@ -1,10 +1,13 @@
 package subscription
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/fatih/color"
+	"github.com/jumpstart-cli/internal/testutils"
 	"github.com/spf13/cobra"
 )
 
@@ -216,5 +219,128 @@ func TestSubscriptionShowCommandFlags(t *testing.T) {
 		if flag == nil {
 			t.Errorf("Optional flag %q not found in show subcommand", flagName)
 		}
+	}
+}
+
+// Add tests for command execution
+func TestSubscriptionCommandExecution(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing Subscription Command Execution ===")
+
+	t.Run("list_command_output", func(t *testing.T) {
+		cmd := NewSubscriptionCmd()
+		listCmd := findSubcommand(cmd, "list")
+
+		// Capture output
+		buf := new(bytes.Buffer)
+		listCmd.SetOut(buf)
+		listCmd.SetErr(buf)
+
+		// Execute (this might fail without Azure CLI, but shouldn't panic)
+		err := listCmd.Execute()
+		output := buf.String()
+
+		// Check that it attempted to run
+		if err != nil {
+			testutils.PrintTestStatus(t, "List execution",
+				strings.Contains(err.Error(), "az") || strings.Contains(output, "az"),
+				"Should attempt to run Azure CLI")
+		} else {
+			testutils.PrintTestStatus(t, "List execution", true,
+				"List command executed successfully")
+		}
+	})
+}
+
+// Add tests for GUID validation edge cases
+func TestGUIDValidationEdgeCases(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing GUID Validation Edge Cases ===")
+
+	edgeCases := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{"all zeros", "00000000-0000-0000-0000-000000000000", true},
+		{"all Fs", "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF", true},
+		{"mixed case", "AbCdEfGh-1234-5678-9012-aBcDeFgHiJkL", false}, // too long
+		{"unicode", "12345678-1234-1234-1234-12345678901中", false},
+		{"with newline", "12345678-1234-1234-1234-123456789012\n", false},
+		{"with tab", "12345678-1234-1234-1234-123456789012\t", false},
+		{"URL encoded", "12345678%2D1234%2D1234%2D1234%2D123456789012", false},
+	}
+
+	for _, tc := range edgeCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := isValidGUID(tc.input)
+			testutils.PrintTestStatus(t, tc.name, result == tc.expected,
+				fmt.Sprintf("GUID '%s' validation: expected %v, got %v", tc.input, tc.expected, result))
+		})
+	}
+}
+
+// Add tests for command structure validation
+func TestCommandStructureValidation(t *testing.T) {
+	testutils.PrintTestHeader("=== Testing Command Structure ===")
+
+	cmd := NewSubscriptionCmd()
+
+	t.Run("command_aliases", func(t *testing.T) {
+		// Check if aliases are set correctly
+		testutils.PrintTestStatus(t, "Command aliases",
+			len(cmd.Aliases) > 0 && contains(cmd.Aliases, "sub"),
+			"Should have 'sub' as an alias")
+	})
+
+	t.Run("command_examples", func(t *testing.T) {
+		// Check if examples are provided
+		hasExamples := cmd.Example != "" ||
+			(findSubcommand(cmd, "list") != nil && findSubcommand(cmd, "list").Example != "") ||
+			(findSubcommand(cmd, "set") != nil && findSubcommand(cmd, "set").Example != "") ||
+			(findSubcommand(cmd, "show") != nil && findSubcommand(cmd, "show").Example != "")
+
+		testutils.PrintTestStatus(t, "Command examples", hasExamples,
+			"Should have examples for at least one command")
+	})
+
+	t.Run("required_flags_marked", func(t *testing.T) {
+		setCmd := findSubcommand(cmd, "set")
+		if setCmd != nil {
+			// Check if required flags are marked
+			subFlag := setCmd.Flags().Lookup("subscription")
+			nameFlag := setCmd.Flags().Lookup("name")
+
+			testutils.PrintTestStatus(t, "Required flags",
+				subFlag != nil && nameFlag != nil,
+				"Set command should have required flags")
+		}
+	})
+}
+
+// Helper functions
+func findSubcommand(cmd *cobra.Command, use string) *cobra.Command {
+	for _, sub := range cmd.Commands() {
+		if sub.Use == use {
+			return sub
+		}
+	}
+	return nil
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+// Benchmark tests
+func BenchmarkGUIDValidation(b *testing.B) {
+	validGUID := "12345678-1234-1234-1234-123456789012"
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = isValidGUID(validGUID)
 	}
 }
