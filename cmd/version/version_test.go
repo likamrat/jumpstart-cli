@@ -2,159 +2,232 @@ package version
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/fatih/color"
 	"jumpstartcli/internal/utils"
+
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 )
 
-// Color functions for test output
-var (
-	testSuccessColor = color.New(color.FgGreen, color.Bold).SprintFunc()
-	testInfoColor    = color.New(color.FgCyan).SprintFunc()
-	testWarnColor    = color.New(color.FgYellow).SprintFunc()
-	testErrorColor   = color.New(color.FgRed, color.Bold).SprintFunc()
-	testHeaderColor  = color.New(color.FgMagenta, color.Bold).SprintFunc()
-)
-
-// Helper function to print colored test status
-func printTestStatus(t *testing.T, testName string, success bool, message string) {
-	var icon string
-	var colorFunc func(a ...interface{}) string
-
-	if success {
-		icon = "✅"
-		colorFunc = testSuccessColor
-	} else {
-		icon = "❌"
-		colorFunc = testErrorColor
-		t.Errorf("Test failed: %s", message)
-	}
-
-	fmt.Printf("%s %s: %s\n", colorFunc("PASS"), icon, testInfoColor(fmt.Sprintf("%s: %s", testName, message)))
-}
-
-func TestNewVersionCmd(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing New Version Command ==="))
-
+// TestVersionCommand tests the basic version command functionality
+func TestVersionCommand(t *testing.T) {
 	tests := []struct {
-		name string
-		want string
+		name           string
+		args           []string
+		expectedOutput []string
+		notExpected    []string
 	}{
 		{
-			name: "version command creation",
-			want: "version",
+			name: "basic version output",
+			args: []string{},
+			expectedOutput: []string{
+				"Jumpstart CLI version:",
+				utils.CliVersion,
+			},
+			notExpected: []string{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewVersionCmd()
+			// Create a buffer to capture output
+			buf := new(bytes.Buffer)
 
-			testName := "Command Use Field"
-			success := cmd.Use == tt.want
-			message := fmt.Sprintf("Expected '%s', got '%s'", tt.want, cmd.Use)
-			printTestStatus(t, testName, success, message)
+			// Create root command with output redirected
+			rootCmd := &cobra.Command{Use: "jumpstart"}
+			rootCmd.SetOut(buf)
+			rootCmd.SetErr(buf)
 
-			testName = "Short Description"
-			success = cmd.Short != ""
-			if success {
-				message = "Short description is properly set"
-			} else {
-				message = "Short description should not be empty"
-			}
-			printTestStatus(t, testName, success, message)
-
-			testName = "Long Description"
-			success = cmd.Long != ""
-			if success {
-				message = "Long description is properly set"
-			} else {
-				message = "Long description should not be empty"
-			}
-			printTestStatus(t, testName, success, message)
-		})
-	}
-}
-
-func TestVersionCommandExecution(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Version Command Execution ==="))
-
-	// Store original version
-	originalVersion := utils.CliVersion
-
-	tests := []struct {
-		name         string
-		version      string
-		wantContains string
-	}{
-		{
-			name:         "version output with test version",
-			version:      "test-version-1.0.0",
-			wantContains: "Jumpstart CLI version: test-version-1.0.0",
-		},
-		{
-			name:         "version output with empty version",
-			version:      "",
-			wantContains: "Jumpstart CLI version:",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			testName := fmt.Sprintf("Version Output: %s", tt.name)
-
-			// Set test version
-			utils.CliVersion = tt.version
-
-			// Capture output
-			var buf bytes.Buffer
-			cmd := NewVersionCmd()
-			cmd.SetOut(&buf)
-			cmd.SetErr(&buf)
+			// Add version command
+			versionCmd := NewVersionCmd()
+			rootCmd.AddCommand(versionCmd)
 
 			// Execute command
-			err := cmd.Execute()
-			success := err == nil
-			var message string
+			rootCmd.SetArgs(append([]string{"version"}, tt.args...))
+			err := rootCmd.Execute()
 
-			if !success {
-				message = fmt.Sprintf("Version command execution failed: %v", err)
-			} else {
-				output := buf.String()
-				contains := strings.Contains(output, tt.wantContains)
-				if contains {
-					message = fmt.Sprintf("Output correctly contains '%s'", tt.wantContains)
-				} else {
-					message = fmt.Sprintf("Output = %q, want to contain %q", output, tt.wantContains)
-					success = false
-				}
+			assert.NoError(t, err)
+			output := buf.String()
+
+			// Check expected outputs
+			for _, expected := range tt.expectedOutput {
+				assert.Contains(t, output, expected, "Output should contain: %s", expected)
 			}
 
-			printTestStatus(t, testName, success, message)
+			// Check not expected outputs
+			for _, notExpected := range tt.notExpected {
+				assert.NotContains(t, output, notExpected, "Output should not contain: %s", notExpected)
+			}
 		})
 	}
-
-	// Restore original version
-	utils.CliVersion = originalVersion
 }
 
-func TestVersionCommandFlags(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Version Command Flags ==="))
-
+// TestNewVersionCmd tests the command creation
+func TestNewVersionCmd(t *testing.T) {
 	cmd := NewVersionCmd()
 
-	// Version command should not have any custom flags
-	testName := "Custom Flags Count"
-	flagCount := cmd.Flags().NFlag()
-	success := flagCount == 0
-	var message string
-	if success {
-		message = "Version command correctly has no custom flags"
-	} else {
-		message = fmt.Sprintf("Version command should not have custom flags, but has %d", flagCount)
+	assert.NotNil(t, cmd)
+	assert.Equal(t, "version", cmd.Use)
+	assert.Equal(t, "Display the current version of the CLI", cmd.Short)
+	assert.Equal(t, "Display the current version of the Jumpstart CLI", cmd.Long)
+	assert.NotNil(t, cmd.Run)
+}
+
+// TestVersionOutput tests the exact output format
+func TestVersionOutput(t *testing.T) {
+	// Create a buffer to capture output
+	buf := new(bytes.Buffer)
+
+	// Create the version command
+	cmd := NewVersionCmd()
+	cmd.SetOut(buf)
+	cmd.SetErr(buf)
+
+	// Execute the command
+	err := cmd.Execute()
+
+	assert.NoError(t, err)
+	output := buf.String()
+
+	// Check the exact output format
+	expectedOutput := "Jumpstart CLI version: " + utils.CliVersion + "\n"
+	assert.Equal(t, expectedOutput, output)
+}
+
+// TestVersionWithParentCommand tests version command when called from parent
+func TestVersionWithParentCommand(t *testing.T) {
+	// Create root command
+	rootCmd := &cobra.Command{
+		Use: "jumpstart",
 	}
-	printTestStatus(t, testName, success, message)
+
+	// Create buffer to capture output
+	buf := new(bytes.Buffer)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+
+	// Add version command
+	versionCmd := NewVersionCmd()
+	rootCmd.AddCommand(versionCmd)
+
+	// Execute version command
+	rootCmd.SetArgs([]string{"version"})
+	err := rootCmd.Execute()
+
+	assert.NoError(t, err)
+	output := buf.String()
+
+	// Verify output contains expected elements
+	assert.Contains(t, output, "Jumpstart CLI version:")
+	assert.Contains(t, output, utils.CliVersion)
+	assert.True(t, strings.HasSuffix(strings.TrimSpace(output), utils.CliVersion))
+}
+
+// TestVersionCommandStructure tests the command structure and metadata
+func TestVersionCommandStructure(t *testing.T) {
+	cmd := NewVersionCmd()
+
+	// Test command properties
+	assert.Equal(t, "version", cmd.Use)
+	assert.Contains(t, cmd.Short, "version")
+	assert.Contains(t, cmd.Long, "Jumpstart CLI")
+	assert.NotNil(t, cmd.Run)
+
+	// Test that command has no subcommands
+	assert.Len(t, cmd.Commands(), 0)
+
+	// Test that command has no flags
+	assert.False(t, cmd.HasAvailableFlags())
+}
+
+// TestVersionCommandWithDifferentOutputWriters tests version command with different output writers
+func TestVersionCommandWithDifferentOutputWriters(t *testing.T) {
+	testCases := []struct {
+		name   string
+		writer *bytes.Buffer
+	}{
+		{
+			name:   "stdout writer",
+			writer: new(bytes.Buffer),
+		},
+		{
+			name:   "stderr writer",
+			writer: new(bytes.Buffer),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := NewVersionCmd()
+			cmd.SetOut(tc.writer)
+			cmd.SetErr(tc.writer)
+
+			err := cmd.Execute()
+			assert.NoError(t, err)
+
+			output := tc.writer.String()
+			assert.Contains(t, output, "Jumpstart CLI version:")
+			assert.Contains(t, output, utils.CliVersion)
+		})
+	}
+}
+
+// TestVersionCommandConsistency tests version output consistency across executions
+func TestVersionCommandConsistency(t *testing.T) {
+	// Run the command multiple times and verify consistent output
+	var outputs []string
+
+	for i := 0; i < 5; i++ {
+		buf := new(bytes.Buffer)
+		cmd := NewVersionCmd()
+		cmd.SetOut(buf)
+		cmd.SetErr(buf)
+
+		err := cmd.Execute()
+		assert.NoError(t, err)
+
+		outputs = append(outputs, buf.String())
+	}
+
+	// All outputs should be identical
+	expected := outputs[0]
+	for i, output := range outputs {
+		assert.Equal(t, expected, output, "Output %d should match first output", i)
+	}
+}
+
+// TestVersionCommandEdgeCases tests edge cases for the version command
+func TestVersionCommandEdgeCases(t *testing.T) {
+	t.Run("empty CliVersion", func(t *testing.T) {
+		// Save original version
+		originalVersion := utils.CliVersion
+		defer func() { utils.CliVersion = originalVersion }()
+
+		// Set empty version
+		utils.CliVersion = ""
+
+		buf := new(bytes.Buffer)
+		cmd := NewVersionCmd()
+		cmd.SetOut(buf)
+		cmd.SetErr(buf)
+
+		err := cmd.Execute()
+		assert.NoError(t, err)
+
+		output := buf.String()
+		assert.Contains(t, output, "Jumpstart CLI version:")
+		// Should still contain the prefix even with empty version
+	})
+
+	t.Run("nil output writer", func(t *testing.T) {
+		cmd := NewVersionCmd()
+		// Don't set output writer - should use default
+
+		// This should not panic
+		assert.NotPanics(t, func() {
+			cmd.Execute()
+		})
+	})
 }

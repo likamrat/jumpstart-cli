@@ -6,8 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"jumpstartcli/internal/testutils"
+
 	"github.com/fatih/color"
-	"github.com/jumpstart-cli/internal/testutils"
 	"github.com/spf13/cobra"
 )
 

@@ -37,31 +37,48 @@ var OutputFormat string
 // CliVersion can be set at build time via ldflags
 var CliVersion = "0.1.0"
 
+// CommandExecutor interface for external command execution
+type CommandExecutor interface {
+	Run(name string, args ...string) ([]byte, error)
+}
+
+// RealCommandExecutor implements CommandExecutor for production use
+type RealCommandExecutor struct{}
+
+func (r *RealCommandExecutor) Run(name string, args ...string) ([]byte, error) {
+	cmd := exec.Command(name, args...)
+	return cmd.Output()
+}
+
+// Global variable to hold the command executor (can be mocked in tests)
+var cmdExecutor CommandExecutor = &RealCommandExecutor{}
+
 // IsAzureLoggedIn checks if the user is logged in to Azure CLI
 func IsAzureLoggedIn() bool {
-	cmd := exec.Command("az", "account", "show")
-	if err := cmd.Run(); err != nil {
-		return false
-	}
-	return true
+	_, err := cmdExecutor.Run("az", "account", "show")
+	return err == nil
 }
 
 func ResourceGroupExists(name string) bool {
-	cmd := exec.Command("az", "group", "exists", "--name", name)
-	output, err := cmd.Output()
+	if name == "" {
+		return false
+	}
+
+	output, err := cmdExecutor.Run("az", "group", "exists", "--name", name)
 	if err != nil {
 		fmt.Printf("Error checking resource group existence: %v\n", err)
 		return false
 	}
-	return string(output) == "true\n"
+	return strings.TrimSpace(string(output)) == "true"
 }
 
 func CreateResourceGroup(name string, location string) error {
-	// Only print a single info message before creation, no spinner, no JSON output
-	cmd := exec.Command("az", "group", "create", "--name", name, "--location", location)
-	cmd.Stdout = nil // Suppress all output
-	cmd.Stderr = nil
-	if err := cmd.Run(); err != nil {
+	if name == "" || location == "" {
+		return fmt.Errorf("resource group name and location cannot be empty")
+	}
+
+	_, err := cmdExecutor.Run("az", "group", "create", "--name", name, "--location", location)
+	if err != nil {
 		fmt.Printf("[ERROR] Failed to create resource group: %v\n", err)
 		return err
 	}
@@ -124,6 +141,8 @@ func FriendlyResourceName(resourceType, resourceName string) string {
 		return "Nested Deployment"
 	case "Microsoft.DevTestLab/schedules":
 		return "Schedule"
+	case "Microsoft.Storage/storageAccounts":
+		return "Storage Account"
 	case "Microsoft.Compute/virtualMachines/extensions":
 		// For VM Extensions, extract the extension name from the resourceName (after last '/')
 		parts := strings.Split(resourceName, "/")
@@ -137,20 +156,7 @@ func FriendlyResourceName(resourceType, resourceName string) string {
 			return extName // fallback to extension name
 		}
 	default:
-		// Fallback: try to prettify the type
-		parts := strings.Split(resourceType, "/")
-		if len(parts) > 1 {
-			// Remove trailing 's' for plural, e.g. disks -> Disk
-			name := parts[1]
-			if strings.HasSuffix(name, "s") && len(name) > 1 {
-				name = name[:len(name)-1]
-			}
-			// Capitalize first letter (avoid deprecated strings.Title)
-			if len(name) > 0 {
-				name = strings.ToUpper(name[:1]) + name[1:]
-			}
-			return strings.ReplaceAll(name, "_", " ")
-		}
+		// For completely unknown types, return the full type name as-is
 		return resourceType
 	}
 }
@@ -195,7 +201,7 @@ func isFlagMissing(cmd *cobra.Command, f *pflag.Flag) bool {
 	val := f.Value.String()
 	// Handle string and string slice cases:
 	// - Empty string: ""
-	// - Empty slice: "[]" 
+	// - Empty slice: "[]"
 	// - Slice with empty string element: "[[]]" (when set to "[]")
 	return val == "" || val == "[]" || val == "[[]]"
 }
@@ -620,7 +626,7 @@ func isHardcodedRequiredFlag(cmd *cobra.Command, flagName string) bool {
 	generalRequiredFlags := []string{
 		"subscription-id",
 	}
-	
+
 	for _, required := range generalRequiredFlags {
 		if required == flagName {
 			return true
@@ -681,7 +687,7 @@ func SuggestSimilarCommand(input string, commands []string, threshold int) strin
 
 // PrintDidYouMean prints a "did you mean" suggestion
 func PrintDidYouMean(invalid string, suggestion string) {
-	fmt.Printf("%s unknown command '%s'. Did you mean '%s'?\n",
+	fmt.Fprintf(os.Stderr, "%s unknown command '%s'. Did you mean '%s'?\n",
 		ErrorColor("[ERROR]"), invalid, suggestion)
 }
 
@@ -781,13 +787,17 @@ func GetRegionDisplayName(region string) string {
 	}
 
 	// If not found in map, return a formatted version
-	return strings.ToTitle(strings.ReplaceAll(region, " ", " "))
+	// Split by dash, title-case each part, then rejoin with dashes
+	parts := strings.Split(region, "-")
+	for i, part := range parts {
+		parts[i] = strings.Title(strings.ToLower(part))
+	}
+	return strings.Join(parts, "-")
 }
 
 // RegionExistsInAzure checks if a region exists in Azure using Azure CLI
 func RegionExistsInAzure(region string) bool {
-	cmd := exec.Command("az", "account", "list-locations", "--query", "[?name=='"+NormalizeRegion(region)+"'].name", "--output", "tsv")
-	output, err := cmd.Output()
+	output, err := cmdExecutor.Run("az", "account", "list-locations", "--query", "[?name=='"+NormalizeRegion(region)+"'].name", "--output", "tsv")
 	if err != nil {
 		return false
 	}
@@ -952,13 +962,13 @@ func validateStringFlag(cmd *cobra.Command, flagName, flagValue string) error {
 func validateBooleanFlag(cmd *cobra.Command, flagName, flagValue string) error {
 	// Accept common boolean representations
 	validBoolValues := []string{"true", "false", "1", "0", "yes", "no", "y", "n", "Y", "N"}
-	
+
 	for _, valid := range validBoolValues {
 		if flagValue == valid {
 			return nil
 		}
 	}
-	
+
 	return fmt.Errorf("Invalid value '%s' for boolean flag --%s. Expected: true or false", flagValue, flagName)
 }
 
@@ -1213,10 +1223,17 @@ func PrintJSON(data interface{}) error {
 }
 
 // PrintYAML prints data in YAML format
-func PrintYAML(data interface{}) error {
-	yamlData, err := yaml.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal data to YAML: %v", err)
+func PrintYAML(data interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Convert panic to error
+			err = fmt.Errorf("failed to marshal data to YAML: %v", r)
+		}
+	}()
+
+	yamlData, marshErr := yaml.Marshal(data)
+	if marshErr != nil {
+		return fmt.Errorf("failed to marshal data to YAML: %v", marshErr)
 	}
 	fmt.Print(string(yamlData))
 	return nil
