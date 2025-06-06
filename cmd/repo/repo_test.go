@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"jumpstartcli/internal/testutils"
 )
 
@@ -38,7 +37,7 @@ func TestNewRepoCmd(t *testing.T) {
 			expected: "Short description should not be empty",
 		},
 		{
-			name:     "Long Description", 
+			name:     "Long Description",
 			check:    func() bool { return cmd.Long != "" },
 			expected: "Long description should not be empty",
 		},
@@ -70,13 +69,13 @@ func TestNewRepoCmd(t *testing.T) {
 
 func TestRepoCloneCommand_Execute(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Clone Command Execution ===")
-	
+
 	// Change to a temp directory to avoid conflicts
 	originalDir, _ := os.Getwd()
 	tempDir := t.TempDir()
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
-	
+
 	tests := []struct {
 		name           string
 		args           []string
@@ -90,8 +89,8 @@ func TestRepoCloneCommand_Execute(t *testing.T) {
 		checkFunc      func(*testing.T, string)
 	}{
 		{
-			name: "clone with path flag",
-			args: []string{},
+			name:  "clone with path flag",
+			args:  []string{},
 			flags: map[string]string{"path": "custom-dir"},
 			githubResponse: `[
 				{
@@ -140,15 +139,15 @@ func TestRepoCloneCommand_Execute(t *testing.T) {
 				// Create the directory first
 				os.Mkdir("jumpstart", 0755)
 			},
-			expectedError:  false, // The command doesn't return an error, just prints an error message
+			expectedError: false, // The command doesn't return an error, just prints an error message
 			checkFunc: func(t *testing.T, output string) {
 				// The command should handle existing directory gracefully
 				testutils.PrintTestStatus(t, "clone to existing directory", true, "Command handled existing directory")
 			},
 		},
 		{
-			name: "clone when git is not available",
-			args: []string{},
+			name:  "clone when git is not available",
+			args:  []string{},
 			flags: map[string]string{"path": "no-git-dir"},
 			setupFunc: func(t *testing.T) func() {
 				// Remove git from PATH
@@ -164,9 +163,9 @@ func TestRepoCloneCommand_Execute(t *testing.T) {
 			},
 		},
 		{
-			name: "clone with empty path flag",
-			args: []string{},
-			flags: map[string]string{"path": ""},
+			name:          "clone with empty path flag",
+			args:          []string{},
+			flags:         map[string]string{"path": ""},
 			expectedError: false,
 			setupFunc: func(t *testing.T) func() {
 				// Mock git command
@@ -195,8 +194,8 @@ func TestRepoCloneCommand_Execute(t *testing.T) {
 			},
 		},
 		{
-			name: "clone with absolute path",
-			args: []string{},
+			name:  "clone with absolute path",
+			args:  []string{},
 			flags: map[string]string{"path": filepath.Join(tempDir, "absolute-path-dir")},
 			setupFunc: func(t *testing.T) func() {
 				// Mock git command
@@ -226,8 +225,8 @@ func TestRepoCloneCommand_Execute(t *testing.T) {
 			},
 		},
 		{
-			name: "clone with path containing spaces",
-			args: []string{},
+			name:  "clone with path containing spaces",
+			args:  []string{},
 			flags: map[string]string{"path": "path with spaces"},
 			setupFunc: func(t *testing.T) func() {
 				// Mock git command
@@ -265,12 +264,12 @@ func TestRepoCloneCommand_Execute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testutils.PrintTestSubHeader(tt.name)
-			
+
 			// Run pre-test setup if needed
 			if tt.preTestFunc != nil {
 				tt.preTestFunc(t)
 			}
-			
+
 			// Set up any required mocks
 			var cleanup func()
 			if tt.setupFunc != nil {
@@ -282,11 +281,11 @@ func TestRepoCloneCommand_Execute(t *testing.T) {
 
 			// Create the repo command
 			cmd := NewRepoCmd()
-			
+
 			// Set up arguments for clone subcommand
 			cmdArgs := []string{"clone"}
 			cmdArgs = append(cmdArgs, tt.args...)
-			
+
 			// Set flags if provided
 			for flag, value := range tt.flags {
 				cmdArgs = append(cmdArgs, "--"+flag, value)
@@ -314,7 +313,7 @@ func TestRepoCloneCommand_Execute(t *testing.T) {
 			if tt.checkFunc != nil {
 				tt.checkFunc(t, buf.String())
 			}
-			
+
 			// Clean up created directories
 			os.RemoveAll("jumpstart")
 			os.RemoveAll("custom-dir")
@@ -324,13 +323,13 @@ func TestRepoCloneCommand_Execute(t *testing.T) {
 
 func TestRepoCommand_BasicUsage(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command Basic Usage ===")
-	
+
 	tests := []struct {
-		name           string
-		args           []string
-		expectedError  bool
-		checkOutput    func(string) bool
-		description    string
+		name          string
+		args          []string
+		expectedError bool
+		checkOutput   func(string) bool
+		description   string
 	}{
 		{
 			name:          "repo command without subcommand shows help",
@@ -367,7 +366,7 @@ func TestRepoCommand_BasicUsage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testutils.PrintTestSubHeader(tt.name)
-			
+
 			cmd := NewRepoCmd()
 			cmd.SetArgs(tt.args)
 
@@ -395,22 +394,22 @@ func TestRepoCommand_BasicUsage(t *testing.T) {
 
 func TestRepoUpdateCommand(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Update Command ===")
-	
+
 	// Change to a temp directory
 	originalDir, _ := os.Getwd()
 	tempDir := t.TempDir()
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
-	
+
 	tests := []struct {
-		name           string
-		args           []string
-		flags          map[string]string
-		preTestFunc    func(*testing.T)
-		setupFunc      func(*testing.T) func()
-		expectedError  bool
-		checkFunc      func(*testing.T)
-		description    string
+		name          string
+		args          []string
+		flags         map[string]string
+		preTestFunc   func(*testing.T)
+		setupFunc     func(*testing.T) func()
+		expectedError bool
+		checkFunc     func(*testing.T)
+		description   string
 	}{
 		{
 			name:          "update non-existent directory",
@@ -496,15 +495,15 @@ func TestRepoUpdateCommand(t *testing.T) {
 			description:   "Should handle git pull failure",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testutils.PrintTestSubHeader(tt.name)
-			
+
 			if tt.preTestFunc != nil {
 				tt.preTestFunc(t)
 			}
-			
+
 			var cleanup func()
 			if tt.setupFunc != nil {
 				cleanup = tt.setupFunc(t)
@@ -512,23 +511,23 @@ func TestRepoUpdateCommand(t *testing.T) {
 			if cleanup != nil {
 				defer cleanup()
 			}
-			
+
 			cmd := NewRepoCmd()
 			cmdArgs := []string{"update"}
 			cmdArgs = append(cmdArgs, tt.args...)
-			
+
 			for flag, value := range tt.flags {
 				cmdArgs = append(cmdArgs, "--"+flag, value)
 			}
-			
+
 			cmd.SetArgs(cmdArgs)
-			
+
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			err := cmd.Execute()
-			
+
 			if tt.expectedError && err == nil {
 				testutils.PrintTestStatus(t, tt.name, false, "Expected error but got none")
 			} else if !tt.expectedError && err != nil {
@@ -536,7 +535,7 @@ func TestRepoUpdateCommand(t *testing.T) {
 			} else {
 				testutils.PrintTestStatus(t, tt.name, true, tt.description)
 			}
-			
+
 			// Clean up
 			os.RemoveAll("test-repo")
 		})
@@ -545,21 +544,21 @@ func TestRepoUpdateCommand(t *testing.T) {
 
 func TestRepoDeleteCommand(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Delete Command ===")
-	
+
 	// Change to a temp directory
 	originalDir, _ := os.Getwd()
 	tempDir := t.TempDir()
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
-	
+
 	tests := []struct {
-		name           string
-		args           []string  
-		flags          map[string]string
-		preTestFunc    func(*testing.T)
-		expectedError  bool
-		checkFunc      func(*testing.T)
-		description    string
+		name          string
+		args          []string
+		flags         map[string]string
+		preTestFunc   func(*testing.T)
+		expectedError bool
+		checkFunc     func(*testing.T)
+		description   string
 	}{
 		{
 			name:          "delete non-existent directory",
@@ -627,37 +626,37 @@ func TestRepoDeleteCommand(t *testing.T) {
 			description: "Should handle read-only directory",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testutils.PrintTestSubHeader(tt.name)
-			
+
 			if tt.preTestFunc != nil {
 				tt.preTestFunc(t)
 			}
-			
+
 			cmd := NewRepoCmd()
 			cmdArgs := []string{"delete"}
 			cmdArgs = append(cmdArgs, tt.args...)
-			
+
 			for flag, value := range tt.flags {
 				cmdArgs = append(cmdArgs, "--"+flag, value)
 			}
-			
+
 			cmd.SetArgs(cmdArgs)
-			
+
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			err := cmd.Execute()
-			
+
 			if tt.expectedError && err == nil {
 				testutils.PrintTestStatus(t, tt.name, false, "Expected error but got none")
 			} else if !tt.expectedError && err != nil {
 				testutils.PrintTestStatus(t, tt.name, false, fmt.Sprintf("Unexpected error: %v", err))
 			}
-			
+
 			if tt.checkFunc != nil {
 				tt.checkFunc(t)
 			} else {
@@ -668,7 +667,7 @@ func TestRepoDeleteCommand(t *testing.T) {
 }
 
 // testTransport intercepts HTTP requests and routes them to our test server
-type testTransport {
+type testTransport struct {
 	testServer *httptest.Server
 }
 
@@ -678,14 +677,14 @@ func (t *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		// Parse the original URL
 		originalPath := req.URL.Path
 		originalQuery := req.URL.RawQuery
-		
+
 		// Update to test server
 		req.URL.Scheme = "http"
 		req.URL.Host = strings.TrimPrefix(t.testServer.URL, "http://")
 		req.URL.Path = originalPath
 		req.URL.RawQuery = originalQuery
 	}
-	
+
 	// Use default transport to make the actual request
 	return http.DefaultTransport.RoundTrip(req)
 }
@@ -712,9 +711,9 @@ func TestHelperFunctions(t *testing.T) {
 
 func TestRepoCommand_Flags(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command Flags ===")
-	
+
 	cmd := NewRepoCmd()
-	
+
 	// Test that clone subcommand has expected flags
 	cloneCmd, _, _ := cmd.Find([]string{"clone"})
 	if cloneCmd != nil {
@@ -725,7 +724,7 @@ func TestRepoCommand_Flags(t *testing.T) {
 			testutils.PrintTestStatus(t, "Clone command has 'path' flag", false, "Flag 'path' missing")
 		}
 	}
-	
+
 	// Test that update subcommand has expected flags
 	updateCmd, _, _ := cmd.Find([]string{"update"})
 	if updateCmd != nil {
@@ -735,7 +734,7 @@ func TestRepoCommand_Flags(t *testing.T) {
 			testutils.PrintTestStatus(t, "Update command has 'path' flag", false, "Flag 'path' missing")
 		}
 	}
-	
+
 	// Test that delete subcommand has expected flags
 	deleteCmd, _, _ := cmd.Find([]string{"delete"})
 	if deleteCmd != nil {
@@ -749,13 +748,13 @@ func TestRepoCommand_Flags(t *testing.T) {
 
 func TestRepoCloneCommand_GitFailure(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Clone Command Git Failures ===")
-	
+
 	// Change to a temp directory
 	originalDir, _ := os.Getwd()
 	tempDir := t.TempDir()
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
-	
+
 	tests := []struct {
 		name        string
 		flags       map[string]string
@@ -788,11 +787,11 @@ func TestRepoCloneCommand_GitFailure(t *testing.T) {
 			description: "Should handle git clone failure",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testutils.PrintTestSubHeader(tt.name)
-			
+
 			var cleanup func()
 			if tt.setupFunc != nil {
 				cleanup = tt.setupFunc(t)
@@ -800,20 +799,20 @@ func TestRepoCloneCommand_GitFailure(t *testing.T) {
 			if cleanup != nil {
 				defer cleanup()
 			}
-			
+
 			cmd := NewRepoCmd()
 			cmdArgs := []string{"clone"}
-			
+
 			for flag, value := range tt.flags {
 				cmdArgs = append(cmdArgs, "--"+flag, value)
 			}
-			
+
 			cmd.SetArgs(cmdArgs)
-			
+
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			_ = cmd.Execute() // Ignore error since we're testing failure cases
 			// The command may or may not return an error depending on implementation
 			testutils.PrintTestStatus(t, tt.name, true, tt.description)
@@ -824,13 +823,13 @@ func TestRepoCloneCommand_GitFailure(t *testing.T) {
 // Add new test for edge cases
 func TestRepoCommand_EdgeCases(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command Edge Cases ===")
-	
+
 	// Change to a temp directory
 	originalDir, _ := os.Getwd()
 	tempDir := t.TempDir()
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
-	
+
 	tests := []struct {
 		name        string
 		subcommand  string
@@ -886,7 +885,7 @@ func TestRepoCommand_EdgeCases(t *testing.T) {
 				// Create a git repo in parent directory
 				parentRepo := filepath.Join("..", "repo", ".git")
 				os.MkdirAll(parentRepo, 0755)
-				
+
 				// Mock git command
 				oldPath := os.Getenv("PATH")
 				tempBinDir := t.TempDir()
@@ -914,7 +913,7 @@ func TestRepoCommand_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testutils.PrintTestSubHeader(tt.name)
-			
+
 			var cleanup func()
 			if tt.setupFunc != nil {
 				cleanup = tt.setupFunc(t)
@@ -922,20 +921,20 @@ func TestRepoCommand_EdgeCases(t *testing.T) {
 			if cleanup != nil {
 				defer cleanup()
 			}
-			
+
 			cmd := NewRepoCmd()
 			cmdArgs := []string{tt.subcommand}
-			
+
 			for flag, value := range tt.flags {
 				cmdArgs = append(cmdArgs, "--"+flag, value)
 			}
-			
+
 			cmd.SetArgs(cmdArgs)
-			
+
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			_ = cmd.Execute()
 			testutils.PrintTestStatus(t, tt.name, true, tt.description)
 		})
@@ -945,14 +944,14 @@ func TestRepoCommand_EdgeCases(t *testing.T) {
 // Test repo command with various invalid subcommands to cover suggestion logic
 func TestRepoCommand_InvalidSubcommandSuggestions(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command Invalid Subcommand Suggestions ===")
-	
+
 	tests := []struct {
-		name           string
-		args           []string
-		expectedError  bool
-		checkOutput    func(string) bool
-		checkError     func(error) bool
-		description    string
+		name          string
+		args          []string
+		expectedError bool
+		checkOutput   func(string) bool
+		checkError    func(error) bool
+		description   string
 	}{
 		{
 			name:          "similar subcommand - clon instead of clone",
@@ -1022,19 +1021,19 @@ func TestRepoCommand_InvalidSubcommandSuggestions(t *testing.T) {
 			description: "Should process valid delete subcommand",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := NewRepoCmd()
 			cmd.SetArgs(tt.args)
-			
+
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			err := cmd.Execute()
 			output := buf.String()
-			
+
 			if tt.expectedError && err == nil {
 				testutils.PrintTestStatus(t, tt.name, false, "Expected error but got none")
 			} else if !tt.expectedError && err != nil {
@@ -1061,14 +1060,14 @@ func TestRepoCommand_InvalidSubcommandSuggestions(t *testing.T) {
 // Test edge cases in the RunE function
 func TestRepoCommand_RunEEdgeCases(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command RunE Edge Cases ===")
-	
+
 	// Get the repo command
 	cmd := NewRepoCmd()
-	
+
 	if cmd.RunE == nil {
 		t.Skip("RunE not implemented")
 	}
-	
+
 	tests := []struct {
 		name          string
 		args          []string
@@ -1094,15 +1093,15 @@ func TestRepoCommand_RunEEdgeCases(t *testing.T) {
 			description:   "Should be case sensitive",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			err := cmd.RunE(cmd, tt.args)
-			
+
 			if tt.expectedError && err == nil {
 				testutils.PrintTestStatus(t, tt.name, false, "Expected error but got none")
 			} else if !tt.expectedError && err != nil {
@@ -1117,7 +1116,7 @@ func TestRepoCommand_RunEEdgeCases(t *testing.T) {
 // Test the repo command's RunE function directly to cover the suggestion logic
 func TestRepoCommand_RunEFunction(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command RunE Function Direct Execution ===")
-	
+
 	tests := []struct {
 		name           string
 		args           []string
@@ -1174,17 +1173,17 @@ func TestRepoCommand_RunEFunction(t *testing.T) {
 			description:   "Should suggest 'delete' for 'delet'",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Get the repo command
 			cmd := NewRepoCmd()
-			
+
 			// Capture output
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			// Call RunE directly to bypass Cobra's command validation
 			var err error
 			if cmd.RunE != nil {
@@ -1192,7 +1191,7 @@ func TestRepoCommand_RunEFunction(t *testing.T) {
 			} else {
 				t.Skip("RunE not implemented")
 			}
-			
+
 			if tt.expectedError && err == nil {
 				testutils.PrintTestStatus(t, tt.name, false, "Expected error but got none")
 			} else if !tt.expectedError && err != nil {
@@ -1207,12 +1206,12 @@ func TestRepoCommand_RunEFunction(t *testing.T) {
 // Test the exact suggestion algorithm used in RunE
 func TestRepoCommand_SuggestionThreshold(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command Suggestion Threshold ===")
-	
+
 	cmd := NewRepoCmd()
 	if cmd.RunE == nil {
 		t.Skip("RunE not implemented")
 	}
-	
+
 	// Test various edit distances to ensure threshold of 3 is working
 	tests := []struct {
 		name          string
@@ -1263,15 +1262,15 @@ func TestRepoCommand_SuggestionThreshold(t *testing.T) {
 			description:   "Should not suggest anything for 'xyz'",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			err := cmd.RunE(cmd, []string{tt.input})
-			
+
 			// If shouldSuggest is true, we expect no error (suggestion shown)
 			// If shouldSuggest is false, we expect an error (no suggestion)
 			if tt.shouldSuggest && err != nil {
@@ -1288,7 +1287,7 @@ func TestRepoCommand_SuggestionThreshold(t *testing.T) {
 // Test edge cases in subcommand validation
 func TestRepoCommand_SubcommandValidationEdgeCases(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command Subcommand Validation Edge Cases ===")
-	
+
 	tests := []struct {
 		name          string
 		args          []string
@@ -1332,18 +1331,18 @@ func TestRepoCommand_SubcommandValidationEdgeCases(t *testing.T) {
 			expectedError: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := NewRepoCmd()
 			cmd.SetArgs(tt.args)
-			
+
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			err := cmd.Execute()
-			
+
 			if tt.expectedError && err == nil {
 				testutils.PrintTestStatus(t, tt.name, false, "Expected error but got none")
 			} else {
@@ -1356,7 +1355,7 @@ func TestRepoCommand_SubcommandValidationEdgeCases(t *testing.T) {
 // Test subcommand suggestion algorithm
 func TestRepoCommand_SubcommandSuggestionAlgorithm(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command Subcommand Suggestion Algorithm ===")
-	
+
 	tests := []struct {
 		name        string
 		args        []string
@@ -1398,16 +1397,16 @@ func TestRepoCommand_SubcommandSuggestionAlgorithm(t *testing.T) {
 			description: "Should not suggest anything for 'xyz'",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := NewRepoCmd()
 			cmd.SetArgs(tt.args)
-			
+
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			_ = cmd.Execute()
 			testutils.PrintTestStatus(t, tt.name, true, tt.description)
 		})
@@ -1417,13 +1416,13 @@ func TestRepoCommand_SubcommandSuggestionAlgorithm(t *testing.T) {
 // Test command resilience and recovery
 func TestRepoCommand_ResilienceAndRecovery(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command Resilience and Recovery ===")
-	
+
 	// Change to a temp directory
 	originalDir, _ := os.Getwd()
 	tempDir := t.TempDir()
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
-	
+
 	tests := []struct {
 		name        string
 		setupFunc   func(*testing.T) func()
@@ -1438,7 +1437,7 @@ func TestRepoCommand_ResilienceAndRecovery(t *testing.T) {
 				os.MkdirAll("jumpstart/.git/objects", 0755)
 				os.WriteFile("jumpstart/.git/HEAD", []byte("ref: refs/heads/main"), 0644)
 				os.WriteFile("jumpstart/.git/index.lock", []byte("locked"), 0644)
-				
+
 				// Mock git command
 				oldPath := os.Getenv("PATH")
 				tempBinDir := t.TempDir()
@@ -1469,7 +1468,7 @@ func TestRepoCommand_ResilienceAndRecovery(t *testing.T) {
 				os.MkdirAll("corrupted/.git", 0755)
 				os.WriteFile("corrupted/.git/HEAD", []byte("corrupted data @#$%"), 0644)
 				os.WriteFile("corrupted/.git/config", []byte("[core]\n\tcorrupted = true\n\t[invalid section"), 0644)
-				
+
 				// Mock git command that reports corruption
 				oldPath := os.Getenv("PATH")
 				tempBinDir := t.TempDir()
@@ -1494,7 +1493,7 @@ func TestRepoCommand_ResilienceAndRecovery(t *testing.T) {
 			description: "Should handle corrupted git directory",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var cleanup func()
@@ -1504,14 +1503,14 @@ func TestRepoCommand_ResilienceAndRecovery(t *testing.T) {
 			if cleanup != nil {
 				defer cleanup()
 			}
-			
+
 			cmd := NewRepoCmd()
 			cmd.SetArgs([]string{tt.subcommand})
-			
+
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
-			
+
 			_ = cmd.Execute()
 			testutils.PrintTestStatus(t, tt.name, true, tt.description)
 		})
@@ -1521,18 +1520,20 @@ func TestRepoCommand_ResilienceAndRecovery(t *testing.T) {
 // Test command behavior in different locales and with unicode
 func TestRepoCommand_InternationalizationAndUnicode(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Repo Command with Internationalization and Unicode ===")
-	
+
 	// Change to a temp directory
 	originalDir, _ := os.Getwd()
 	tempDir := t.TempDir()
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
-	
+
 	tests := []struct {
-		name        string
-		path        string
-		setupFunc   func(*testing.T) func() // Ensure this line is exactly as shown, with the type defined.
-		description string
+		name          string
+		path          string
+		setupFunc     func(*testing.T) func() // Ensure this line is exactly as shown, with the type defined.
+		description   string
+		expectedError bool
+		checkFunc     func(*testing.T, string)
 	}{
 		{
 			name: "clone with unicode path",
@@ -1575,7 +1576,7 @@ func TestRepoCommand_InternationalizationAndUnicode(t *testing.T) {
 			setupFunc: func(t *testing.T) func() {
 				// Create a mock git repo
 				os.MkdirAll("更新目录-📁/.git", 0755)
-				
+
 				// Mock git command
 				oldPath := os.Getenv("PATH")
 				tempBinDir := t.TempDir()
@@ -1628,15 +1629,15 @@ func TestRepoCommand_InternationalizationAndUnicode(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testutils.PrintTestSubHeader(tt.name)
-			
+
 			// Run pre-test setup if needed
 			if tt.setupFunc != nil {
 				tt.setupFunc(t)
 			}
-			
+
 			// Create the repo command
 			cmd := NewRepoCmd()
-			
+
 			// Set up arguments for the subcommand
 			var cmdArgs []string
 			switch tt.name {
@@ -1647,7 +1648,7 @@ func TestRepoCommand_InternationalizationAndUnicode(t *testing.T) {
 			case "delete with unicode path":
 				cmdArgs = []string{"delete", "--path", tt.path}
 			}
-			
+
 			// Set args
 			cmd.SetArgs(cmdArgs)
 

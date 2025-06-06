@@ -210,7 +210,7 @@ func isFlagMissing(cmd *cobra.Command, f *pflag.Flag) bool {
 func ShowHelpWithoutTypes(cmd *cobra.Command) {
 	// Build custom help output
 	output := buildCustomHelpOutput(cmd)
-	fmt.Print(output)
+	fmt.Fprint(cmd.OutOrStdout(), output)
 }
 
 // buildCustomHelpOutput builds help output with proper text wrapping

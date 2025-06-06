@@ -266,10 +266,10 @@ The subscription will be set as the default for all subsequent Azure CLI command
 			}
 
 			if flagCount > 1 {
-				utils.Error("Cannot specify multiple subscription selection methods. Use only one of: --subscription/-s, --name/-n, or positional argument.")
+				fmt.Fprintln(cmd.ErrOrStderr(), utils.ErrorColor("[ERROR] Cannot specify multiple subscription selection methods. Use only one of: --subscription/-s, --name/-n, or positional argument."))
 				return
 			} else if flagCount == 0 {
-				utils.Error("Must specify subscription using --subscription/-s, --name/-n, or as a positional argument.")
+				fmt.Fprintln(cmd.ErrOrStderr(), utils.ErrorColor("[ERROR] Must specify subscription using --subscription/-s, --name/-n, or as a positional argument."))
 				utils.ShowHelpWithoutTypes(cmd)
 				return
 			}
@@ -288,7 +288,7 @@ The subscription will be set as the default for all subsequent Azure CLI command
 			utils.Info("Validating subscription access...")
 
 			if isSubscriptionID && !isValidGUID(targetSubscription) {
-				utils.Error("Invalid subscription ID format. Expected GUID format (e.g., 12345678-1234-1234-1234-123456789012)")
+				fmt.Fprintln(cmd.ErrOrStderr(), utils.ErrorColor("[ERROR] Invalid subscription ID format. Expected GUID format (e.g., 12345678-1234-1234-1234-123456789012)"))
 				return
 			}
 
@@ -367,6 +367,11 @@ func isValidGUID(guid string) bool {
 
 // validateSubscriptionAccess validates access to a subscription
 func validateSubscriptionAccess(subscription string) (SubscriptionInfo, error) {
+	// Validate input
+	if subscription == "" {
+		return SubscriptionInfo{}, fmt.Errorf("subscription cannot be empty")
+	}
+
 	cmd := exec.Command("az", "account", "show", "--subscription", subscription, "--query", "{id:id,name:name}", "-o", "json")
 	output, err := cmd.Output()
 	if err != nil {

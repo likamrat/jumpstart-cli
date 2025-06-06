@@ -1,73 +1,59 @@
 package completion
 
 import (
-	"fmt"
 	"os"
-
-	"jumpstartcli/internal/examples"
 
 	"github.com/spf13/cobra"
 )
 
-// NewCompletionCmd creates and returns the completion command
+// NewCompletionCmd creates the completion command
 func NewCompletionCmd() *cobra.Command {
-	var completionCmd = &cobra.Command{
-		Use:   "completion",
-		Short: "Generate shell completion scripts",
-		Long: `Generate shell completion scripts for Jumpstart CLI commands and arguments.
-
-To load completions:
+	return &cobra.Command{
+		Use:   "completion [bash|zsh|fish|powershell]",
+		Short: "Generate completion script",
+		Long: `To load completions:
 
 Bash:
+
   $ source <(js completion bash)
-  # To load completions for each session, add to your ~/.bashrc:
-  #   source <(js completion bash)
+
+  # To load completions for each session, execute once:
+  # Linux:
+  $ js completion bash > /etc/bash_completion.d/js
+  # macOS:
+  $ js completion bash > /usr/local/etc/bash_completion.d/js
 
 Zsh:
-  $ source <(js completion zsh)
-  # To load completions for each session, add to your ~/.zshrc:
-  #   source <(js completion zsh)
 
-Fish:
+  # If shell completion is not already enabled in your environment,
+  # you will need to enable it.  You can execute the following once:
+
+  $ echo "autoload -U compinit; compinit" >> ~/.zshrc
+
+  # To load completions for each session, execute once:
+  $ js completion zsh > "${fpath[1]}/_js"
+
+  # You will need to start a new shell for this setup to take effect.
+
+fish:
+
   $ js completion fish | source
-  # To load completions for each session, add to your ~/.config/fish/config.fish:
-  #   js completion fish | source
+
+  # To load completions for each session, execute once:
+  $ js completion fish > ~/.config/fish/completions/js.fish
 
 PowerShell:
+
   PS> js completion powershell | Out-String | Invoke-Expression
-  # To load completions for every new session, add to your profile:
-  #   js completion powershell | Out-String | Invoke-Expression
 
-` + examples.GetExamples("js.completion").FormatExamples(),
-		Args: cobra.RangeArgs(0, 1),
+  # To load completions for every new session, run:
+  PS> js completion powershell > js.ps1
+  # and source this file from your PowerShell profile.
+`,
+		DisableFlagsInUseLine: true,
+		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 		Run: func(cmd *cobra.Command, args []string) {
-			// If no arguments provided, show help
-			if len(args) == 0 {
-				cmd.Help()
-				return
-			}
-
-			// If too many arguments provided
-			if len(args) > 1 {
-				fmt.Printf("[ERROR] accepts at most 1 arg(s), received %d\n", len(args))
-				return
-			}
-
-			// Validate the single argument
-			validArgs := []string{"bash", "zsh", "fish", "powershell"}
-			validArg := false
-			for _, validArgument := range validArgs {
-				if args[0] == validArgument {
-					validArg = true
-					break
-				}
-			}
-
-			if !validArg {
-				fmt.Printf("[ERROR] invalid argument %q for %q\n", args[0], cmd.CommandPath())
-				return
-			}
-
 			switch args[0] {
 			case "bash":
 				cmd.Root().GenBashCompletion(os.Stdout)
@@ -80,6 +66,4 @@ PowerShell:
 			}
 		},
 	}
-
-	return completionCmd
 }

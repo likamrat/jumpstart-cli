@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	"jumpstartcli/internal/testutils"
+
 	"github.com/fatih/color"
-	"github.com/jumpstart-cli/internal/testutils"
 )
 
 var (

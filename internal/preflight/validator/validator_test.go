@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"jumpstartcli/internal/testutils"
+
 	"github.com/fatih/color"
-	"github.com/jumpstart-cli/internal/testutils"
 )
 
 var (
