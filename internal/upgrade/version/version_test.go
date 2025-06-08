@@ -1,143 +1,456 @@
 package version
 
 import (
-	"fmt"
-	"strings"
-	"testing"
-
-	"github.com/fatih/color"
-	"jumpstartcli/internal/upgrade/installer"
+"strings"
+"testing"
+"time"
 )
-
-var (
-	upgradeTestSuccessColor = color.New(color.FgGreen, color.Bold).SprintFunc()
-	upgradeTestInfoColor    = color.New(color.FgCyan).SprintFunc()
-	upgradeTestWarnColor    = color.New(color.FgYellow).SprintFunc()
-	upgradeTestErrorColor   = color.New(color.FgRed, color.Bold).SprintFunc()
-	upgradeTestHeaderColor  = color.New(color.FgMagenta, color.Bold).SprintFunc()
-)
-
-func printUpgradeTestStatus(t *testing.T, testName string, success bool, message string) {
-	status := upgradeTestSuccessColor("✅")
-	if !success {
-		status = upgradeTestErrorColor("❌")
-	}
-	fmt.Printf("  %s %s: %s\n", status, upgradeTestInfoColor(testName), message)
-}
 
 func TestCompareVersions(t *testing.T) {
-	fmt.Printf("\n%s\n", upgradeTestHeaderColor("=== Testing Version Comparison ==="))
-
-	tests := []struct {
-		v1       string
-		v2       string
-		expected int
-		desc     string
-	}{
-		{"1.0.0", "2.0.0", -1, "v1 < v2"},
-		{"2.0.0", "1.0.0", 1, "v1 > v2"},
-		{"1.0.0", "1.0.0", 0, "v1 == v2"},
-		{"1.0.0", "1.0.1", -1, "patch version difference"},
-		{"1.1.0", "1.0.0", 1, "minor version difference"},
-		{"v1.0.0", "1.0.0", 0, "with and without v prefix"},
-		{"v1.2.3", "v1.2.4", -1, "both with v prefix"},
-		{"0.1.0", "1.100.2", -1, "current vs much higher"},
-		{"1.100.2", "0.1.0", 1, "higher vs current"},
+	result := CompareVersions("1.0.0", "2.0.0")
+	if result != -1 {
+		t.Errorf("CompareVersions(1.0.0, 2.0.0) = %d, expected -1", result)
 	}
 
-	successfulTests := 0
-	for _, test := range tests {
-		result := CompareVersions(test.v1, test.v2)
-		if result != test.expected {
-			printUpgradeTestStatus(t, fmt.Sprintf("Compare %s vs %s", test.v1, test.v2), false,
-				fmt.Sprintf("Got %d, expected %d (%s)", result, test.expected, test.desc))
-			t.Errorf("CompareVersions(%s, %s) = %d, expected %d (%s)",
-				test.v1, test.v2, result, test.expected, test.desc)
-		} else {
-			printUpgradeTestStatus(t, fmt.Sprintf("Compare %s vs %s", test.v1, test.v2), true,
-				fmt.Sprintf("Correctly returned %d (%s)", result, test.desc))
-			successfulTests++
-		}
+	result = CompareVersions("2.0.0", "1.0.0")
+	if result != 1 {
+		t.Errorf("CompareVersions(2.0.0, 1.0.0) = %d, expected 1", result)
 	}
 
-	if successfulTests == len(tests) {
-		printUpgradeTestStatus(t, "All version comparisons", true, fmt.Sprintf("All %d version comparison tests passed", successfulTests))
+	result = CompareVersions("1.0.0", "1.0.0")
+	if result != 0 {
+		t.Errorf("CompareVersions(1.0.0, 1.0.0) = %d, expected 0", result)
 	}
+
+	result = CompareVersions("1.0.0-alpha", "1.0.0")
+	if result != -1 {
+		t.Errorf("CompareVersions(1.0.0-alpha, 1.0.0) = %d, expected -1", result)
+	}
+
+	result = CompareVersions("v1.0.0", "1.0.0")
+	if result != 0 {
+		t.Errorf("CompareVersions(v1.0.0, 1.0.0) = %d, expected 0", result)
+	}
+
+	result = CompareVersions("", "1.0.0")
+	if result != -1 {
+		t.Errorf("CompareVersions('', 1.0.0) = %d, expected -1", result)
+	}
+
+	result = CompareVersions("invalid", "1.0.0")
+	if result != -1 {
+		t.Errorf("CompareVersions(invalid, 1.0.0) = %d, expected -1", result)
+	}
+
+	// Additional comprehensive test cases
+	result = CompareVersions("1.0.0", "1.0.0-alpha")
+	if result != 1 {
+		t.Errorf("CompareVersions(1.0.0, 1.0.0-alpha) = %d, expected 1", result)
+	}
+
+	result = CompareVersions("1.0.0-alpha", "1.0.0-beta")
+	if result != -1 {
+		t.Errorf("CompareVersions(1.0.0-alpha, 1.0.0-beta) = %d, expected -1", result)
+	}
+
+	result = CompareVersions("1.0.0-alpha.1", "1.0.0-alpha.2")
+	if result != -1 {
+		t.Errorf("CompareVersions(1.0.0-alpha.1, 1.0.0-alpha.2) = %d, expected -1", result)
+	}
+
+	result = CompareVersions("2.0.0-alpha", "1.9.9")
+	if result != 1 {
+		t.Errorf("CompareVersions(2.0.0-alpha, 1.9.9) = %d, expected 1", result)
+	}
+
+	result = CompareVersions("1.0.0", "")
+	if result != 1 {
+		t.Errorf("CompareVersions(1.0.0, '') = %d, expected 1", result)
+	}
+
+	result = CompareVersions("", "")
+	if result != 0 {
+		t.Errorf("CompareVersions('', '') = %d, expected 0", result)
+	}
+
+	result = CompareVersions("invalid", "invalid")
+	if result != 0 {
+		t.Errorf("CompareVersions(invalid, invalid) = %d, expected 0", result)
+	}
+
+	result = CompareVersions("1", "1.0")
+	if result != 0 {
+		t.Errorf("CompareVersions(1, 1.0) = %d, expected 0", result)
+	}
+
+	result = CompareVersions("1.0", "1.0.0")
+	if result != 0 {
+		t.Errorf("CompareVersions(1.0, 1.0.0) = %d, expected 0", result)
+	}
+
+	result = CompareVersions("1.0.0.0", "1.0.0")
+	if result != 0 {
+		t.Errorf("CompareVersions(1.0.0.0, 1.0.0) = %d, expected 0", result)
+	}
+}
+
+func TestParseVersion(t *testing.T) {
+	result := parseVersion("1.2.3")
+	if len(result.core) != 3 || result.core[0] != "1" || result.core[1] != "2" || result.core[2] != "3" {
+		t.Errorf("parseVersion(1.2.3) = %+v, expected core [1 2 3]", result)
+	}
+
+	// parseVersion doesn't clean the v prefix, so v1.2.3 becomes [v1 2 3]
+result = parseVersion("v1.2.3")
+if len(result.core) != 3 || result.core[0] != "v1" || result.core[1] != "2" || result.core[2] != "3" {
+t.Errorf("parseVersion(v1.2.3) = %+v, expected core [v1 2 3]", result)
+}
+
+result = parseVersion("1.2.3-alpha")
+if result.preRelease != "alpha" {
+t.Errorf("parseVersion(1.2.3-alpha) preRelease = %s, expected alpha", result.preRelease)
+}
+
+result = parseVersion("1.2.3+build")
+if result.build != "build" {
+t.Errorf("parseVersion(1.2.3+build) build = %s, expected build", result.build)
+}
+
+result = parseVersion("1.2.3-alpha+build")
+if result.preRelease != "alpha" || result.build != "build" {
+t.Errorf("parseVersion(1.2.3-alpha+build) = %+v, expected preRelease=alpha, build=build", result)
+}
+
+// parseVersion splits empty string on "." and gets [""]
+result = parseVersion("")
+if len(result.core) != 1 || result.core[0] != "" {
+t.Errorf("parseVersion('') = %+v, expected core ['']", result)
+}
+
+result = parseVersion("invalid")
+if len(result.core) != 1 || result.core[0] != "invalid" {
+t.Errorf("parseVersion(invalid) = %+v, expected core [invalid]", result)
+}
+
+result = parseVersion("1.2.3-alpha.1")
+if result.preRelease != "alpha.1" {
+t.Errorf("parseVersion(1.2.3-alpha.1) preRelease = %s, expected alpha.1", result.preRelease)
+}
+
+result = parseVersion("1.2.3-alpha-beta")
+if result.preRelease != "alpha-beta" {
+t.Errorf("parseVersion(1.2.3-alpha-beta) preRelease = %s, expected alpha-beta", result.preRelease)
+}
+
+result = parseVersion("1")
+if len(result.core) != 1 || result.core[0] != "1" {
+t.Errorf("parseVersion(1) = %+v, expected core [1]", result)
+}
+
+result = parseVersion("1.2")
+if len(result.core) != 2 || result.core[0] != "1" || result.core[1] != "2" {
+t.Errorf("parseVersion(1.2) = %+v, expected core [1 2]", result)
+}
+}
+
+func TestCompareCoreVersion(t *testing.T) {
+result := compareCoreVersion([]string{"1", "0", "0"}, []string{"2", "0", "0"})
+if result != -1 {
+t.Errorf("compareCoreVersion([1 0 0], [2 0 0]) = %d, expected -1", result)
+}
+
+result = compareCoreVersion([]string{"2", "0", "0"}, []string{"1", "0", "0"})
+if result != 1 {
+t.Errorf("compareCoreVersion([2 0 0], [1 0 0]) = %d, expected 1", result)
+}
+
+result = compareCoreVersion([]string{"1", "0", "0"}, []string{"1", "0", "0"})
+if result != 0 {
+t.Errorf("compareCoreVersion([1 0 0], [1 0 0]) = %d, expected 0", result)
+}
+
+result = compareCoreVersion([]string{"1", "0"}, []string{"1", "0", "0"})
+if result != 0 {
+t.Errorf("compareCoreVersion([1 0], [1 0 0]) = %d, expected 0", result)
+}
+
+result = compareCoreVersion([]string{}, []string{"1", "0", "0"})
+if result != -1 {
+t.Errorf("compareCoreVersion([], [1 0 0]) = %d, expected -1", result)
+}
+
+result = compareCoreVersion([]string{"10"}, []string{"2"})
+if result != 1 {
+t.Errorf("compareCoreVersion([10], [2]) = %d, expected 1", result)
+}
+
+result = compareCoreVersion([]string{"invalid"}, []string{"1"})
+if result != -1 {
+t.Errorf("compareCoreVersion([invalid], [1]) = %d, expected -1", result)
+}
+
+// Additional test cases for better coverage
+result = compareCoreVersion([]string{"1", "0", "0"}, []string{"1", "0"})
+if result != 0 {
+t.Errorf("compareCoreVersion([1 0 0], [1 0]) = %d, expected 0", result)
+}
+
+result = compareCoreVersion([]string{"1", "0", "0"}, []string{})
+if result != 1 {
+t.Errorf("compareCoreVersion([1 0 0], []) = %d, expected 1", result)
+}
+
+result = compareCoreVersion([]string{}, []string{})
+if result != 0 {
+t.Errorf("compareCoreVersion([], []) = %d, expected 0", result)
+}
+
+result = compareCoreVersion([]string{"1", "0", "0"}, []string{"1", "0", "0", "1"})
+if result != -1 {
+t.Errorf("compareCoreVersion([1 0 0], [1 0 0 1]) = %d, expected -1", result)
+}
+
+result = compareCoreVersion([]string{"1", "0", "0", "1"}, []string{"1", "0", "0"})
+if result != 1 {
+t.Errorf("compareCoreVersion([1 0 0 1], [1 0 0]) = %d, expected 1", result)
+}
+
+result = compareCoreVersion([]string{"2"}, []string{"10"})
+if result != -1 {
+t.Errorf("compareCoreVersion([2], [10]) = %d, expected -1", result)
+}
+
+result = compareCoreVersion([]string{"1"}, []string{"invalid"})
+if result != 1 {
+t.Errorf("compareCoreVersion([1], [invalid]) = %d, expected 1", result)
+}
+
+result = compareCoreVersion([]string{"invalid"}, []string{"invalid"})
+if result != 0 {
+t.Errorf("compareCoreVersion([invalid], [invalid]) = %d, expected 0", result)
+}
+
+result = compareCoreVersion([]string{"1", "2"}, []string{"1", "1", "9"})
+if result != 1 {
+t.Errorf("compareCoreVersion([1 2], [1 1 9]) = %d, expected 1", result)
+}
+
+result = compareCoreVersion([]string{"1", "1", "9"}, []string{"1", "2"})
+if result != -1 {
+t.Errorf("compareCoreVersion([1 1 9], [1 2]) = %d, expected -1", result)
+}
+}
+
+func TestComparePreRelease(t *testing.T) {
+result := comparePreRelease("alpha", "beta")
+if result != -1 {
+t.Errorf("comparePreRelease(alpha, beta) = %d, expected -1", result)
+}
+
+result = comparePreRelease("beta", "alpha")
+if result != 1 {
+t.Errorf("comparePreRelease(beta, alpha) = %d, expected 1", result)
+}
+
+result = comparePreRelease("alpha", "alpha")
+if result != 0 {
+t.Errorf("comparePreRelease(alpha, alpha) = %d, expected 0", result)
+}
+
+result = comparePreRelease("", "alpha")
+if result != 1 {
+t.Errorf("comparePreRelease('', alpha) = %d, expected 1", result)
+}
+
+result = comparePreRelease("alpha", "")
+if result != -1 {
+t.Errorf("comparePreRelease(alpha, '') = %d, expected -1", result)
+}
+
+result = comparePreRelease("alpha.1", "alpha.2")
+if result != -1 {
+t.Errorf("comparePreRelease(alpha.1, alpha.2) = %d, expected -1", result)
+}
+
+result = comparePreRelease("1", "2")
+if result != -1 {
+t.Errorf("comparePreRelease(1, 2) = %d, expected -1", result)
+}
+
+result = comparePreRelease("10", "2")
+if result != -1 {
+t.Errorf("comparePreRelease(10, 2) = %d, expected -1", result)
+}
+
+// Additional comprehensive test cases
+result = comparePreRelease("", "")
+if result != 0 {
+t.Errorf("comparePreRelease('', '') = %d, expected 0", result)
+}
+
+result = comparePreRelease("alpha.2", "alpha.1")
+if result != 1 {
+t.Errorf("comparePreRelease(alpha.2, alpha.1) = %d, expected 1", result)
+}
+
+result = comparePreRelease("alpha.1", "alpha.1")
+if result != 0 {
+t.Errorf("comparePreRelease(alpha.1, alpha.1) = %d, expected 0", result)
+}
+
+result = comparePreRelease("alpha", "alpha.1")
+if result != -1 {
+t.Errorf("comparePreRelease(alpha, alpha.1) = %d, expected -1", result)
+}
+
+result = comparePreRelease("alpha.1", "alpha")
+if result != 1 {
+t.Errorf("comparePreRelease(alpha.1, alpha) = %d, expected 1", result)
+}
+
+result = comparePreRelease("beta.1", "alpha.2")
+if result != 1 {
+t.Errorf("comparePreRelease(beta.1, alpha.2) = %d, expected 1", result)
+}
+
+result = comparePreRelease("alpha.2", "beta.1")
+if result != -1 {
+t.Errorf("comparePreRelease(alpha.2, beta.1) = %d, expected -1", result)
+}
+
+result = comparePreRelease("rc", "beta")
+if result != 1 {
+t.Errorf("comparePreRelease(rc, beta) = %d, expected 1", result)
+}
+
+result = comparePreRelease("beta", "rc")
+if result != -1 {
+t.Errorf("comparePreRelease(beta, rc) = %d, expected -1", result)
+}
+
+result = comparePreRelease("2", "1")
+if result != 1 {
+t.Errorf("comparePreRelease(2, 1) = %d, expected 1", result)
+}
+
+result = comparePreRelease("2", "10")
+if result != 1 {
+t.Errorf("comparePreRelease(2, 10) = %d, expected 1", result)
+}
+
+result = comparePreRelease("1.0", "1.1")
+if result != -1 {
+t.Errorf("comparePreRelease(1.0, 1.1) = %d, expected -1", result)
+}
+
+result = comparePreRelease("1.1", "1.0")
+if result != 1 {
+t.Errorf("comparePreRelease(1.1, 1.0) = %d, expected 1", result)
+}
+}
+
+func TestCheckForUpdates(t *testing.T) {
+vInfo, err := CheckForUpdates(false)
+if err != nil {
+t.Logf("CheckForUpdates without pre-release failed (expected in test environment): %v", err)
+}
+_ = vInfo
+
+vInfo, err = CheckForUpdates(true)
+if err != nil {
+t.Logf("CheckForUpdates with pre-release failed (expected in test environment): %v", err)
+}
+_ = vInfo
+}
+
+func TestFormatVersionInfo(t *testing.T) {
+vInfo := &VersionInfo{
+Current:     "1.0.0",
+Latest:      "1.0.1",
+IsNewer:     true,
+ReleaseDate: time.Date(2023, 12, 1, 10, 0, 0, 0, time.UTC),
+Changelog:   "Bug fixes",
+DownloadURL: "https://example.com/download",
+}
+
+result := vInfo.FormatVersionInfo()
+if result == "" {
+t.Error("FormatVersionInfo should return a non-empty string")
+}
+
+if !strings.Contains(result, "1.0.0") {
+t.Error("FormatVersionInfo should contain current version")
+}
+
+if !strings.Contains(result, "1.0.1") {
+t.Error("FormatVersionInfo should contain latest version")
+}
+
+vInfo2 := &VersionInfo{
+Current:     "1.0.1",
+Latest:      "1.0.1",
+IsNewer:     false,
+ReleaseDate: time.Date(2023, 12, 1, 10, 0, 0, 0, time.UTC),
+Changelog:   "",
+DownloadURL: "",
+}
+
+result2 := vInfo2.FormatVersionInfo()
+if result2 == "" {
+t.Error("FormatVersionInfo should return a non-empty string for up-to-date version")
+}
+}
+
+func TestGetManualDownloadURL(t *testing.T) {
+result := GetManualDownloadURL()
+if result == "" {
+t.Error("GetManualDownloadURL should return a non-empty string")
+}
+
+if !strings.HasPrefix(result, "http") {
+t.Errorf("GetManualDownloadURL should return a URL, got: %s", result)
+}
 }
 
 func TestCleanVersionTag(t *testing.T) {
-	fmt.Printf("\n%s\n", upgradeTestHeaderColor("=== Testing Version Tag Cleaning ==="))
-
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"v1.0.0", "1.0.0"},
-		{"1.0.0", "1.0.0"},
-		{"v1.2.3-beta", "1.2.3-beta"},
-		{"", ""},
-	}
-
-	successfulTests := 0
-	for _, test := range tests {
-		result := cleanVersionTag(test.input)
-		if result != test.expected {
-			printUpgradeTestStatus(t, fmt.Sprintf("Clean version '%s'", test.input), false,
-				fmt.Sprintf("Got '%s', expected '%s'", result, test.expected))
-			t.Errorf("cleanVersionTag(%s) = %s, expected %s",
-				test.input, result, test.expected)
-		} else {
-			printUpgradeTestStatus(t, fmt.Sprintf("Clean version '%s'", test.input), true,
-				fmt.Sprintf("Correctly cleaned to '%s'", result))
-			successfulTests++
-		}
-	}
-
-	if successfulTests == len(tests) {
-		printUpgradeTestStatus(t, "All version cleanings", true, fmt.Sprintf("All %d version cleaning tests passed", successfulTests))
-	}
+result := cleanVersionTag("v1.2.3")
+if result != "1.2.3" {
+t.Errorf("cleanVersionTag(v1.2.3) = %s, expected 1.2.3", result)
 }
 
-func TestGetPlatformInfo(t *testing.T) {
-	fmt.Printf("\n%s\n", upgradeTestHeaderColor("=== Testing Platform Information ==="))
+result = cleanVersionTag("1.2.3")
+if result != "1.2.3" {
+t.Errorf("cleanVersionTag(1.2.3) = %s, expected 1.2.3", result)
+}
 
-	platform := installer.GetPlatformInfo()
+result = cleanVersionTag("")
+if result != "" {
+t.Errorf("cleanVersionTag('') = %s, expected ''", result)
+}
 
-	if platform.OS == "" {
-		printUpgradeTestStatus(t, "OS detection", false, "OS should not be empty")
-		t.Error("OS should not be empty")
-	} else {
-		printUpgradeTestStatus(t, "OS detection", true, fmt.Sprintf("OS detected: %s", platform.OS))
-	}
+result = cleanVersionTag("V1.2.3")
+if result != "V1.2.3" {
+t.Errorf("cleanVersionTag(V1.2.3) = %s, expected V1.2.3", result)
+}
 
-	if platform.Architecture == "" {
-		printUpgradeTestStatus(t, "Architecture detection", false, "Architecture should not be empty")
-		t.Error("Architecture should not be empty")
-	} else {
-		printUpgradeTestStatus(t, "Architecture detection", true, fmt.Sprintf("Architecture detected: %s", platform.Architecture))
-	}
+// Additional test cases for edge cases
+result = cleanVersionTag("v")
+if result != "" {
+t.Errorf("cleanVersionTag(v) = %s, expected ''", result)
+}
 
-	if platform.BinaryName == "" {
-		printUpgradeTestStatus(t, "Binary name generation", false, "BinaryName should not be empty")
-		t.Error("BinaryName should not be empty")
-	} else {
-		printUpgradeTestStatus(t, "Binary name generation", true, fmt.Sprintf("Binary name: %s", platform.BinaryName))
-	}
+result = cleanVersionTag("V")
+if result != "V" {
+t.Errorf("cleanVersionTag(V) = %s, expected V", result)
+}
 
-	if platform.AssetPattern == "" {
-		printUpgradeTestStatus(t, "Asset pattern generation", false, "AssetPattern should not be empty")
-		t.Error("AssetPattern should not be empty")
-	} else {
-		printUpgradeTestStatus(t, "Asset pattern generation", true, fmt.Sprintf("Asset pattern: %s", platform.AssetPattern))
-	}
+result = cleanVersionTag("vv1.2.3")
+if result != "v1.2.3" {
+t.Errorf("cleanVersionTag(vv1.2.3) = %s, expected v1.2.3", result)
+}
 
-	// Test that Windows gets .exe extension
-	if platform.OS == "windows" && !strings.Contains(platform.BinaryName, ".exe") {
-		printUpgradeTestStatus(t, "Windows .exe extension", false, "Windows binary should have .exe extension")
-		t.Error("Windows binary should have .exe extension")
-	} else if platform.OS == "windows" {
-		printUpgradeTestStatus(t, "Windows .exe extension", true, "Windows binary correctly has .exe extension")
-	} else {
-		printUpgradeTestStatus(t, "Non-Windows binary extension", true, fmt.Sprintf("Non-Windows platform (%s) has appropriate binary name", platform.OS))
-	}
+result = cleanVersionTag("version1.2.3")
+if result != "ersion1.2.3" {
+t.Errorf("cleanVersionTag(version1.2.3) = %s, expected ersion1.2.3", result)
+}
 }

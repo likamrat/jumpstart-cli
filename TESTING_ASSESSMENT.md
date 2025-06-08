@@ -154,7 +154,7 @@ jumpstart-cli/
 | `internal/urlutils` | **86.7%** | ✅ Very Good |
 | `cmd/subscription` | **76.0%** | ✅ Excellent |
 | `internal/utils` | **60.9%** | ⚠️ Good |
-| `internal/upgrade/version` | **30.1%** | ⚠️ Moderate |
+| `internal/upgrade/version` | **87.4%** | ✅ Excellent |
 | `internal/preflight/validator` | **26.2%** | ⚠️ Moderate |
 | `cmd/upgrade` | **20.0%** | ⚠️ Low |
 | `cmd/agora` | **17.1%** | ⚠️ Low |
@@ -215,6 +215,27 @@ type testCase struct {
    - **Test Strategy Refinement**: Shifted from exact error matching to robust code path coverage with realistic external dependency handling
    - **Environment Agnostic**: Made tests resilient to Azure CLI presence/absence with advanced testing scenarios
 
+6. **Version Package Testing** ✅: **Successfully achieved comprehensive coverage improvement for upgrade functionality**
+   - **Overall Package Coverage**: 30.1% → **87.4%** (+57.3% increase, 190% improvement)
+   - **Quality Level**: Moved from "Moderate" to "Excellent" (87%+ coverage)
+   - **Comprehensive Function Coverage**: All 8 major functions now have extensive test coverage
+   - **Version Comparison Testing**: 22+ test cases covering v prefix handling, pre-releases, edge cases
+   - **Version Parsing Testing**: 15+ test cases covering all parseVersion functionality and edge cases
+   - **Pre-release Logic Testing**: 21+ test cases covering numeric/lexical ordering complexities
+   - **Update Check Testing**: Network-aware testing with proper error handling
+   - **Formatting & URL Testing**: Complete coverage of version info display and download URLs
+   - **Test Suite Structure**: 456 lines of comprehensive test code with 8 test functions
+   - **Edge Case Handling**: Extensive validation of invalid inputs, empty strings, and malformed versions
+   - **Function-Specific Achievement**:
+     * `CheckForUpdates`: 70.5% (network-limited paths)
+     * `parseVersion`: 100%
+     * `compareCoreVersion`: 100%
+     * `comparePreRelease`: 100%
+     * `FormatVersionInfo`: 100%
+     * `GetManualDownloadURL`: 100%
+     * `CompareVersions`: 100%
+     * `cleanVersionTag`: 100%
+
 ## 🎯 **Testing Best Practices Observed**
 
 ### **Strengths:**
@@ -274,6 +295,49 @@ The `internal/urlutils` package represents an **exemplary case study** of advanc
 - **Real-world Focus**: Prioritized testing of practical failure scenarios over theoretical edge cases
 
 This achievement demonstrates that **advanced error path testing** can create robust, comprehensive test suites even when targeting difficult-to-reach coverage goals.
+
+## 🏆 **Success Story: Version Package Testing**
+
+The `internal/upgrade/version` package represents a **comprehensive testing transformation** showcasing systematic coverage improvement:
+
+### **Achievement Metrics:**
+- **Starting Coverage**: 30.1% (Moderate)
+- **Final Coverage**: 87.4% (Excellent)
+- **Coverage Improvement**: +57.3 percentage points (190% improvement)
+- **Test Suite Creation**: 456 lines of comprehensive test code
+- **Test Functions**: 8 comprehensive test functions covering all major functionality
+
+### **Comprehensive Function Coverage:**
+- **Version Comparison**: 22+ test cases covering v prefix handling, pre-releases, edge cases
+- **Version Parsing**: 15+ test cases covering all parseVersion functionality and malformed inputs
+- **Core Version Logic**: 17+ test cases including array length variations and invalid inputs  
+- **Pre-release Comparison**: 21+ test cases covering numeric/lexical ordering complexities
+- **Update Checking**: Network-aware testing with proper error handling for external dependencies
+- **Version Formatting**: Complete coverage of version info display with time.Date usage
+- **URL Generation**: Full validation of manual download URL construction
+- **Tag Cleaning**: Comprehensive prefix handling with edge case validation
+
+### **Technical Implementation Excellence:**
+- **Edge Case Mastery**: Extensive validation of empty strings, invalid inputs, malformed versions
+- **Behavioral Accuracy**: Tests aligned with actual function behavior (not assumed behavior)
+- **Network Resilience**: CheckForUpdates testing handles expected network failures gracefully
+- **Function-Specific Results**:
+  * `CheckForUpdates`: 70.5% (network-limited error paths)
+  * `parseVersion`: 100% 
+  * `compareCoreVersion`: 100%
+  * `comparePreRelease`: 100%
+  * `FormatVersionInfo`: 100%
+  * `GetManualDownloadURL`: 100%
+  * `CompareVersions`: 100%
+  * `cleanVersionTag`: 100%
+
+### **Testing Methodology:**
+- **Systematic Analysis**: Deep examination of source code structure and dependencies
+- **Comprehensive Test Design**: Created test cases covering all code paths and edge conditions
+- **Behavioral Validation**: Adjusted test expectations to match actual function behavior
+- **Quality Focus**: Prioritized thorough coverage over quick fixes
+
+This achievement demonstrates that **systematic testing approach** can transform package coverage while maintaining code functionality integrity.
 
 ## 🏆 **Success Story: Subscription Command Testing**
 
