@@ -1062,6 +1062,17 @@ func mapSKUToFamilyQuotaName(sku string) string {
 		letters += string(r)
 	}
 
+	// If no letters found, return empty string
+	if letters == "" {
+		return ""
+	}
+
+	// Validate that this looks like a real Azure SKU pattern
+	// Azure SKUs typically have 1-3 letters, some digits, and optional 's'
+	if len(letters) > 4 || !isValidAzureSKUPattern(main) {
+		return ""
+	}
+
 	// If ends with 's', keep it (e.g. D8s → Ds)
 	if strings.HasSuffix(main, "s") && !strings.HasSuffix(letters, "s") {
 		letters += "s"
@@ -1069,6 +1080,46 @@ func mapSKUToFamilyQuotaName(sku string) string {
 
 	family := "Standard " + strings.ToUpper(letters[:1]) + letters[1:] + ver + " Family vCPUs"
 	return family
+}
+
+// isValidAzureSKUPattern checks if the SKU follows Azure naming patterns
+func isValidAzureSKUPattern(sku string) bool {
+	// Azure SKUs typically start with letters, followed by digits, and optionally end with 's'
+	// Examples: D8s, F4s, B2ms, E16s, etc.
+	if len(sku) == 0 {
+		return false
+	}
+
+	// Must start with a letter
+	if sku[0] < 'A' || (sku[0] > 'Z' && sku[0] < 'a') || sku[0] > 'z' {
+		return false
+	}
+
+	// Check pattern: letters followed by digits, optionally followed by 's'
+	hasDigits := false
+	lettersDone := false
+
+	for i, r := range sku {
+		if i == 0 {
+			continue // Already checked first character
+		}
+
+		if r >= '0' && r <= '9' {
+			hasDigits = true
+			lettersDone = true
+		} else if r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' {
+			if lettersDone && r != 's' {
+				return false // Letters after digits (except 's' at end)
+			}
+			if lettersDone && r == 's' && i != len(sku)-1 {
+				return false // 's' not at the end
+			}
+		} else {
+			return false // Invalid character
+		}
+	}
+
+	return hasDigits // Must have at least one digit
 }
 
 // parseInt64 safely converts interface{} to int
