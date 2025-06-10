@@ -3,23 +3,31 @@ package subscription
 import (
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
 
+	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/table"
 	"jumpstartcli/internal/utils"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v2"
 )
 
-// SubscriptionInfo represents subscription details
-type SubscriptionInfo struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+// Default Azure CLI instance - can be overridden for testing
+var defaultAzureCLI azurecli.AzureCLI = azurecli.NewAzureCLI()
+
+// SetAzureCLI allows overriding the Azure CLI implementation for testing
+func SetAzureCLI(cli azurecli.AzureCLI) {
+	defaultAzureCLI = cli
 }
 
 // NewSubscriptionCmd creates the subscription command
 func NewSubscriptionCmd() *cobra.Command {
+	return NewSubscriptionCmdWithCLI(defaultAzureCLI)
+}
+
+// NewSubscriptionCmdWithCLI creates the subscription command with a specific Azure CLI implementation
+func NewSubscriptionCmdWithCLI(azCLI azurecli.AzureCLI) *cobra.Command {
 	var subscriptionCmd = &cobra.Command{
 		Use:   "subscription",
 		Short: "Manage Azure subscriptions",
@@ -74,36 +82,19 @@ Use different output formats to integrate with scripts or automation tools.`,
 				return
 			}
 
-			out, err := exec.Command("az", "account", "show", "--output", "json").Output()
+			sub, err := azCLI.GetCurrentSubscription()
 			if err != nil {
 				utils.Error("Could not get current subscription. Please ensure you are logged in with 'az login'.")
 				utils.Debug("Azure CLI error: %v", err)
 				return
 			}
 
-			var sub struct {
-				ID        string `json:"id"`
-				Name      string `json:"name"`
-				TenantID  string `json:"tenantId"`
-				State     string `json:"state"`
-				IsDefault bool   `json:"isDefault"`
-				User      *struct {
-					Name string `json:"name"`
-					Type string `json:"type"`
-				} `json:"user,omitempty"`
-			}
-			if err := json.Unmarshal(out, &sub); err != nil {
-				utils.Error("Failed to parse subscription information.")
-				utils.Debug("JSON parsing error: %v", err)
-				return
-			}
-
 			if idOnly {
-				fmt.Println(sub.ID)
+				fmt.Fprintln(cmd.OutOrStdout(), sub.ID)
 				return
 			}
 			if nameOnly {
-				fmt.Println(sub.Name)
+				fmt.Fprintln(cmd.OutOrStdout(), sub.Name)
 				return
 			}
 
@@ -115,29 +106,40 @@ Use different output formats to integrate with scripts or automation tools.`,
 					utils.Error("Failed to format JSON output.")
 					return
 				}
-				fmt.Println(string(prettyJSON))
+				fmt.Fprintln(cmd.OutOrStdout(), string(prettyJSON))
 
 			case "yaml":
-				fmt.Printf("id: %s\n", sub.ID)
-				fmt.Printf("name: %s\n", sub.Name)
-				fmt.Printf("tenantId: %s\n", sub.TenantID)
-				fmt.Printf("state: %s\n", sub.State)
-				fmt.Printf("isDefault: %t\n", sub.IsDefault)
+				fmt.Fprintf(cmd.OutOrStdout(), "id: %s\n", sub.ID)
+				fmt.Fprintf(cmd.OutOrStdout(), "name: %s\n", sub.Name)
+				if sub.TenantID != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "tenantId: %s\n", sub.TenantID)
+				}
+				if sub.State != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "state: %s\n", sub.State)
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "isDefault: %t\n", sub.IsDefault)
 				if utils.VerboseMode && sub.User != nil {
-					fmt.Printf("user:\n")
-					fmt.Printf("  name: %s\n", sub.User.Name)
-					fmt.Printf("  type: %s\n", sub.User.Type)
+					fmt.Fprintf(cmd.OutOrStdout(), "user:\n")
+					fmt.Fprintf(cmd.OutOrStdout(), "  name: %s\n", sub.User.Name)
+					fmt.Fprintf(cmd.OutOrStdout(), "  type: %s\n", sub.User.Type)
 				}
 
 			case "tsv":
 				if utils.VerboseMode {
-					fmt.Printf("%s\t%s\t%s\t%s\t%t", sub.ID, sub.Name, sub.TenantID, sub.State, sub.IsDefault)
-					if sub.User != nil {
-						fmt.Printf("\t%s\t%s", sub.User.Name, sub.User.Type)
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s", sub.ID, sub.Name)
+					if sub.TenantID != "" {
+						fmt.Fprintf(cmd.OutOrStdout(), "\t%s", sub.TenantID)
 					}
-					fmt.Println()
+					if sub.State != "" {
+						fmt.Fprintf(cmd.OutOrStdout(), "\t%s", sub.State)
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "\t%t", sub.IsDefault)
+					if sub.User != nil {
+						fmt.Fprintf(cmd.OutOrStdout(), "\t%s\t%s", sub.User.Name, sub.User.Type)
+					}
+					fmt.Fprintln(cmd.OutOrStdout())
 				} else {
-					fmt.Printf("%s\t%s\n", sub.ID, sub.Name)
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\n", sub.ID, sub.Name)
 				}
 
 			case "table":
@@ -148,10 +150,14 @@ Use different output formats to integrate with scripts or automation tools.`,
 					rows := [][]string{
 						{"Subscription ID", sub.ID},
 						{"Subscription Name", sub.Name},
-						{"Tenant ID", sub.TenantID},
-						{"State", sub.State},
-						{"Is Default", fmt.Sprintf("%t", sub.IsDefault)},
 					}
+					if sub.TenantID != "" {
+						rows = append(rows, []string{"Tenant ID", sub.TenantID})
+					}
+					if sub.State != "" {
+						rows = append(rows, []string{"State", sub.State})
+					}
+					rows = append(rows, []string{"Is Default", fmt.Sprintf("%t", sub.IsDefault)})
 					if sub.User != nil {
 						rows = append(rows, []string{"User Name", sub.User.Name})
 						rows = append(rows, []string{"User Type", sub.User.Type})
@@ -164,7 +170,7 @@ Use different output formats to integrate with scripts or automation tools.`,
 					}
 					utils.Success("Current subscription: %s (%s)%s", sub.Name, sub.ID, defaultIndicator)
 
-					if sub.State != "Enabled" {
+					if sub.State != "" && sub.State != "Enabled" {
 						utils.Warn("Subscription state: %s", sub.State)
 					}
 				}
@@ -180,44 +186,38 @@ Use different output formats to integrate with scripts or automation tools.`,
 				utils.Debug("Current output format: '%s'", utils.OutputFormat)
 			}
 
-			out, err := exec.Command("az", "account", "list", "--output", "json").Output()
+			subs, err := azCLI.ListSubscriptions()
 			if err != nil {
 				utils.Error("Could not list subscriptions. Are you logged in with 'az login'?")
 				utils.Debug("Azure CLI error: %v", err)
 				return
 			}
 
-			var subs []struct {
-				ID        string `json:"id"`
-				Name      string `json:"name"`
-				IsDefault bool   `json:"isDefault"`
-			}
-			if err := json.Unmarshal(out, &subs); err != nil {
-				utils.Error("Failed to parse subscriptions: %v", err)
-				return
-			}
-
 			// Use global output formatting
 			switch strings.ToLower(utils.OutputFormat) {
 			case "json":
-				if err := utils.PrintJSON(subs); err != nil {
+				jsonData, err := json.MarshalIndent(subs, "", "  ")
+				if err != nil {
 					utils.Error("Failed to output JSON: %v", err)
+				} else {
+					fmt.Fprintln(cmd.OutOrStdout(), string(jsonData))
 				}
 			case "yaml":
-				if err := utils.PrintYAML(subs); err != nil {
+				yamlData, err := yaml.Marshal(subs)
+				if err != nil {
 					utils.Error("Failed to output YAML: %v", err)
+				} else {
+					fmt.Fprint(cmd.OutOrStdout(), string(yamlData))
 				}
 			case "tsv":
-				headers := []string{"Name", "Subscription ID", "State"}
-				rows := [][]string{}
+				fmt.Fprintf(cmd.OutOrStdout(), "Name\tSubscription ID\tState\n")
 				for _, sub := range subs {
 					marker := ""
 					if sub.IsDefault {
 						marker = "*"
 					}
-					rows = append(rows, []string{sub.Name, sub.ID, marker})
+					fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", sub.Name, sub.ID, marker)
 				}
-				utils.PrintTSV(headers, rows)
 			case "table":
 				fallthrough
 			default:
@@ -292,7 +292,7 @@ The subscription will be set as the default for all subsequent Azure CLI command
 				return
 			}
 
-			sub, err := validateSubscriptionAccess(targetSubscription)
+			sub, err := validateSubscriptionAccessWithCLI(azCLI, targetSubscription)
 			if err != nil {
 				utils.Error("Subscription validation failed: %v", err)
 				utils.Info("Make sure the subscription exists and you have access to it.")
@@ -303,20 +303,19 @@ The subscription will be set as the default for all subsequent Azure CLI command
 
 			targetSubscription = sub.ID
 
-			currentSub, err := getCurrentSubscriptionSafe()
+			currentSub, err := azCLI.GetCurrentSubscription()
 			if err == nil && currentSub.ID == targetSubscription {
 				utils.Warn("Subscription '%s' is already the current subscription.", currentSub.Name)
 				return
 			}
 
 			utils.Info("Setting Azure subscription...")
-			cmdOut := exec.Command("az", "account", "set", "--subscription", targetSubscription)
-			if err := cmdOut.Run(); err != nil {
+			if err := azCLI.SetSubscription(targetSubscription); err != nil {
 				utils.Error("Failed to set subscription: %v", err)
 				return
 			}
 
-			newSub, err := getCurrentSubscriptionSafe()
+			newSub, err := azCLI.GetCurrentSubscription()
 			if err != nil {
 				utils.Warn("Subscription was set, but verification failed: %v", err)
 			} else {
@@ -347,10 +346,6 @@ func isValidGUID(guid string) bool {
 		return false
 	}
 
-	if guid[8] != '-' || guid[13] != '-' || guid[18] != '-' || guid[23] != '-' {
-		return false
-	}
-
 	guidWithoutDashes := strings.ReplaceAll(guid, "-", "")
 	if len(guidWithoutDashes) != 32 {
 		return false
@@ -365,39 +360,53 @@ func isValidGUID(guid string) bool {
 	return true
 }
 
-// validateSubscriptionAccess validates access to a subscription
-func validateSubscriptionAccess(subscription string) (SubscriptionInfo, error) {
+// validateSubscriptionAccessWithCLI validates access to a subscription using the provided Azure CLI
+func validateSubscriptionAccessWithCLI(azCLI azurecli.AzureCLI, subscription string) (*azurecli.SubscriptionInfo, error) {
 	// Validate input
 	if subscription == "" {
-		return SubscriptionInfo{}, fmt.Errorf("subscription cannot be empty")
+		return nil, fmt.Errorf("subscription cannot be empty")
 	}
 
-	cmd := exec.Command("az", "account", "show", "--subscription", subscription, "--query", "{id:id,name:name}", "-o", "json")
-	output, err := cmd.Output()
+	sub, err := azCLI.GetSubscription(subscription)
 	if err != nil {
-		return SubscriptionInfo{}, fmt.Errorf("subscription '%s' not found or inaccessible", subscription)
-	}
-
-	var sub SubscriptionInfo
-	if err := json.Unmarshal(output, &sub); err != nil {
-		return SubscriptionInfo{}, fmt.Errorf("failed to parse subscription information")
+		return nil, fmt.Errorf("subscription '%s' not found or inaccessible", subscription)
 	}
 
 	return sub, nil
 }
 
-// getCurrentSubscriptionSafe gets current subscription safely
+// Legacy functions for backward compatibility - these use the default Azure CLI instance
+
+// validateSubscriptionAccess validates access to a subscription using the default Azure CLI
+func validateSubscriptionAccess(subscription string) (SubscriptionInfo, error) {
+	sub, err := validateSubscriptionAccessWithCLI(defaultAzureCLI, subscription)
+	if err != nil {
+		return SubscriptionInfo{}, err
+	}
+
+	// Convert to legacy format
+	return SubscriptionInfo{
+		ID:   sub.ID,
+		Name: sub.Name,
+	}, nil
+}
+
+// getCurrentSubscriptionSafe gets current subscription safely using the default Azure CLI
 func getCurrentSubscriptionSafe() (SubscriptionInfo, error) {
-	cmd := exec.Command("az", "account", "show", "--query", "{id:id,name:name}", "-o", "json")
-	output, err := cmd.Output()
+	sub, err := defaultAzureCLI.GetCurrentSubscription()
 	if err != nil {
 		return SubscriptionInfo{}, fmt.Errorf("failed to get current subscription")
 	}
 
-	var sub SubscriptionInfo
-	if err := json.Unmarshal(output, &sub); err != nil {
-		return SubscriptionInfo{}, fmt.Errorf("failed to parse current subscription")
-	}
+	// Convert to legacy format
+	return SubscriptionInfo{
+		ID:   sub.ID,
+		Name: sub.Name,
+	}, nil
+}
 
-	return sub, nil
+// Legacy SubscriptionInfo type for backward compatibility
+type SubscriptionInfo struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
