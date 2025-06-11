@@ -13,27 +13,88 @@ type MockAzureCLI struct {
 	// Mock data
 	CurrentSubscription *SubscriptionInfo
 	Subscriptions       []SubscriptionInfo
+	VMUsages            map[string][]VMUsageInfo // region -> usage data
+	VMSKUs              map[string][]SKUInfo     // region -> SKU data
+	AvailableSKUs       map[string][]string      // region -> available SKU names
 
 	// Error injection
 	GetCurrentSubscriptionError error
 	GetSubscriptionError        error
 	ListSubscriptionsError      error
 	SetSubscriptionError        error
+	ListVMUsageError            error
+	ListVMSKUsError             error
+	CheckSKUAvailabilityError   error
 
 	// Call tracking
-	GetCurrentSubscriptionCalled bool
-	GetSubscriptionCalled        bool
-	GetSubscriptionCalledWith    string
-	ListSubscriptionsCalled      bool
-	SetSubscriptionCalled        bool
-	SetSubscriptionCalledWith    string
-	IsLoggedInCalled             bool
+	GetCurrentSubscriptionCalled   bool
+	GetSubscriptionCalled          bool
+	GetSubscriptionCalledWith      string
+	ListSubscriptionsCalled        bool
+	SetSubscriptionCalled          bool
+	SetSubscriptionCalledWith      string
+	IsLoggedInCalled               bool
+	ListVMUsageCalled              bool
+	ListVMUsageCalledWith          string
+	ListVMSKUsCalled               bool
+	ListVMSKUsCalledWith           string
+	CheckSKUAvailabilityCalled     bool
+	CheckSKUAvailabilityCalledWith map[string]string // "sku" and "region"
 }
 
 // NewMockAzureCLI creates a new mock Azure CLI implementation with default test data
 func NewMockAzureCLI() *MockAzureCLI {
+	// Default VM usage data for testing
+	defaultVMUsages := map[string][]VMUsageInfo{
+		"eastus": {
+			{
+				Name:         map[string]string{"value": "standardDSv5Family", "localizedValue": "Standard DSv5 Family vCPUs"},
+				CurrentValue: 8,
+				Limit:        100,
+				Unit:         "Count",
+			},
+			{
+				Name:         map[string]string{"value": "standardBSFamily", "localizedValue": "Standard BS Family vCPUs"},
+				CurrentValue: 2,
+				Limit:        50,
+				Unit:         "Count",
+			},
+		},
+		"westus2": {
+			{
+				Name:         map[string]string{"value": "standardDSv5Family", "localizedValue": "Standard DSv5 Family vCPUs"},
+				CurrentValue: 0,
+				Limit:        100,
+				Unit:         "Count",
+			},
+		},
+	}
+
+	// Default VM SKU data for testing
+	defaultVMSKUs := map[string][]SKUInfo{
+		"eastus": {
+			{Name: "Standard_D8s_v5"},
+			{Name: "Standard_B2ms"},
+			{Name: "Standard_B4ms"},
+		},
+		"westus2": {
+			{Name: "Standard_D8s_v5"},
+			{Name: "Standard_B2ms"},
+		},
+	}
+
+	// Default available SKUs
+	defaultAvailableSKUs := map[string][]string{
+		"eastus":  {"Standard_D8s_v5", "Standard_B2ms", "Standard_B4ms"},
+		"westus2": {"Standard_D8s_v5", "Standard_B2ms"},
+	}
+
 	return &MockAzureCLI{
-		IsLoggedInResult: true,
+		IsLoggedInResult:               true,
+		VMUsages:                       defaultVMUsages,
+		VMSKUs:                         defaultVMSKUs,
+		AvailableSKUs:                  defaultAvailableSKUs,
+		CheckSKUAvailabilityCalledWith: make(map[string]string),
 		CurrentSubscription: &SubscriptionInfo{
 			ID:        "608937df-4e8f-4dc5-8bc6-16f30646ebd9",
 			Name:      "Jumpstart Development EXT",
@@ -153,6 +214,113 @@ func (m *MockAzureCLI) IsLoggedIn() bool {
 	return m.IsLoggedInResult
 }
 
+// ListVMUsage mocks getting VM quota/usage information for a region
+func (m *MockAzureCLI) ListVMUsage(region string) ([]VMUsageInfo, error) {
+	m.ListVMUsageCalled = true
+	m.ListVMUsageCalledWith = region
+
+	if m.ListVMUsageError != nil {
+		return nil, m.ListVMUsageError
+	}
+
+	if region == "" {
+		return nil, fmt.Errorf("region cannot be empty")
+	}
+
+	if usages, exists := m.VMUsages[region]; exists {
+		return usages, nil
+	}
+
+	// Return empty list for unknown regions
+	return []VMUsageInfo{}, nil
+}
+
+// ListVMSKUs mocks getting VM SKUs for a region
+func (m *MockAzureCLI) ListVMSKUs(region string) ([]SKUInfo, error) {
+	m.ListVMSKUsCalled = true
+	m.ListVMSKUsCalledWith = region
+
+	if m.ListVMSKUsError != nil {
+		return nil, m.ListVMSKUsError
+	}
+
+	if region == "" {
+		return nil, fmt.Errorf("region cannot be empty")
+	}
+
+	if skus, exists := m.VMSKUs[region]; exists {
+		return skus, nil
+	}
+
+	// Return empty list for unknown regions
+	return []SKUInfo{}, nil
+}
+
+// CheckSKUAvailability mocks checking if a SKU is available in a region
+func (m *MockAzureCLI) CheckSKUAvailability(sku, region string) (bool, error) {
+	m.CheckSKUAvailabilityCalled = true
+	m.CheckSKUAvailabilityCalledWith["sku"] = sku
+	m.CheckSKUAvailabilityCalledWith["region"] = region
+
+	if m.CheckSKUAvailabilityError != nil {
+		return false, m.CheckSKUAvailabilityError
+	}
+
+	if sku == "" {
+		return false, fmt.Errorf("SKU cannot be empty")
+	}
+	if region == "" {
+		return false, fmt.Errorf("region cannot be empty")
+	}
+
+	if availableSKUs, exists := m.AvailableSKUs[region]; exists {
+		for _, availableSKU := range availableSKUs {
+			if availableSKU == sku {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// SetVMUsage mocks setting VM usage data for a region
+func (m *MockAzureCLI) SetVMUsage(region string, usage []VMUsageInfo) {
+	m.VMUsages[region] = usage
+}
+
+// SetVMUsageForRegion is an alias for SetVMUsage for test compatibility
+func (m *MockAzureCLI) SetVMUsageForRegion(region string, usage []VMUsageInfo) {
+	m.SetVMUsage(region, usage)
+}
+
+// SetVMSKUs mocks setting VM SKUs data for a region
+func (m *MockAzureCLI) SetVMSKUs(region string, skus []SKUInfo) {
+	m.VMSKUs[region] = skus
+}
+
+// SetVMSKUsForRegion is an alias for SetVMSKUs for test compatibility
+func (m *MockAzureCLI) SetVMSKUsForRegion(region string, skus []SKUInfo) {
+	m.SetVMSKUs(region, skus)
+}
+
+// SetSKUAvailability mocks setting SKU availability data for a region
+func (m *MockAzureCLI) SetSKUAvailability(region string, skus []string) {
+	m.AvailableSKUs[region] = skus
+}
+
+// SetAvailableSKUsForRegion is an alias for SetSKUAvailability for test compatibility
+func (m *MockAzureCLI) SetAvailableSKUsForRegion(region string, skus []string) {
+	m.SetSKUAvailability(region, skus)
+}
+
+// ClearVMData clears all VM-related data
+func (m *MockAzureCLI) ClearVMData() {
+	m.VMUsages = make(map[string][]VMUsageInfo)
+	m.VMSKUs = make(map[string][]SKUInfo)
+	m.AvailableSKUs = make(map[string][]string)
+}
+
 // Reset clears all call tracking flags
 func (m *MockAzureCLI) Reset() {
 	m.GetCurrentSubscriptionCalled = false
@@ -162,35 +330,49 @@ func (m *MockAzureCLI) Reset() {
 	m.SetSubscriptionCalled = false
 	m.SetSubscriptionCalledWith = ""
 	m.IsLoggedInCalled = false
+	m.ListVMUsageCalled = false
+	m.ListVMUsageCalledWith = ""
+	m.ListVMSKUsCalled = false
+	m.ListVMSKUsCalledWith = ""
+	m.CheckSKUAvailabilityCalled = false
+	m.CheckSKUAvailabilityCalledWith = make(map[string]string)
 }
 
-// SetErrorForGetCurrentSubscription sets up the mock to return an error for GetCurrentSubscription
+// Error injection helper methods for VM operations
+func (m *MockAzureCLI) SetErrorForListVMUsage(err error) {
+	m.ListVMUsageError = err
+}
+
+func (m *MockAzureCLI) SetErrorForListVMSKUs(err error) {
+	m.ListVMSKUsError = err
+}
+
+func (m *MockAzureCLI) SetErrorForCheckSKUAvailability(err error) {
+	m.CheckSKUAvailabilityError = err
+}
+
+// Missing helper methods for subscription operations
 func (m *MockAzureCLI) SetErrorForGetCurrentSubscription(err error) {
 	m.GetCurrentSubscriptionError = err
 }
 
-// SetErrorForGetSubscription sets up the mock to return an error for GetSubscription
 func (m *MockAzureCLI) SetErrorForGetSubscription(err error) {
 	m.GetSubscriptionError = err
 }
 
-// SetErrorForListSubscriptions sets up the mock to return an error for ListSubscriptions
 func (m *MockAzureCLI) SetErrorForListSubscriptions(err error) {
 	m.ListSubscriptionsError = err
 }
 
-// SetErrorForSetSubscription sets up the mock to return an error for SetSubscription
 func (m *MockAzureCLI) SetErrorForSetSubscription(err error) {
 	m.SetSubscriptionError = err
 }
 
-// AddSubscription adds a subscription to the mock data
-func (m *MockAzureCLI) AddSubscription(sub SubscriptionInfo) {
-	m.Subscriptions = append(m.Subscriptions, sub)
-}
-
-// ClearSubscriptions removes all subscriptions from the mock data
 func (m *MockAzureCLI) ClearSubscriptions() {
 	m.Subscriptions = []SubscriptionInfo{}
 	m.CurrentSubscription = nil
+}
+
+func (m *MockAzureCLI) AddSubscription(sub SubscriptionInfo) {
+	m.Subscriptions = append(m.Subscriptions, sub)
 }

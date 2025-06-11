@@ -86,6 +86,61 @@ func TestAzureCLIMockFunctionality(t *testing.T) {
 
 		testutils.PrintTestStatus(t, "Set operations", true, "Successfully tested subscription set operations")
 	})
+
+	t.Run("test_vm_quota_operations", func(t *testing.T) {
+		mockCLI.Reset()
+
+		// Test ListVMUsage
+		usages, err := mockCLI.ListVMUsage("eastus")
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		if len(usages) == 0 {
+			t.Error("Expected VM usage data for eastus")
+		}
+
+		// Verify tracking
+		if !mockCLI.ListVMUsageCalled {
+			t.Error("Expected ListVMUsage to be tracked")
+		}
+		if mockCLI.ListVMUsageCalledWith != "eastus" {
+			t.Errorf("Expected region 'eastus', got '%s'", mockCLI.ListVMUsageCalledWith)
+		}
+
+		testutils.PrintTestStatus(t, "VM quota operations", true, "Successfully tested VM quota operations")
+	})
+
+	t.Run("test_vm_sku_operations", func(t *testing.T) {
+		mockCLI.Reset()
+
+		// Test ListVMSKUs
+		skus, err := mockCLI.ListVMSKUs("eastus")
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		if len(skus) == 0 {
+			t.Error("Expected VM SKU data for eastus")
+		}
+
+		// Test CheckSKUAvailability
+		available, err := mockCLI.CheckSKUAvailability("Standard_D8s_v5", "eastus")
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		if !available {
+			t.Error("Expected Standard_D8s_v5 to be available in eastus")
+		}
+
+		// Verify tracking
+		if !mockCLI.ListVMSKUsCalled {
+			t.Error("Expected ListVMSKUs to be tracked")
+		}
+		if !mockCLI.CheckSKUAvailabilityCalled {
+			t.Error("Expected CheckSKUAvailability to be tracked")
+		}
+
+		testutils.PrintTestStatus(t, "VM SKU operations", true, "Successfully tested VM SKU operations")
+	})
 }
 
 // TestMockAzureCLIReset tests the Reset functionality
@@ -1215,7 +1270,7 @@ func TestRealAzureCLIDeepCoverage(t *testing.T) {
 
 			if err != nil && strings.Contains(err.Error(), "failed to parse current subscription") {
 				testutils.PrintTestStatus(t, "GetCurrentSubscription JSON error path", true,
-					"Successfully hit JSON parsing error path")
+					"Successfully triggered JSON parsing error path")
 				break
 			} else if sub != nil {
 				// If successful, verify the structure
@@ -1236,7 +1291,7 @@ func TestRealAzureCLIDeepCoverage(t *testing.T) {
 
 			if err != nil && strings.Contains(err.Error(), "failed to parse subscriptions") {
 				testutils.PrintTestStatus(t, "ListSubscriptions JSON error path", true,
-					"Successfully hit JSON parsing error path")
+					"Successfully triggered JSON parsing error path")
 				break
 			} else if len(subs) > 0 {
 				// Verify subscription array structure

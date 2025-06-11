@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"jumpstartcli/internal/artifacts/regions"
+	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/preflight/arcbox"
 	"jumpstartcli/internal/preflight/validator"
@@ -23,16 +24,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Azure CLI instance for dependency injection
+var defaultAzureCLI azurecli.AzureCLI = &azurecli.RealAzureCLI{}
+
+// SetAzureCLI allows overriding the Azure CLI implementation for testing
+func SetAzureCLI(cli azurecli.AzureCLI) {
+	defaultAzureCLI = cli
+}
+
 // Cache to avoid multiple Azure CLI calls for quota data per region
-var quotaCache = make(map[string][]map[string]interface{})
+var quotaCache = make(map[string][]azurecli.VMUsageInfo)
 
 // clearQuotaCache clears the quota cache to ensure fresh data
 func clearQuotaCache() {
-	quotaCache = make(map[string][]map[string]interface{})
+	quotaCache = make(map[string][]azurecli.VMUsageInfo)
 }
 
 // Exported for use in main.go
 func NewArcboxCmd() *cobra.Command {
+	return NewArcboxCmdWithCLI(defaultAzureCLI)
+}
+
+// NewArcboxCmdWithCLI creates the arcbox command with injectable Azure CLI for testing
+func NewArcboxCmdWithCLI(cli azurecli.AzureCLI) *cobra.Command {
 	var arcboxCmd = &cobra.Command{
 		Use:   "arcbox",
 		Short: "Manage Jumpstart ArcBox automation",
@@ -405,36 +419,78 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 				os.Exit(1)
 			}
 
-			// Run quota checks for each location with detailed table output
+			// Run quota checks for each location with configurable output format
 			allPassed := true
+			var allResults []map[string]interface{}
+
 			for i, location := range locations {
 				// Clear quota cache between locations to ensure fresh data
 				if i > 0 {
 					validator.ClearQuotaCache()
 				}
 
-				if len(locations) > 1 {
+				if len(locations) > 1 && utils.OutputFormat == "table" {
 					fmt.Printf(utils.InfoColor("\n📍 Checking location %d/%d: %s (%s)\n"), i+1, len(locations), location, utils.GetRegionDisplayName(location))
 				}
 
-				// Use detailed table-based quota checking
-				locationPassed := runQuotaChecksWithTable(cmd, location, selectedFlavor)
+				// Use the new quota checking with Azure CLI wrapper
+				locationPassed, results := runQuotaChecksWithOutput(cli, cmd, location, selectedFlavor)
+				allResults = append(allResults, results...)
+
 				if !locationPassed {
 					allPassed = false
-					if len(locations) > 1 {
+					if len(locations) > 1 && utils.OutputFormat == "table" {
 						fmt.Printf(utils.ErrorColor("❌ Location %s failed quota validation\n"), location)
 					}
-				} else if len(locations) > 1 {
+				} else if len(locations) > 1 && utils.OutputFormat == "table" {
 					fmt.Printf(utils.SuccessColor("✅ Location %s passed quota validation\n"), location)
 				}
 			}
 
-			if !allPassed {
+			// Handle non-table output formats
+			if utils.OutputFormat != "table" {
+				headers := []string{"ArcBox Flavor", "Location", "SKU", "vCPU Quota (Available/Limit)", "Required vCPU", "Can Deploy ArcBox?", "Details"}
+				var rows [][]string
+
+				for _, result := range allResults {
+					canDeploy := "No"
+					if result["CanDeploy"].(bool) {
+						canDeploy = "Yes"
+					}
+
+					quotaDisplay := fmt.Sprintf("%d/%d", result["Available"].(int), result["Limit"].(int))
+
+					row := []string{
+						result["Flavor"].(string),
+						result["Location"].(string),
+						result["SKU"].(string),
+						quotaDisplay,
+						fmt.Sprintf("%d", result["Required"].(int)),
+						canDeploy,
+						result["Details"].(string),
+					}
+					rows = append(rows, row)
+				}
+
+				if err := utils.PrintOutput(allResults, headers, rows); err != nil {
+					fmt.Printf(utils.ErrorColor("❌ [ERROR] Failed to format output: %v\n"), err)
+					os.Exit(1)
+				}
+			}
+
+			if !allPassed && utils.OutputFormat == "table" {
 				fmt.Println(utils.ErrorColor("\n❌ [ERROR] Quota validation failed for one or more locations. Please resolve the issues above."))
 				os.Exit(1)
 			}
 
-			fmt.Println(utils.SuccessColor("✅ [SUCCESS] All quota checks passed!"))
+			if utils.OutputFormat == "table" {
+				fmt.Println(utils.SuccessColor("✅ [SUCCESS] All quota checks passed!"))
+			}
+
+			// For non-table formats, exit with error code if any checks failed
+			if !allPassed {
+				os.Exit(1)
+			}
 		},
 	}
 	arcboxPreflightQuotaCmd.Flags().StringP("flavor", "f", "", "ArcBox flavor to check (ITPro, DevOps, DataOps, all)")
@@ -2014,234 +2070,109 @@ func getSupportedRegionsDisplayList(normalizedToDisplay map[string]string) []str
 	return regions
 }
 
-// runQuotaChecksWithTable performs detailed quota checking with table output
-// Returns true if all quota checks pass, false otherwise
-func runQuotaChecksWithTable(cmd *cobra.Command, location, flavor string) bool {
+// runQuotaChecksWithOutput performs detailed quota checking and returns results for flexible output formatting
+// Returns (allPassed bool, results []map[string]interface{})
+func runQuotaChecksWithOutput(cli azurecli.AzureCLI, cmd *cobra.Command, location, flavor string) (bool, []map[string]interface{}) {
 	// Normalize flavor and validate
 	flavor = normalizeFlavorCase(flavor)
 
 	subscription := getSubscriptionID(cmd)
 	if subscription == "" {
-		fmt.Println(utils.ErrorColor("❌ [ERROR] Unable to get subscription ID. Please ensure Azure CLI is authenticated."))
-		return false
-	}
-
-	// Get SKUs for the flavor(s)
-	var allSKUs []string
-	if flavor == "all" {
-		// Get SKUs for all flavors
-		for _, f := range []string{"ITPro", "DevOps", "DataOps"} {
-			skus := getFlavorSKUs(f)
-			allSKUs = append(allSKUs, skus...)
+		if utils.OutputFormat == "table" {
+			fmt.Println(utils.ErrorColor("❌ [ERROR] Unable to get subscription ID. Please ensure Azure CLI is authenticated."))
 		}
-		// Remove duplicates
-		uniqueSKUs := make(map[string]bool)
-		for _, sku := range allSKUs {
-			uniqueSKUs[sku] = true
+		return false, nil
+	}
+
+	if utils.OutputFormat == "table" {
+		fmt.Printf(utils.InfoColor("🔍 Checking vCPU quota and SKU availability for %s flavor...\n"), flavor)
+	}
+
+	// Use the new preflight quota checking functionality
+	quotaResults, err := arcbox.RunQuotaChecks(cli, location, flavor, subscription)
+	if err != nil {
+		if utils.OutputFormat == "table" {
+			fmt.Printf(utils.ErrorColor("❌ [ERROR] Failed to check quota: %v\n"), err)
 		}
-		allSKUs = []string{}
-		for sku := range uniqueSKUs {
-			allSKUs = append(allSKUs, sku)
-		}
-	} else {
-		allSKUs = getFlavorSKUs(flavor)
+		return false, nil
 	}
 
-	if len(allSKUs) == 0 {
-		fmt.Printf(utils.ErrorColor("❌ [ERROR] No SKUs found for flavor: %s\n"), flavor)
-		return false
-	}
-
-	fmt.Printf(utils.InfoColor("🔍 Checking vCPU quota and SKU availability for %s flavor...\n"), flavor)
-
-	// Step 1: Check SKU availability for all SKUs in the region (with spinner)
-	startSKUCheck := time.Now()
-
-	// Show spinner during SKU availability check
-	stopSpinner := make(chan struct{})
-	spinnerDone := make(chan struct{})
-
-	// Animation frames: Unicode spinner for smooth animation
-	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
-	frameIdx := 0
-
-	// Show initial message
-	fmt.Printf("🔍 Checking SKU availability in %s...", location)
-
-	// Hide cursor before starting animation
-	fmt.Print("\033[?25l")
-
-	// Start spinner animation in goroutine
-	go func() {
-		for {
-			select {
-			case <-stopSpinner:
-				// Clear the spinner line completely
-				fmt.Printf("\r\033[2K")
-				// Restore cursor when animation stops
-				fmt.Print("\033[?25h")
-				close(spinnerDone)
-				return
-			default:
-				// Update spinner frame
-				fmt.Printf("\r🔍 Checking SKU availability in %s... %s", location, frames[frameIdx])
-				frameIdx = (frameIdx + 1) % len(frames)
-				time.Sleep(100 * time.Millisecond)
-			}
-		}
-	}()
-
-	// Call the batch SKU availability check function
-	unavailableSKUs := validator.CheckBatchSKUAvailability(allSKUs, location, subscription)
-
-	// Stop spinner and wait for cleanup
-	close(stopSpinner)
-	<-spinnerDone
-
-	// Create a map for quick lookup
-	skuAvailabilityMap := make(map[string]bool)
-	for _, sku := range allSKUs {
-		skuAvailabilityMap[sku] = true // Assume available by default
-	}
-	for _, sku := range unavailableSKUs {
-		skuAvailabilityMap[sku] = false // Mark unavailable SKUs
-	}
-
-	elapsedSKU := time.Since(startSKUCheck)
-	if len(unavailableSKUs) == 0 {
-		fmt.Printf("🔍 Checking SKU availability in %s... %s%s\n", location, utils.SuccessColor("✓"), utils.DebugColor(fmt.Sprintf(" (%.1fs)", elapsedSKU.Seconds())))
-	} else {
-		fmt.Printf("🔍 Checking SKU availability in %s... %s%s\n", location, utils.ErrorColor("✗"), utils.DebugColor(fmt.Sprintf(" (%.1fs) - %d unavailable SKUs", elapsedSKU.Seconds(), len(unavailableSKUs))))
-	}
-
-	// Prepare table data with original 8-column format
-	headers := []string{"ArcBox Flavor", "Location", "SKU", "vCPU Quota (Available/Limit)", "Required vCPU", "Can Deploy ArcBox?", "Details"}
-	var rows [][]string
+	// Convert to map format for flexible output
+	var results []map[string]interface{}
 	allPassed := true
 
-	// Track whether this is the first quota call for this region (for timing indicators)
-	isFirstCallForRegion := true
+	for _, result := range quotaResults {
+		// Set deployment status
+		if !result.CanDeploy {
+			allPassed = false
+		}
 
-	// Step 2: Check quota for each SKU with progress messages and timing (with spinners)
-	for _, sku := range allSKUs {
-		required := getRequiredVCPUForSKU(sku)
+		resultMap := map[string]interface{}{
+			"Flavor":    flavor,
+			"Location":  utils.GetRegionDisplayName(location),
+			"SKU":       result.SKU,
+			"Available": result.Available,
+			"Limit":     result.Limit,
+			"Required":  result.Required,
+			"CanDeploy": result.CanDeploy,
+			"Details":   result.Details,
+		}
+		results = append(results, resultMap)
+	}
 
-		// Track timing for Azure CLI call (first call will be slow, subsequent calls should be fast due to caching)
-		startTime := time.Now()
+	// For table format, print the table immediately
+	if utils.OutputFormat == "table" {
+		headers := []string{"ArcBox Flavor", "Location", "SKU", "vCPU Quota (Available/Limit)", "Required vCPU", "Can Deploy ArcBox?", "Details"}
+		var rows [][]string
 
-		// Set up spinner for quota check
-		stopQuotaSpinner := make(chan struct{})
-		quotaSpinnerDone := make(chan struct{})
-		quotaFrameIdx := 0
-
-		// Show initial message
-		fmt.Printf("🔍 Checking quota for %s / %s in %s...", flavor, sku, location)
-
-		// Hide cursor before starting animation
-		fmt.Print("\033[?25l")
-
-		// Start spinner animation in goroutine
-		go func() {
-			for {
-				select {
-				case <-stopQuotaSpinner:
-					// Clear the spinner line completely
-					fmt.Printf("\r\033[2K")
-					// Restore cursor when animation stops
-					fmt.Print("\033[?25h")
-					close(quotaSpinnerDone)
-					return
-				default:
-					// Update spinner frame
-					fmt.Printf("\r🔍 Checking quota for %s / %s in %s... %s", flavor, sku, location, frames[quotaFrameIdx])
-					quotaFrameIdx = (quotaFrameIdx + 1) % len(frames)
-					time.Sleep(100 * time.Millisecond)
-				}
-			}
-		}()
-
-		// Use the real checkQuotaForSKU function from preflight/validator.go
-		quotaOK, _, limit, available := validator.CheckQuotaForSKU(sku, required, location, subscription, flavor)
-
-		// Stop spinner and wait for cleanup
-		close(stopQuotaSpinner)
-		<-quotaSpinnerDone
-
-		// Check if SKU is available in this region
-		skuAvailable := skuAvailabilityMap[sku]
-
-		// Calculate elapsed time and show appropriate indicator
-		elapsed := time.Since(startTime)
-		overallOK := quotaOK && skuAvailable
-		if overallOK {
-			if isFirstCallForRegion && elapsed > 1*time.Second {
-				// First call for this region took a while - this is expected for real Azure CLI
-				fmt.Printf("🔍 Checking quota for %s / %s in %s... %s%s\n", flavor, sku, location, utils.SuccessColor("✓"), utils.DebugColor(fmt.Sprintf(" (%.1fs)", elapsed.Seconds())))
-				isFirstCallForRegion = false // Mark that we've made the first call for this region
-			} else if !isFirstCallForRegion && elapsed < 200*time.Millisecond {
-				// Subsequent calls in same region should be very fast due to caching
-				fmt.Printf("🔍 Checking quota for %s / %s in %s... %s%s\n", flavor, sku, location, utils.SuccessColor("✓"), utils.DebugColor(" (cached)"))
+		for _, result := range quotaResults {
+			// Format status for display
+			var canDeploy string
+			if result.CanDeploy {
+				canDeploy = utils.SuccessColor("Yes")
 			} else {
-				fmt.Printf("🔍 Checking quota for %s / %s in %s... %s\n", flavor, sku, location, utils.SuccessColor("✓"))
-				isFirstCallForRegion = false // Mark first call complete even if timing was unexpected
+				canDeploy = utils.ErrorColor("No")
 			}
+
+			// Format the quota column as "Available/Limit"
+			quotaDisplay := fmt.Sprintf("%d/%d", result.Available, result.Limit)
+
+			// Add row to table
+			row := []string{
+				flavor,
+				utils.GetRegionDisplayName(location),
+				result.SKU,
+				quotaDisplay,
+				fmt.Sprintf("%d", result.Required),
+				canDeploy,
+				result.Details,
+			}
+			rows = append(rows, row)
+		}
+
+		// Print the table
+		fmt.Printf("\n")
+		table.PrintASCIITable(headers, rows)
+		fmt.Printf("\n")
+
+		// Print summary
+		if allPassed {
+			fmt.Printf(utils.SuccessColor("✅ All quota checks passed for %s flavor in %s\n"),
+				flavor, utils.GetRegionDisplayName(location))
 		} else {
-			fmt.Printf("🔍 Checking quota for %s / %s in %s... %s\n", flavor, sku, location, utils.ErrorColor("✗"))
-			isFirstCallForRegion = false // Mark first call complete even on failure
+			fmt.Printf(utils.ErrorColor("❌ Some quota checks failed for %s flavor in %s\n"),
+				flavor, utils.GetRegionDisplayName(location))
+			fmt.Println(utils.InfoColor("💡 Consider requesting quota increases or choosing a different region"))
 		}
-
-		// Determine deployment status and details based on both quota and SKU availability
-		var canDeploy string
-		var details string
-		if quotaOK && skuAvailable {
-			canDeploy = utils.SuccessColor("Yes")
-			details = "Sufficient quota and SKU available"
-			allPassed = allPassed && true
-		} else if !quotaOK && !skuAvailable {
-			canDeploy = utils.ErrorColor("No")
-			details = fmt.Sprintf("Need %d more vCPU; SKU not available", required-available)
-			allPassed = false
-		} else if !quotaOK {
-			canDeploy = utils.ErrorColor("No")
-			details = fmt.Sprintf("Need %d more vCPU", required-available)
-			allPassed = false
-		} else { // !skuAvailable
-			canDeploy = utils.ErrorColor("No")
-			details = "SKU not available in region"
-			allPassed = false
-		}
-
-		// Format the quota column as "Available/Limit"
-		quotaDisplay := fmt.Sprintf("%d/%d", available, limit)
-
-		// Add row to table with original 8-column format
-		row := []string{
-			flavor,
-			utils.GetRegionDisplayName(location),
-			sku,
-			quotaDisplay,
-			fmt.Sprintf("%d", required),
-			canDeploy,
-			details,
-		}
-		rows = append(rows, row)
 	}
 
-	// Print the table
-	fmt.Printf("\n")
-	table.PrintASCIITable(headers, rows)
-	fmt.Printf("\n")
+	return allPassed, results
+}
 
-	// Print summary
-	if allPassed {
-		fmt.Printf(utils.SuccessColor("✅ All quota checks passed for %s flavor in %s\n"),
-			flavor, utils.GetRegionDisplayName(location))
-	} else {
-		fmt.Printf(utils.ErrorColor("❌ Some quota checks failed for %s flavor in %s\n"),
-			flavor, utils.GetRegionDisplayName(location))
-		fmt.Println(utils.InfoColor("💡 Consider requesting quota increases or choosing a different region"))
-	}
-
+// runQuotaChecksWithTable performs detailed quota checking with table output using Azure CLI wrapper
+// Returns true if all quota checks pass, false otherwise
+func runQuotaChecksWithTable(cli azurecli.AzureCLI, cmd *cobra.Command, location, flavor string) bool {
+	allPassed, _ := runQuotaChecksWithOutput(cli, cmd, location, flavor)
 	return allPassed
 }
 
