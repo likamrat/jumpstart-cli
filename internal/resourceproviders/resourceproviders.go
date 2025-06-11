@@ -4,12 +4,10 @@
 package resourceproviders
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
-	"time"
+
+	"jumpstartcli/internal/azurecli"
 
 	"github.com/fatih/color"
 )
@@ -70,37 +68,15 @@ func GetAgoraProviders() ResourceProviderConfig {
 }
 
 // CheckProviderRegistration checks if a resource provider is registered
-func CheckProviderRegistration(provider string) (bool, error) {
-	// Add timeout context to prevent hanging on Azure CLI calls
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "az", "provider", "show", "--namespace", provider, "-o", "tsv", "--query", "registrationState")
-	out, err := cmd.Output()
-	if err != nil {
-		// Check if it was a timeout
-		if ctx.Err() == context.DeadlineExceeded {
-			return false, fmt.Errorf("timeout checking provider %s (Azure CLI took too long)", provider)
-		}
-		return false, fmt.Errorf("failed to check provider %s: %v", provider, err)
-	}
-
-	state := strings.TrimSpace(string(out))
-	return state == "Registered", nil
+func CheckProviderRegistration(azCLI azurecli.AzureCLI, provider string) (bool, error) {
+	return azCLI.CheckProviderRegistration(provider)
 }
 
 // RegisterProvider registers a resource provider
-func RegisterProvider(provider string) error {
+func RegisterProvider(azCLI azurecli.AzureCLI, provider string) error {
 	fmt.Printf(InfoColor("[INFO] Registering provider: %s\n"), provider)
 
-	// Add timeout context to prevent hanging on Azure CLI calls
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	cmdOut := exec.CommandContext(ctx, "az", "provider", "register", "--namespace", provider)
-	cmdOut.Stdout = os.Stdout
-	cmdOut.Stderr = os.Stderr
-	err := cmdOut.Run()
+	err := azCLI.RegisterProvider(provider)
 	if err != nil {
 		fmt.Printf(ErrorColor("[ERROR] Failed to register provider %s: %v\n"), provider, err)
 		return err
@@ -110,13 +86,13 @@ func RegisterProvider(provider string) error {
 }
 
 // CheckAllProviders checks the registration status of all providers for a solution
-func CheckAllProviders(config ResourceProviderConfig) (bool, []string) {
+func CheckAllProviders(azCLI azurecli.AzureCLI, config ResourceProviderConfig) (bool, []string) {
 	fmt.Printf(InfoColor("[INFO] Checking required Azure resource providers for %s...\n"), config.SolutionName)
 	missing := false
 	missingProviders := []string{}
 
 	for _, rp := range config.RequiredProviders {
-		isRegistered, err := CheckProviderRegistration(rp)
+		isRegistered, err := CheckProviderRegistration(azCLI, rp)
 		if err != nil || !isRegistered {
 			fmt.Printf("❌ %s: Not registered\n", rp)
 			missing = true
@@ -161,12 +137,12 @@ func GetRequiredProvidersForSolution(solutionName string) []string {
 
 // RegisterAllProviders registers all required providers for a solution
 // Returns the number of providers that failed to register
-func RegisterAllProviders(config ResourceProviderConfig) int {
+func RegisterAllProviders(azCLI azurecli.AzureCLI, config ResourceProviderConfig) int {
 	fmt.Printf(InfoColor("[INFO] Registering all required Azure resource providers for %s...\n"), config.SolutionName)
 	failures := 0
 
 	for _, provider := range config.RequiredProviders {
-		if err := RegisterProvider(provider); err != nil {
+		if err := RegisterProvider(azCLI, provider); err != nil {
 			failures++
 		}
 	}

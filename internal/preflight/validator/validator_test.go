@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/resourceproviders"
 	"jumpstartcli/internal/testutils"
 
@@ -863,7 +864,8 @@ func TestResourceProviderValidator(t *testing.T) {
 		"Description should not be empty")
 
 	// Test IsApplicable method
-	ctx := &ValidationContext{Solution: "arcbox"}
+	mockAzCLI := &azurecli.MockAzureCLI{}
+	ctx := &ValidationContext{Solution: "arcbox", AzureCLI: mockAzCLI}
 	testutils.PrintTestStatus(t, "IsApplicable ArcBox", validator.IsApplicable(ctx),
 		"Should be applicable to ArcBox")
 
@@ -873,6 +875,7 @@ func TestResourceProviderValidator(t *testing.T) {
 
 	// Test Validate method
 	ctx.Solution = "arcbox"
+	ctx.AzureCLI = mockAzCLI
 	result := validator.Validate(ctx)
 	testutils.PrintTestStatus(t, "Validate resource providers", true,
 		fmt.Sprintf("Resource provider validation result: %s", result.Message))
@@ -1266,7 +1269,8 @@ func TestRemainingHelperFunctions(t *testing.T) {
 
 	// Test checkAllResourceProviders (if we have a config)
 	if arcboxConfig := getResourceProviderConfig("arcbox"); arcboxConfig != nil {
-		allRegistered, missing := checkAllResourceProviders(*arcboxConfig)
+		mockAzCLI := &azurecli.MockAzureCLI{}
+		allRegistered, missing := checkAllResourceProviders(mockAzCLI, *arcboxConfig)
 		testutils.PrintTestStatus(t, "checkAllResourceProviders", true,
 			fmt.Sprintf("Resource provider check completed - registered: %v, missing: %v", allRegistered, missing))
 	}
@@ -1597,7 +1601,8 @@ func TestEdgeCasesAndErrorScenarios(t *testing.T) {
 	config := resourceproviders.ResourceProviderConfig{
 		RequiredProviders: []string{"NonExistentProvider"},
 	}
-	allRegistered, missing := checkAllResourceProviders(config)
+	mockAzCLI := &azurecli.MockAzureCLI{}
+	allRegistered, missing := checkAllResourceProviders(mockAzCLI, config)
 	testutils.PrintTestStatus(t, "checkAllResourceProviders with missing", !allRegistered && len(missing) > 0,
 		fmt.Sprintf("Should detect missing providers: %v", missing))
 

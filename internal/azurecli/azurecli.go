@@ -55,6 +55,10 @@ type AzureCLI interface {
 	ListVMUsage(region string) ([]VMUsageInfo, error)
 	ListVMSKUs(region string) ([]SKUInfo, error)
 	CheckSKUAvailability(sku, region string) (bool, error)
+
+	// Resource provider operations
+	CheckProviderRegistration(provider string) (bool, error)
+	RegisterProvider(provider string) error
 }
 
 // RealAzureCLI implements the AzureCLI interface using actual Azure CLI commands
@@ -215,4 +219,51 @@ func (r *RealAzureCLI) CheckSKUAvailability(sku, region string) (bool, error) {
 
 	result := strings.TrimSpace(string(output))
 	return result == sku, nil
+}
+
+// CheckProviderRegistration checks if a resource provider is registered
+func (r *RealAzureCLI) CheckProviderRegistration(provider string) (bool, error) {
+	if provider == "" {
+		return false, fmt.Errorf("provider cannot be empty")
+	}
+
+	// Add timeout context to prevent hanging on Azure CLI calls
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "provider", "show", "--namespace", provider, "-o", "tsv", "--query", "registrationState")
+	out, err := cmd.Output()
+	if err != nil {
+		// Check if it was a timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			return false, fmt.Errorf("timeout checking provider %s (Azure CLI took too long)", provider)
+		}
+		return false, fmt.Errorf("failed to check provider %s: %v", provider, err)
+	}
+
+	state := strings.TrimSpace(string(out))
+	return state == "Registered", nil
+}
+
+// RegisterProvider registers a resource provider
+func (r *RealAzureCLI) RegisterProvider(provider string) error {
+	if provider == "" {
+		return fmt.Errorf("provider cannot be empty")
+	}
+
+	// Add timeout context to prevent hanging on Azure CLI calls
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "provider", "register", "--namespace", provider)
+	err := cmd.Run()
+	if err != nil {
+		// Check if it was a timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("timeout registering provider %s (Azure CLI took too long)", provider)
+		}
+		return fmt.Errorf("failed to register provider %s: %v", provider, err)
+	}
+
+	return nil
 }

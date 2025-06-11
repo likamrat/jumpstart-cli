@@ -17,29 +17,38 @@ type MockAzureCLI struct {
 	VMSKUs              map[string][]SKUInfo     // region -> SKU data
 	AvailableSKUs       map[string][]string      // region -> available SKU names
 
+	// Resource provider mock data
+	RegisteredProviders map[string]bool // provider -> registration status
+
 	// Error injection
-	GetCurrentSubscriptionError error
-	GetSubscriptionError        error
-	ListSubscriptionsError      error
-	SetSubscriptionError        error
-	ListVMUsageError            error
-	ListVMSKUsError             error
-	CheckSKUAvailabilityError   error
+	GetCurrentSubscriptionError    error
+	GetSubscriptionError           error
+	ListSubscriptionsError         error
+	SetSubscriptionError           error
+	ListVMUsageError               error
+	ListVMSKUsError                error
+	CheckSKUAvailabilityError      error
+	CheckProviderRegistrationError error
+	RegisterProviderError          error
 
 	// Call tracking
-	GetCurrentSubscriptionCalled   bool
-	GetSubscriptionCalled          bool
-	GetSubscriptionCalledWith      string
-	ListSubscriptionsCalled        bool
-	SetSubscriptionCalled          bool
-	SetSubscriptionCalledWith      string
-	IsLoggedInCalled               bool
-	ListVMUsageCalled              bool
-	ListVMUsageCalledWith          string
-	ListVMSKUsCalled               bool
-	ListVMSKUsCalledWith           string
-	CheckSKUAvailabilityCalled     bool
-	CheckSKUAvailabilityCalledWith map[string]string // "sku" and "region"
+	GetCurrentSubscriptionCalled        bool
+	GetSubscriptionCalled               bool
+	GetSubscriptionCalledWith           string
+	ListSubscriptionsCalled             bool
+	SetSubscriptionCalled               bool
+	SetSubscriptionCalledWith           string
+	IsLoggedInCalled                    bool
+	ListVMUsageCalled                   bool
+	ListVMUsageCalledWith               string
+	ListVMSKUsCalled                    bool
+	ListVMSKUsCalledWith                string
+	CheckSKUAvailabilityCalled          bool
+	CheckSKUAvailabilityCalledWith      map[string]string // "sku" and "region"
+	CheckProviderRegistrationCalled     bool
+	CheckProviderRegistrationCalledWith string
+	RegisterProviderCalled              bool
+	RegisterProviderCalledWith          string
 }
 
 // NewMockAzureCLI creates a new mock Azure CLI implementation with default test data
@@ -89,11 +98,24 @@ func NewMockAzureCLI() *MockAzureCLI {
 		"westus2": {"Standard_D8s_v5", "Standard_B2ms"},
 	}
 
+	// Default registered resource providers for testing
+	defaultRegisteredProviders := map[string]bool{
+		"Microsoft.Compute":              true,
+		"Microsoft.Network":              true,
+		"Microsoft.Storage":              true,
+		"Microsoft.Kubernetes":           false,
+		"Microsoft.AzureArcData":         false,
+		"Microsoft.ExtendedLocation":     false,
+		"Microsoft.HybridConnectivity":   false,
+		"Microsoft.OperationsManagement": true,
+	}
+
 	return &MockAzureCLI{
 		IsLoggedInResult:               true,
 		VMUsages:                       defaultVMUsages,
 		VMSKUs:                         defaultVMSKUs,
 		AvailableSKUs:                  defaultAvailableSKUs,
+		RegisteredProviders:            defaultRegisteredProviders,
 		CheckSKUAvailabilityCalledWith: make(map[string]string),
 		CurrentSubscription: &SubscriptionInfo{
 			ID:        "608937df-4e8f-4dc5-8bc6-16f30646ebd9",
@@ -375,4 +397,70 @@ func (m *MockAzureCLI) ClearSubscriptions() {
 
 func (m *MockAzureCLI) AddSubscription(sub SubscriptionInfo) {
 	m.Subscriptions = append(m.Subscriptions, sub)
+}
+
+// CheckProviderRegistration checks if a resource provider is registered (mock implementation)
+func (m *MockAzureCLI) CheckProviderRegistration(provider string) (bool, error) {
+	m.CheckProviderRegistrationCalled = true
+	m.CheckProviderRegistrationCalledWith = provider
+
+	if m.CheckProviderRegistrationError != nil {
+		return false, m.CheckProviderRegistrationError
+	}
+
+	if provider == "" {
+		return false, fmt.Errorf("provider cannot be empty")
+	}
+
+	// Return mock registration status
+	if m.RegisteredProviders == nil {
+		return false, nil
+	}
+
+	isRegistered, exists := m.RegisteredProviders[provider]
+	if !exists {
+		return false, nil // Provider not found, treat as not registered
+	}
+
+	return isRegistered, nil
+}
+
+// RegisterProvider registers a resource provider (mock implementation)
+func (m *MockAzureCLI) RegisterProvider(provider string) error {
+	m.RegisterProviderCalled = true
+	m.RegisterProviderCalledWith = provider
+
+	if m.RegisterProviderError != nil {
+		return m.RegisterProviderError
+	}
+
+	if provider == "" {
+		return fmt.Errorf("provider cannot be empty")
+	}
+
+	// Mark provider as registered in mock data
+	if m.RegisteredProviders == nil {
+		m.RegisteredProviders = make(map[string]bool)
+	}
+	m.RegisteredProviders[provider] = true
+
+	return nil
+}
+
+// SetProviderRegistrationStatus sets the registration status for a provider (test helper)
+func (m *MockAzureCLI) SetProviderRegistrationStatus(provider string, isRegistered bool) {
+	if m.RegisteredProviders == nil {
+		m.RegisteredProviders = make(map[string]bool)
+	}
+	m.RegisteredProviders[provider] = isRegistered
+}
+
+// SetErrorForCheckProviderRegistration sets an error for CheckProviderRegistration calls (test helper)
+func (m *MockAzureCLI) SetErrorForCheckProviderRegistration(err error) {
+	m.CheckProviderRegistrationError = err
+}
+
+// SetErrorForRegisterProvider sets an error for RegisterProvider calls (test helper)
+func (m *MockAzureCLI) SetErrorForRegisterProvider(err error) {
+	m.RegisterProviderError = err
 }

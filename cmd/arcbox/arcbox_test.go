@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"jumpstartcli/internal/azurecli"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -671,8 +673,13 @@ func TestQuotaCacheHelpers(t *testing.T) {
 
 	// Test clearQuotaCache function
 	// Set some dummy data in cache
-	quotaCache["test-region"] = []map[string]interface{}{
-		{"name": "test", "value": 100},
+	quotaCache["test-region"] = []azurecli.VMUsageInfo{
+		{
+			Name:         map[string]string{"value": "test"},
+			CurrentValue: 10,
+			Limit:        100,
+			Unit:         "Count",
+		},
 	}
 
 	testName := "Cache Has Data Before Clear"

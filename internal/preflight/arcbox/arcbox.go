@@ -4,6 +4,7 @@ package arcbox
 import (
 	"fmt"
 
+	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/preflight/validator"
 	"jumpstartcli/internal/utils"
 
@@ -131,7 +132,8 @@ func buildArcBoxValidationContext(cmd *cobra.Command) *validator.ValidationConte
 		Solution:   "arcbox",
 		Parameters: make(map[string]string),
 		SkipChecks: []string{},
-		SilentMode: false, // Show progress indicators to improve user experience during long operations
+		SilentMode: false,                  // Show progress indicators to improve user experience during long operations
+		AzureCLI:   azurecli.NewAzureCLI(), // Initialize Azure CLI wrapper
 	}
 
 	// Extract all flag values

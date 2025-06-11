@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/testutils"
 
 	"github.com/fatih/color"
@@ -654,7 +655,8 @@ func TestCheckProviderRegistration(t *testing.T) {
 			}
 
 			// Test with a non-existent provider to simulate different states
-			isRegistered, err := CheckProviderRegistration("Microsoft.NonExistentTestProvider12345")
+			azCLI := azurecli.NewAzureCLI()
+			isRegistered, err := CheckProviderRegistration(azCLI, "Microsoft.NonExistentTestProvider12345")
 
 			// The function should handle the call gracefully, either returning false or an error
 			if err != nil {
@@ -680,7 +682,8 @@ func TestCheckProviderRegistrationSuccessPath(t *testing.T) {
 	// Test with a provider that should exist and be registered (Microsoft.Compute is commonly registered)
 	provider := "Microsoft.Compute"
 
-	isRegistered, err := CheckProviderRegistration(provider)
+	azCLI := azurecli.NewAzureCLI()
+	isRegistered, err := CheckProviderRegistration(azCLI, provider)
 
 	// The test should complete successfully, regardless of registration status
 	if err != nil {
@@ -712,7 +715,8 @@ func TestRegisterProviderSuccessSimulation(t *testing.T) {
 	os.Stdout = w
 	os.Stderr = w
 
-	err = RegisterProvider(provider)
+	azCLI := azurecli.NewAzureCLI()
+	err = RegisterProvider(azCLI, provider)
 
 	// Restore stdout/stderr
 	w.Close()
@@ -754,7 +758,8 @@ func TestCheckProviderRegistrationTimeoutSimulation(t *testing.T) {
 		testName := fmt.Sprintf("timeout_test_%d", i)
 
 		start := time.Now()
-		_, err := CheckProviderRegistration(provider)
+		azCLI := azurecli.NewAzureCLI()
+		_, err := CheckProviderRegistration(azCLI, provider)
 		duration := time.Since(start)
 
 		// Verify it completes within a reasonable time (much less than 30s timeout)
@@ -809,7 +814,8 @@ func TestRegisterProviderErrorAndSuccessPaths(t *testing.T) {
 			os.Stdout = w
 			os.Stderr = w
 
-			err := RegisterProvider(tc.provider)
+			azCLI := azurecli.NewAzureCLI()
+			err := RegisterProvider(azCLI, tc.provider)
 
 			// Restore stdout/stderr
 			w.Close()
@@ -847,7 +853,8 @@ func TestCheckProviderRegistrationContextUsage(t *testing.T) {
 	successfulCalls := 0
 	for i, provider := range providers {
 		start := time.Now()
-		_, err := CheckProviderRegistration(provider)
+		azCLI := azurecli.NewAzureCLI()
+		_, err := CheckProviderRegistration(azCLI, provider)
 		duration := time.Since(start)
 
 		testName := fmt.Sprintf("context_call_%d", i)
@@ -902,7 +909,8 @@ func TestRegisterProviderOutputPaths(t *testing.T) {
 			// We need to capture but also allow some output to test the output paths
 			// Use a more sophisticated approach to capture output while testing paths
 
-			err := RegisterProvider(tc.provider)
+			azCLI := azurecli.NewAzureCLI()
+			err := RegisterProvider(azCLI, tc.provider)
 
 			// Both success and error paths should be tested
 			if err != nil {
@@ -973,7 +981,8 @@ func TestCheckAllProviders(t *testing.T) {
 			defer func() { os.Stdout = oldStdout }()
 
 			// Run the function
-			allRegistered, missingProviders := CheckAllProviders(tt.config)
+			azCLI := azurecli.NewAzureCLI()
+			allRegistered, missingProviders := CheckAllProviders(azCLI, tt.config)
 
 			// Close writer and read output
 			w.Close()
@@ -1237,13 +1246,13 @@ func TestRegisterAllProviders(t *testing.T) {
 			}
 			defer r.Close()
 			defer w.Close()
-
 			oldStdout := os.Stdout
 			os.Stdout = w
 			defer func() { os.Stdout = oldStdout }()
 
 			// Run the function
-			failures := RegisterAllProviders(tt.config)
+			azCLI := azurecli.NewAzureCLI()
+			failures := RegisterAllProviders(azCLI, tt.config)
 
 			// Close writer and read output
 			w.Close()
@@ -1322,7 +1331,8 @@ func TestRegisterAllProvidersEdgeCases(t *testing.T) {
 			defer func() { os.Stdout = oldStdout }()
 
 			// Run the function
-			failures := RegisterAllProviders(tt.config)
+			azCLI := azurecli.NewAzureCLI()
+			failures := RegisterAllProviders(azCLI, tt.config)
 
 			// Close writer and read output
 			w.Close()
@@ -1486,7 +1496,8 @@ func TestCheckProviderRegistrationForceTimeout(t *testing.T) {
 	testProvider := "Microsoft.Compute"
 
 	// Test with normal CheckProviderRegistration
-	_, err := CheckProviderRegistration(testProvider)
+	azCLI := azurecli.NewAzureCLI()
+	_, err := CheckProviderRegistration(azCLI, testProvider)
 
 	// The function should complete (either with success or Azure CLI error)
 	// This tests the normal execution path
@@ -1506,7 +1517,8 @@ func TestCheckProviderRegistrationForceTimeout(t *testing.T) {
 		func() {
 			// Set a shorter timeout for testing
 			start := time.Now()
-			_, err := CheckProviderRegistration(provider)
+			azCLI := azurecli.NewAzureCLI()
+			_, err := CheckProviderRegistration(azCLI, provider)
 			duration := time.Since(start)
 
 			// Verify it doesn't hang indefinitely (should complete within reasonable time)
@@ -1536,7 +1548,8 @@ func TestCheckProviderRegistrationActualTimeout(t *testing.T) {
 
 	for i, provider := range slowProviders {
 		start := time.Now()
-		registered, err := CheckProviderRegistration(provider)
+		azCLI := azurecli.NewAzureCLI()
+		registered, err := CheckProviderRegistration(azCLI, provider)
 		duration := time.Since(start)
 
 		// The function should complete within the 30-second timeout
@@ -1579,7 +1592,8 @@ func TestCheckProviderRegistrationTimeoutPath(t *testing.T) {
 		}
 
 		start := time.Now()
-		registered, err := CheckProviderRegistration(provider)
+		azCLI := azurecli.NewAzureCLI()
+		registered, err := CheckProviderRegistration(azCLI, provider)
 		duration := time.Since(start)
 
 		// Check if we got a timeout error

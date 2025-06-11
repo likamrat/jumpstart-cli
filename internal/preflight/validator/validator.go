@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/resourceproviders"
 	"jumpstartcli/internal/utils"
 )
@@ -33,7 +34,8 @@ type ValidationContext struct {
 	Location   string
 	Parameters map[string]string
 	SkipChecks []string
-	SilentMode bool // When true, suppress progress messages
+	SilentMode bool              // When true, suppress progress messages
+	AzureCLI   azurecli.AzureCLI // Azure CLI instance for operations
 }
 
 // Validator interface defines a validation check
@@ -566,7 +568,7 @@ func (v *ResourceProviderValidator) Validate(ctx *ValidationContext) ValidationR
 	}
 
 	// Check all required providers
-	allRegistered, missingProviders := checkAllResourceProviders(*config)
+	allRegistered, missingProviders := checkAllResourceProviders(ctx.AzureCLI, *config)
 
 	if !allRegistered {
 		return ValidationResult{
@@ -882,12 +884,12 @@ func getResourceProviderConfig(solution string) *resourceproviders.ResourceProvi
 	}
 }
 
-func checkAllResourceProviders(config resourceproviders.ResourceProviderConfig) (bool, []string) {
+func checkAllResourceProviders(azCLI azurecli.AzureCLI, config resourceproviders.ResourceProviderConfig) (bool, []string) {
 	missing := false
 	missingProviders := []string{}
 
 	for _, rp := range config.RequiredProviders {
-		isRegistered, err := resourceproviders.CheckProviderRegistration(rp)
+		isRegistered, err := resourceproviders.CheckProviderRegistration(azCLI, rp)
 		if err != nil || !isRegistered {
 			missing = true
 			missingProviders = append(missingProviders, rp)

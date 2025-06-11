@@ -15,7 +15,6 @@ import (
 	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/preflight/arcbox"
 	"jumpstartcli/internal/preflight/validator"
-	"jumpstartcli/internal/resourceproviders"
 	"jumpstartcli/internal/table"
 	"jumpstartcli/internal/urlutils"
 	"jumpstartcli/internal/utils"
@@ -500,103 +499,12 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 	arcboxPreflightQuotaCmd.Flags().StringP("subscription", "s", "", "Azure subscription ID to use")
 	arcboxPreflightCmd.AddCommand(arcboxPreflightQuotaCmd)
 
-	// arcbox preflight rp check (enhanced)
-	var arcboxPreflightRPCmd = &cobra.Command{
-		Use:   "rp",
-		Short: "Check and manage Azure resource provider registration",
-		Long:  `Check, list, and register required Azure resource providers for ArcBox deployment`,
-		// Disable Cobra's built-in suggestions and errors to use our custom ones
-		DisableSuggestions: true,
-		SilenceErrors:      true,
-		SilenceUsage:       true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				// List of valid subcommands for arcbox preflight rp
-				validSubcommands := []string{"show", "list", "register"}
-
-				// Check if the provided argument is a valid subcommand
-				invalidSubcommand := args[0]
-				for _, validCmd := range validSubcommands {
-					if invalidSubcommand == validCmd {
-						return nil // Valid subcommand, continue normal processing
-					}
-				}
-
-				// If we reach here, it's an invalid subcommand - suggest similar ones
-				if suggestion := utils.SuggestSimilarCommand(invalidSubcommand, validSubcommands, 3); suggestion != "" {
-					utils.PrintDidYouMean(invalidSubcommand, suggestion)
-					return nil
-				}
-
-				// No suggestion found, show normal error
-				return fmt.Errorf("unknown subcommand '%s' for 'js arcbox preflight rp'", invalidSubcommand)
-			}
-			// If no args, show help
-			utils.ShowHelpWithoutTypes(cmd)
-			return nil
-		},
-	}
-
-	// rp show: check registration status
-	var arcboxPreflightRPShowCmd = &cobra.Command{
-		Use:   "show",
-		Short: "Show registration status of required Azure resource providers",
-		Long: `Check and display the registration status of all required Azure resource providers for ArcBox deployment.
-
-` + examples.GetExamples("arcbox.preflight.rp.show").FormatExamples(),
-		Run: func(cmd *cobra.Command, args []string) {
-			config := resourceproviders.GetArcBoxProviders()
-			resourceproviders.CheckAllProviders(config)
-		},
-	}
-
-	// rp list: list required providers
-	var arcboxPreflightRPListCmd = &cobra.Command{
-		Use:   "list",
-		Short: "List required Azure resource providers for ArcBox",
-		Long: `List the Azure resource providers required for ArcBox deployment (names only).
-
-` + examples.GetExamples("arcbox.preflight.rp.list").FormatExamples(),
-		Run: func(cmd *cobra.Command, args []string) {
-			config := resourceproviders.GetArcBoxProviders()
-			resourceproviders.ListProviders(config)
-		},
-	}
-
-	// rp register: register a provider
-	var arcboxPreflightRPRegisterCmd = &cobra.Command{
-		Use:   "register",
-		Short: "Register a required Azure resource provider",
-		Long: `Register a required Azure resource provider for ArcBox deployment.
-
-` + examples.GetExamples("arcbox.preflight.rp.register").FormatExamples(),
-		Run: func(cmd *cobra.Command, args []string) {
-			requiredArguments := []string{"name"}
-			utils.PrintMissingRequiredArgumentsError(cmd, requiredArguments)
-
-			provider, _ := cmd.Flags().GetString("name")
-			if err := resourceproviders.RegisterProvider(provider); err != nil {
-				os.Exit(1)
-			}
-		},
-	}
-
-	arcboxPreflightRPRegisterCmd.Flags().StringP("name", "n", "", "Azure resource provider name to register")
-
-	arcboxPreflightRPCmd.AddCommand(arcboxPreflightRPListCmd)
-	arcboxPreflightRPCmd.AddCommand(arcboxPreflightRPRegisterCmd)
-	arcboxPreflightRPCmd.AddCommand(arcboxPreflightRPShowCmd)
+	// arcbox preflight rp (using dedicated module)
+	arcboxPreflightRPCmd := arcbox.CreateResourceProviderCommands(cli)
 	arcboxPreflightCmd.AddCommand(arcboxPreflightRPCmd)
 
-	// arcbox preflight status (stub)
-	var arcboxPreflightStatusCmd = &cobra.Command{
-		Use:   "status",
-		Short: "Show last preflight check status",
-		Long:  `Show the results of the last ArcBox preflight check (not yet implemented).`,
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println(utils.InfoColor("[INFO] Preflight status reporting is currently in development."))
-		},
-	}
+	// arcbox preflight status (using dedicated module)
+	arcboxPreflightStatusCmd := arcbox.CreateStatusCommand()
 	arcboxPreflightCmd.AddCommand(arcboxPreflightStatusCmd)
 
 	arcboxCmd.AddCommand(arcboxPreflightCmd)
@@ -1149,9 +1057,12 @@ func runArcBoxList(allSubscriptions, currentSubscription bool, subscriptionID, o
 	var subscriptions []AzureSubscription
 	var err error
 
+	// Create Azure CLI instance for operations
+	azCLI := azurecli.NewAzureCLI()
+
 	if allSubscriptions {
 		fmt.Println(utils.InfoColor("[INFO] Searching for ArcBox deployments across all subscriptions..."))
-		subscriptions, err = getAllSubscriptions()
+		subscriptions, err = getAllSubscriptions(azCLI)
 	} else if subscriptionID != "" {
 		fmt.Printf(utils.InfoColor("[INFO] Searching for ArcBox deployments in subscription %s...\n"), subscriptionID)
 		sub, err := getSubscription(subscriptionID)
@@ -1162,7 +1073,7 @@ func runArcBoxList(allSubscriptions, currentSubscription bool, subscriptionID, o
 	} else if currentSubscription {
 		// Explicit --current-subscription flag
 		fmt.Println(utils.InfoColor("[INFO] Searching for ArcBox deployments in current subscription..."))
-		sub, err := getCurrentSubscription()
+		sub, err := getCurrentSubscription(azCLI)
 		if err != nil {
 			return err
 		}
@@ -1205,36 +1116,35 @@ type AzureSubscription struct {
 	Name string `json:"name"`
 }
 
-// getAllSubscriptions returns all accessible Azure subscriptions
-func getAllSubscriptions() ([]AzureSubscription, error) {
-	cmd := exec.Command("az", "account", "list", "--query", "[].{id:id,name:name}", "-o", "json")
-	output, err := cmd.Output()
+// getAllSubscriptions returns all accessible Azure subscriptions using Azure CLI wrapper
+func getAllSubscriptions(azCLI azurecli.AzureCLI) ([]AzureSubscription, error) {
+	subs, err := azCLI.ListSubscriptions()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list subscriptions: %v", err)
 	}
 
 	var subscriptions []AzureSubscription
-	if err := json.Unmarshal(output, &subscriptions); err != nil {
-		return nil, fmt.Errorf("failed to parse subscriptions: %v", err)
+	for _, sub := range subs {
+		subscriptions = append(subscriptions, AzureSubscription{
+			ID:   sub.ID,
+			Name: sub.Name,
+		})
 	}
 
 	return subscriptions, nil
 }
 
-// getCurrentSubscription returns the current Azure subscription
-func getCurrentSubscription() (AzureSubscription, error) {
-	cmd := exec.Command("az", "account", "show", "--query", "{id:id,name:name}", "-o", "json")
-	output, err := cmd.Output()
+// getCurrentSubscription returns the current Azure subscription using Azure CLI wrapper
+func getCurrentSubscription(azCLI azurecli.AzureCLI) (AzureSubscription, error) {
+	sub, err := azCLI.GetCurrentSubscription()
 	if err != nil {
 		return AzureSubscription{}, fmt.Errorf("failed to get current subscription: %v", err)
 	}
 
-	var subscription AzureSubscription
-	if err := json.Unmarshal(output, &subscription); err != nil {
-		return AzureSubscription{}, fmt.Errorf("failed to parse current subscription: %v", err)
-	}
-
-	return subscription, nil
+	return AzureSubscription{
+		ID:   sub.ID,
+		Name: sub.Name,
+	}, nil
 }
 
 // getSubscription returns information about a specific subscription
