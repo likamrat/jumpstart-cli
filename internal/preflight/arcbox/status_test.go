@@ -229,34 +229,183 @@ func runCommandSilently(cmd *cobra.Command, args []string) error {
 	return cmd.Execute()
 }
 
-func TestStatusCommandExecution(t *testing.T) {
+func TestStatusCommandValidation(t *testing.T) {
 	cmd := CreateStatusCommand()
 
-	// Test that command can be executed without arguments
-	err := runCommandSilently(cmd, []string{})
-	if err != nil {
-		t.Errorf("Expected command to execute successfully, got error: %v", err)
+	// Test basic command properties
+	if cmd.Use != "status" {
+		t.Errorf("Expected Use to be 'status', got '%s'", cmd.Use)
 	}
 
-	// Test with verbose flag
-	cmd = CreateStatusCommand() // Reset command
-	err = runCommandSilently(cmd, []string{"--verbose"})
-	if err != nil {
-		t.Errorf("Expected command with --verbose to execute successfully, got error: %v", err)
+	// Test that RunE function exists
+	if cmd.RunE == nil {
+		t.Error("Expected RunE function to be defined")
 	}
 
-	// Test with json flag
-	cmd = CreateStatusCommand() // Reset command
-	err = runCommandSilently(cmd, []string{"--json"})
-	if err != nil {
-		t.Errorf("Expected command with --json to execute successfully, got error: %v", err)
+	// Test command silence settings
+	if !cmd.DisableSuggestions || !cmd.SilenceErrors || !cmd.SilenceUsage {
+		t.Error("Expected command to have proper silence settings")
+	}
+}
+
+func TestStatusCommandFlags(t *testing.T) {
+	cmd := CreateStatusCommand()
+
+	// Test all expected flags
+	expectedFlags := map[string]struct {
+		shorthand    string
+		defaultValue string
+	}{
+		"verbose": {"v", "false"},
+		"json":    {"j", "false"},
+		"format":  {"f", "table"},
 	}
 
-	// Test with format flag
-	cmd = CreateStatusCommand() // Reset command
-	err = runCommandSilently(cmd, []string{"--format", "yaml"})
-	if err != nil {
-		t.Errorf("Expected command with --format yaml to execute successfully, got error: %v", err)
+	for flagName, expected := range expectedFlags {
+		flag := cmd.Flags().Lookup(flagName)
+		if flag == nil {
+			t.Errorf("Expected flag '%s' to be defined", flagName)
+			continue
+		}
+
+		if flag.Shorthand != expected.shorthand {
+			t.Errorf("Flag '%s': expected shorthand '%s', got '%s'",
+				flagName, expected.shorthand, flag.Shorthand)
+		}
+
+		if flag.DefValue != expected.defaultValue {
+			t.Errorf("Flag '%s': expected default value '%s', got '%s'",
+				flagName, expected.defaultValue, flag.DefValue)
+		}
+	}
+}
+
+func TestStatusCheckResultValidation(t *testing.T) {
+	testCases := []struct {
+		name     string
+		result   StatusCheckResult
+		expected string
+	}{
+		{
+			name: "Success status",
+			result: StatusCheckResult{
+				CheckType: "Test",
+				Status:    "Success",
+				Success:   true,
+			},
+			expected: "Success",
+		},
+		{
+			name: "Failed status",
+			result: StatusCheckResult{
+				CheckType:    "Test",
+				Status:       "Failed",
+				Success:      false,
+				ErrorMessage: "Test error",
+			},
+			expected: "Failed",
+		},
+		{
+			name: "Warning status",
+			result: StatusCheckResult{
+				CheckType: "Test",
+				Status:    "Warning",
+				Success:   false,
+			},
+			expected: "Warning",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.result.Status != tc.expected {
+				t.Errorf("Expected status '%s', got '%s'", tc.expected, tc.result.Status)
+			}
+		})
+	}
+}
+
+func TestStatusErrorScenarios(t *testing.T) {
+	// Test with nil results
+	var nilResults []StatusCheckResult
+
+	// This should not panic
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("DisplayStatusResults panicked with nil results: %v", r)
+			}
+		}()
+		DisplayStatusResults(nilResults)
+	}()
+
+	// Test JSON output with empty results
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("DisplayStatusAsJSON panicked with empty results: %v", r)
+			}
+		}()
+		DisplayStatusAsJSON([]StatusCheckResult{})
+	}()
+
+	// Test YAML output with empty results
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("DisplayStatusAsYAML panicked with empty results: %v", r)
+			}
+		}()
+		DisplayStatusAsYAML([]StatusCheckResult{})
+	}()
+}
+
+func TestShowPreflightStatus(t *testing.T) {
+	// Test that ShowPreflightStatus doesn't panic
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("ShowPreflightStatus panicked: %v", r)
+		}
+	}()
+
+	ShowPreflightStatus()
+}
+
+func TestStatusCommandWithDifferentFormats(t *testing.T) {
+	testCases := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "Default format",
+			args: []string{},
+		},
+		{
+			name: "JSON format",
+			args: []string{"--json"},
+		},
+		{
+			name: "YAML format",
+			args: []string{"--format", "yaml"},
+		},
+		{
+			name: "Verbose mode",
+			args: []string{"--verbose"},
+		},
+		{
+			name: "JSON with verbose",
+			args: []string{"--json", "--verbose"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := CreateStatusCommand()
+			err := runCommandSilently(cmd, tc.args)
+			if err != nil {
+				t.Errorf("Command failed with args %v: %v", tc.args, err)
+			}
+		})
 	}
 }
 

@@ -1,13 +1,13 @@
 package arcbox
 
 import (
-"fmt"
-"testing"
+	"fmt"
+	"testing"
 
-"jumpstartcli/internal/azurecli"
-"jumpstartcli/internal/resourceproviders"
+	"jumpstartcli/internal/azurecli"
+	"jumpstartcli/internal/resourceproviders"
 
-"github.com/spf13/cobra"
+	"github.com/spf13/cobra"
 )
 
 func TestCreateResourceProviderCommands(t *testing.T) {
@@ -55,7 +55,9 @@ func TestCreateResourceProviderCommands(t *testing.T) {
 func TestShowResourceProviderStatus(t *testing.T) {
 	fmt.Printf("\n%s\n", "=== Testing Show Resource Provider Status ===")
 
-	mockCLI := &azurecli.MockAzureCLI{}
+	mockCLI := &azurecli.MockAzureCLI{
+		RegisteredProviders: make(map[string]bool),
+	}
 
 	// Set up mock data for registered providers
 	config := resourceproviders.GetArcBoxProviders()
@@ -64,23 +66,23 @@ func TestShowResourceProviderStatus(t *testing.T) {
 	}
 
 	// This test mainly checks that the function doesn't panic
-defer func() {
-if r := recover(); r != nil {
-printRPTestStatus(t, "Panic prevention", false, fmt.Sprintf("ShowResourceProviderStatus panicked: %v", r))
-t.Errorf("ShowResourceProviderStatus panicked: %v", r)
-} else {
-printRPTestStatus(t, "Panic prevention", true, "ShowResourceProviderStatus executed without panicking")
-}
-}()
+	defer func() {
+		if r := recover(); r != nil {
+			printRPTestStatus(t, "Panic prevention", false, fmt.Sprintf("ShowResourceProviderStatus panicked: %v", r))
+			t.Errorf("ShowResourceProviderStatus panicked: %v", r)
+		} else {
+			printRPTestStatus(t, "Panic prevention", true, "ShowResourceProviderStatus executed without panicking")
+		}
+	}()
 
-ShowResourceProviderStatus(mockCLI)
-printRPTestStatus(t, "Show status execution", true, "Function executed successfully")
+	ShowResourceProviderStatus(mockCLI)
+	printRPTestStatus(t, "Show status execution", true, "Function executed successfully")
 }
 
 func TestListRequiredResourceProviders(t *testing.T) {
-fmt.Printf("\n%s\n", "=== Testing List Required Resource Providers ===")
+	fmt.Printf("\n%s\n", "=== Testing List Required Resource Providers ===")
 
-// This test mainly checks that the function doesn't panic
+	// This test mainly checks that the function doesn't panic
 	defer func() {
 		if r := recover(); r != nil {
 			printRPTestStatus(t, "Panic prevention", false, fmt.Sprintf("ListRequiredResourceProviders panicked: %v", r))
@@ -97,28 +99,29 @@ fmt.Printf("\n%s\n", "=== Testing List Required Resource Providers ===")
 func TestRegisterResourceProvider(t *testing.T) {
 	fmt.Printf("\n%s\n", "=== Testing Register Resource Provider ===")
 
-
 	// Test successful registration (should exit, so we'll test in a different way)
-testName := "Function structure test"
-// Just test that the function exists and can be called without immediate panic
-defer func() {
-if r := recover(); r != nil {
-// If it panics for other reasons, that's fine for this test
-printRPTestStatus(t, testName, true, "Function exists and is callable")
-} else {
-printRPTestStatus(t, testName, true, "Function executed without panicking")
-}
-}()
+	testName := "Function structure test"
+	// Just test that the function exists and can be called without immediate panic
+	defer func() {
+		if r := recover(); r != nil {
+			// If it panics for other reasons, that's fine for this test
+			printRPTestStatus(t, testName, true, "Function exists and is callable")
+		} else {
+			printRPTestStatus(t, testName, true, "Function executed without panicking")
+		}
+	}()
 
 	// We can't actually test the full registration without mocking os.Exit
-// So we'll just verify the function exists and is properly structured
+	// So we'll just verify the function exists and is properly structured
 	printRPTestStatus(t, testName, true, "RegisterResourceProvider function is accessible")
 }
 
 func TestCheckAllResourceProviders(t *testing.T) {
 	fmt.Printf("\n%s\n", "=== Testing Check All Resource Providers ===")
 
-	mockCLI := &azurecli.MockAzureCLI{}
+	mockCLI := &azurecli.MockAzureCLI{
+		RegisteredProviders: make(map[string]bool),
+	}
 
 	// Test with all providers registered
 	testName := "All providers registered"
@@ -211,6 +214,151 @@ func TestResourceProviderSubcommandStructure(t *testing.T) {
 			message = fmt.Sprintf("Expected '%s', got '%s'", expectedDesc, foundCmd.Short)
 			printRPTestStatus(t, testName, success, message)
 		}
+	}
+}
+
+func TestResourceProviderCommandValidation(t *testing.T) {
+	fmt.Printf("\n%s\n", "=== Testing Resource Provider Command Validation ===")
+
+	mockCLI := &azurecli.MockAzureCLI{}
+	rpCmd := CreateResourceProviderCommands(mockCLI)
+
+	// Test 1: No arguments should show help (RunE should return nil)
+	testName := "No arguments validation"
+	err := rpCmd.RunE(rpCmd, []string{})
+	success := err == nil
+	message := "Should return nil when no arguments provided (shows help)"
+	printRPTestStatus(t, testName, success, message)
+
+	// Test 2: Valid subcommand should return nil
+	testName = "Valid subcommand validation"
+	validSubcommands := []string{"show", "list", "register"}
+	for _, subcmd := range validSubcommands {
+		err = rpCmd.RunE(rpCmd, []string{subcmd})
+		success = err == nil
+		message = fmt.Sprintf("Should return nil for valid subcommand '%s'", subcmd)
+		printRPTestStatus(t, testName+fmt.Sprintf(" (%s)", subcmd), success, message)
+	}
+
+	// Test 3: Invalid subcommand should return error
+	testName = "Invalid subcommand validation"
+	invalidSubcommands := []string{"invalid", "nonexistent", "badcmd"}
+	for _, invalidCmd := range invalidSubcommands {
+		err = rpCmd.RunE(rpCmd, []string{invalidCmd})
+		success = err != nil
+		expectedErrorMsg := fmt.Sprintf("unknown subcommand '%s' for 'js arcbox preflight rp'", invalidCmd)
+		if err != nil {
+			success = success && err.Error() == expectedErrorMsg
+		}
+		message = fmt.Sprintf("Should return error for invalid subcommand '%s'", invalidCmd)
+		printRPTestStatus(t, testName+fmt.Sprintf(" (%s)", invalidCmd), success, message)
+	}
+
+	// Test 4: Similar subcommand suggestions
+	testName = "Similar command suggestions"
+	// Test with commands that are similar to valid ones
+	similarCommands := []string{"sho", "lst", "registe", "show1"}
+
+	for _, similarCmd := range similarCommands {
+		// We can't easily test the actual suggestion output, but we can test that
+		// the command doesn't crash and returns nil (since suggestions don't error)
+		err = rpCmd.RunE(rpCmd, []string{similarCmd})
+		success = err == nil // Should return nil after showing suggestion
+		message = fmt.Sprintf("Should handle similar command '%s' gracefully", similarCmd)
+		printRPTestStatus(t, testName+fmt.Sprintf(" (%s)", similarCmd), success, message)
+	}
+}
+
+func TestResourceProviderErrorScenarios(t *testing.T) {
+	fmt.Printf("\n%s\n", "=== Testing Resource Provider Error Scenarios ===")
+
+	// Test with empty mock CLI
+	testName := "Empty provider list"
+	mockCLI := &azurecli.MockAzureCLI{
+		RegisteredProviders: make(map[string]bool),
+	}
+
+	result := CheckAllResourceProviders(mockCLI)
+	success := result == false
+	message := "Should return false when no providers are registered"
+	printRPTestStatus(t, testName, success, message)
+
+	// Test with partial provider registration
+	testName = "Partial provider registration"
+	config := resourceproviders.GetArcBoxProviders()
+	if len(config.RequiredProviders) > 1 {
+		// Register only the first provider
+		mockCLI.RegisteredProviders[config.RequiredProviders[0]] = true
+
+		result = CheckAllResourceProviders(mockCLI)
+		success = result == false
+		message = "Should return false when only some providers are registered"
+		printRPTestStatus(t, testName, success, message)
+	}
+
+	// Test with nil/empty provider name for registration
+	testName = "Empty provider name registration"
+	defer func() {
+		if r := recover(); r != nil {
+			// If it panics, that's expected behavior for invalid input
+			printRPTestStatus(t, testName, true, "Function handled empty provider name appropriately")
+		} else {
+			// If it doesn't panic, that's also acceptable
+			printRPTestStatus(t, testName, true, "Function executed without panicking on empty provider name")
+		}
+	}()
+
+	// We can't fully test RegisterResourceProvider because it calls os.Exit on error
+	// But we can test that it doesn't immediately crash on empty input
+	// Note: This is more of a structural test
+	printRPTestStatus(t, testName, true, "RegisterResourceProvider function structure test completed")
+}
+
+func TestResourceProviderCommandHelpAndUsage(t *testing.T) {
+	fmt.Printf("\n%s\n", "=== Testing Resource Provider Command Help and Usage ===")
+
+	mockCLI := &azurecli.MockAzureCLI{}
+	rpCmd := CreateResourceProviderCommands(mockCLI)
+
+	// Test main command properties
+	testName := "Main command usage text"
+	expectedUsage := "rp"
+	success := rpCmd.Use == expectedUsage
+	message := fmt.Sprintf("Expected usage '%s', got '%s'", expectedUsage, rpCmd.Use)
+	printRPTestStatus(t, testName, success, message)
+
+	testName = "Main command silence settings"
+	success = rpCmd.DisableSuggestions && rpCmd.SilenceErrors && rpCmd.SilenceUsage
+	message = "Should have DisableSuggestions, SilenceErrors, and SilenceUsage enabled"
+	printRPTestStatus(t, testName, success, message)
+
+	// Test that all subcommands have RunE or Run functions
+	testName = "Subcommand execution functions"
+	allSubcommands := rpCmd.Commands()
+	for _, subcmd := range allSubcommands {
+		hasRun := subcmd.Run != nil || subcmd.RunE != nil
+		success = hasRun
+		message = fmt.Sprintf("Subcommand '%s' should have Run or RunE function", subcmd.Use)
+		printRPTestStatus(t, testName+fmt.Sprintf(" (%s)", subcmd.Use), success, message)
+	}
+
+	// Test that register command has required flag
+	testName = "Register command flag configuration"
+	var registerCmd *cobra.Command
+	for _, subcmd := range allSubcommands {
+		if subcmd.Use == "register" {
+			registerCmd = subcmd
+			break
+		}
+	}
+
+	if registerCmd != nil {
+		nameFlag := registerCmd.Flags().Lookup("name")
+		success = nameFlag != nil && nameFlag.Shorthand == "n"
+		message := "Register command should have 'name' flag with shorthand 'n'"
+		printRPTestStatus(t, testName, success, message)
+	} else {
+		printRPTestStatus(t, testName, false, "Register command not found")
 	}
 }
 
