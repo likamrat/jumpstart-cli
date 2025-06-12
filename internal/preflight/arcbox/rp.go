@@ -2,15 +2,15 @@
 package arcbox
 
 import (
-"fmt"
-"os"
+	"fmt"
+	"os"
 
-"jumpstartcli/internal/azurecli"
-"jumpstartcli/internal/examples"
-"jumpstartcli/internal/resourceproviders"
-"jumpstartcli/internal/utils"
+	"jumpstartcli/internal/azurecli"
+	"jumpstartcli/internal/examples"
+	"jumpstartcli/internal/resourceproviders"
+	"jumpstartcli/internal/utils"
 
-"github.com/spf13/cobra"
+	"github.com/spf13/cobra"
 )
 
 // CreateResourceProviderCommands creates the resource provider subcommands for ArcBox preflight
@@ -21,23 +21,23 @@ func CreateResourceProviderCommands(cli azurecli.AzureCLI) *cobra.Command {
 		Short: "Check and manage Azure resource provider registration",
 		Long:  `Check, list, and register required Azure resource providers for ArcBox deployment`,
 		// Disable Cobra's built-in suggestions and errors to use our custom ones
-DisableSuggestions: true,
-SilenceErrors:      true,
-SilenceUsage:       true,
-RunE: func(cmd *cobra.Command, args []string) error {
-if len(args) > 0 {
-// List of valid subcommands for arcbox preflight rp
-validSubcommands := []string{"show", "list", "register"}
+		DisableSuggestions: true,
+		SilenceErrors:      true,
+		SilenceUsage:       true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				// List of valid subcommands for arcbox preflight rp
+				validSubcommands := []string{"show", "list", "register"}
 
-// Check if the provided argument is a valid subcommand
-invalidSubcommand := args[0]
-for _, validCmd := range validSubcommands {
-if invalidSubcommand == validCmd {
-return nil // Valid subcommand, continue normal processing
-}
-}
+				// Check if the provided argument is a valid subcommand
+				invalidSubcommand := args[0]
+				for _, validCmd := range validSubcommands {
+					if invalidSubcommand == validCmd {
+						return nil // Valid subcommand, continue normal processing
+					}
+				}
 
-// If we reach here, it's an invalid subcommand - suggest similar ones
+				// If we reach here, it's an invalid subcommand - suggest similar ones
 				if suggestion := utils.SuggestSimilarCommand(invalidSubcommand, validSubcommands, 3); suggestion != "" {
 					utils.PrintDidYouMean(invalidSubcommand, suggestion)
 					return nil
@@ -126,14 +126,14 @@ func RegisterResourceProvider(cli azurecli.AzureCLI, provider string) {
 func CheckAllResourceProviders(cli azurecli.AzureCLI) bool {
 	config := resourceproviders.GetArcBoxProviders()
 	allRegistered, missingProviders := resourceproviders.CheckAllProviders(cli, config)
-	
+
 	if !allRegistered {
-		fmt.Printf(utils.ErrorColor("❌ [ERROR] %d resource provider(s) not registered: %v\n"), 
-len(missingProviders), missingProviders)
+		fmt.Printf(utils.ErrorColor("❌ [ERROR] %d resource provider(s) not registered: %v\n"),
+			len(missingProviders), missingProviders)
 		fmt.Println(utils.InfoColor("💡 [TIP] Use 'js arcbox preflight rp register --name <provider>' to register missing providers"))
 		return false
 	}
-	
+
 	fmt.Println(utils.SuccessColor("✅ [SUCCESS] All required resource providers are registered"))
 	return true
 }

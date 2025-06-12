@@ -14,11 +14,11 @@ type MockCall struct {
 
 // Mock provides a simple mocking framework for tests
 type Mock struct {
-	mu            sync.RWMutex
-	calls         []MockCall
-	expectations  map[string][]MockCall
-	strict        bool
-	callIndex     map[string]int
+	mu           sync.RWMutex
+	calls        []MockCall
+	expectations map[string][]MockCall
+	strict       bool
+	callIndex    map[string]int
 }
 
 // NewMock creates a new mock object
@@ -41,11 +41,11 @@ func NewStrictMock() *Mock {
 func (m *Mock) Expect(method string, args ...interface{}) *MockExpectation {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if m.expectations[method] == nil {
 		m.expectations[method] = make([]MockCall, 0)
 	}
-	
+
 	return &MockExpectation{
 		mock:   m,
 		method: method,
@@ -57,13 +57,13 @@ func (m *Mock) Expect(method string, args ...interface{}) *MockExpectation {
 func (m *Mock) RecordCall(method string, args ...interface{}) []interface{} {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	call := MockCall{
 		Method: method,
 		Args:   args,
 	}
 	m.calls = append(m.calls, call)
-	
+
 	// Find matching expectation
 	if expectations, exists := m.expectations[method]; exists {
 		index := m.callIndex[method]
@@ -74,7 +74,7 @@ func (m *Mock) RecordCall(method string, args ...interface{}) []interface{} {
 			return expected.Return
 		}
 	}
-	
+
 	// No expectation found
 	return nil
 }
@@ -83,7 +83,7 @@ func (m *Mock) RecordCall(method string, args ...interface{}) []interface{} {
 func (m *Mock) Verify() error {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	for method, expectations := range m.expectations {
 		called := m.callIndex[method]
 		expected := len(expectations)
@@ -91,7 +91,7 @@ func (m *Mock) Verify() error {
 			return fmt.Errorf("method %s: expected %d calls, got %d", method, expected, called)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -99,7 +99,7 @@ func (m *Mock) Verify() error {
 func (m *Mock) GetCalls() []MockCall {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	calls := make([]MockCall, len(m.calls))
 	copy(calls, m.calls)
 	return calls
@@ -109,7 +109,7 @@ func (m *Mock) GetCalls() []MockCall {
 func (m *Mock) GetCallsFor(method string) []MockCall {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	var methodCalls []MockCall
 	for _, call := range m.calls {
 		if call.Method == method {
@@ -123,7 +123,7 @@ func (m *Mock) GetCallsFor(method string) []MockCall {
 func (m *Mock) Reset() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.calls = m.calls[:0]
 	m.expectations = make(map[string][]MockCall)
 	m.callIndex = make(map[string]int)
@@ -140,13 +140,13 @@ type MockExpectation struct {
 func (e *MockExpectation) Return(values ...interface{}) *MockExpectation {
 	e.mock.mu.Lock()
 	defer e.mock.mu.Unlock()
-	
+
 	call := MockCall{
 		Method: e.method,
 		Args:   e.args,
 		Return: values,
 	}
-	
+
 	e.mock.expectations[e.method] = append(e.mock.expectations[e.method], call)
 	return e
 }

@@ -51,17 +51,17 @@ func RunTableTests[T any](t *testing.T, tests []TableTest, testFunc func(input i
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
 			result, err := testFunc(tt.Input)
-			
+
 			if tt.ShouldErr && err == nil {
 				PrintTestStatus(t, tt.Name, false, "Expected error but got none")
 				return
 			}
-			
+
 			if !tt.ShouldErr && err != nil {
 				PrintTestStatus(t, tt.Name, false, fmt.Sprintf("Unexpected error: %v", err))
 				return
 			}
-			
+
 			// Type-safe comparison would require reflection or generics constraints
 			// For now, use interface{} comparison
 			if fmt.Sprintf("%v", result) == fmt.Sprintf("%v", tt.Expected) {

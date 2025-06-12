@@ -378,15 +378,15 @@ func TestQuotaEdgeCases(t *testing.T) {
 			flavor:   "ITPro",
 			mockSetup: func(mock *azurecli.MockAzureCLI) {
 				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
-{
-Name: map[string]string{
-"value":          "Total Regional vCPUs",
-"localizedValue": "Total Regional vCPUs",
-},
-CurrentValue: 10,
-Limit:        100,
-},
-})
+					{
+						Name: map[string]string{
+							"value":          "Total Regional vCPUs",
+							"localizedValue": "Total Regional vCPUs",
+						},
+						CurrentValue: 10,
+						Limit:        100,
+					},
+				})
 				mock.SetAvailableSKUsForRegion("eastus", []string{"Standard_X99_v1"})
 			},
 		},
@@ -398,15 +398,15 @@ Limit:        100,
 			flavor:   "ITPro",
 			mockSetup: func(mock *azurecli.MockAzureCLI) {
 				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
-{
-Name: map[string]string{
-"value":          "Some Other Quota",
-"localizedValue": "Some Other Quota",
-},
-CurrentValue: 10,
-Limit:        100,
-},
-})
+					{
+						Name: map[string]string{
+							"value":          "Some Other Quota",
+							"localizedValue": "Some Other Quota",
+						},
+						CurrentValue: 10,
+						Limit:        100,
+					},
+				})
 				mock.SetAvailableSKUsForRegion("eastus", []string{"Standard_Unknown"})
 			},
 		},
@@ -418,31 +418,31 @@ Limit:        100,
 			flavor:   "ITPro",
 			mockSetup: func(mock *azurecli.MockAzureCLI) {
 				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
-{
-Name: map[string]string{
-// Missing "value" field
-"localizedValue": "Standard DSv5 Family vCPUs",
-},
-CurrentValue: 2,
-Limit:        64,
-},
-{
-Name: map[string]string{
-"value": "Standard DSv5 Family vCPUs",
-// Missing "localizedValue" field
-},
-CurrentValue: 2,
-Limit:        64,
-},
-{
-Name: map[string]string{
-"value":          "Standard DSv5 Family vCPUs",
-"localizedValue": "Standard DSv5 Family vCPUs",
-},
-CurrentValue: 2,
-Limit:        64,
-},
-})
+					{
+						Name: map[string]string{
+							// Missing "value" field
+							"localizedValue": "Standard DSv5 Family vCPUs",
+						},
+						CurrentValue: 2,
+						Limit:        64,
+					},
+					{
+						Name: map[string]string{
+							"value": "Standard DSv5 Family vCPUs",
+							// Missing "localizedValue" field
+						},
+						CurrentValue: 2,
+						Limit:        64,
+					},
+					{
+						Name: map[string]string{
+							"value":          "Standard DSv5 Family vCPUs",
+							"localizedValue": "Standard DSv5 Family vCPUs",
+						},
+						CurrentValue: 2,
+						Limit:        64,
+					},
+				})
 				mock.SetAvailableSKUsForRegion("eastus", []string{"Standard_D8s_v5"})
 			},
 		},
@@ -450,110 +450,110 @@ Limit:        64,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-mock := azurecli.NewMockAzureCLI()
+			mock := azurecli.NewMockAzureCLI()
 			tt.mockSetup(mock)
 
 			result := CheckQuotaForSKU(mock, tt.sku, tt.required, tt.region, tt.flavor)
-			
+
 			// Just ensure it doesn't panic and returns a result
-if result.SKU != tt.sku {
-t.Errorf("Expected SKU %s, got %s", tt.sku, result.SKU)
-}
-})
-}
+			if result.SKU != tt.sku {
+				t.Errorf("Expected SKU %s, got %s", tt.sku, result.SKU)
+			}
+		})
+	}
 }
 
 func TestAllFlavorsScenario(t *testing.T) {
-tests := []struct {
-name         string
-flavor       string
-region       string
-subscription string
-mockSetup    func(*azurecli.MockAzureCLI)
-expectError  bool
-}{
-{
-name:         "all flavors successful",
-flavor:       "all",
-region:       "eastus",
-subscription: "test-sub",
-mockSetup: func(mock *azurecli.MockAzureCLI) {
-// Set up quota for all possible SKUs
-mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
-{
-Name: map[string]string{
-"value":          "Standard DSv5 Family vCPUs",
-"localizedValue": "Standard DSv5 Family vCPUs",
-},
-CurrentValue: 0,
-Limit:        64,
-},
-{
-Name: map[string]string{
-"value":          "Standard BS Family vCPUs",
-"localizedValue": "Standard BS Family vCPUs",
-},
-CurrentValue: 0,
-Limit:        32,
-},
-{
-Name: map[string]string{
-"value":          "Standard DSv4 Family vCPUs",
-"localizedValue": "Standard DSv4 Family vCPUs",
-},
-CurrentValue: 0,
-Limit:        32,
-},
-})
-// All SKUs from ITPro, DevOps, and DataOps flavors
-allSKUs := []string{"Standard_D8s_v5", "Standard_B2ms", "Standard_B8ms", "Standard_B4ms", "Standard_D8s_v4"}
-mock.SetAvailableSKUsForRegion("eastus", allSKUs)
-},
-expectError: false,
-},
-{
-name:         "DataOps flavor",
-flavor:       "DataOps",
-region:       "eastus",
-subscription: "test-sub",
-mockSetup: func(mock *azurecli.MockAzureCLI) {
-mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
-{
-Name: map[string]string{
-"value":          "Standard DSv5 Family vCPUs",
-"localizedValue": "Standard DSv5 Family vCPUs",
-},
-CurrentValue: 0,
-Limit:        64,
-},
-{
-Name: map[string]string{
-"value":          "Standard BS Family vCPUs",
-"localizedValue": "Standard BS Family vCPUs",
-},
-CurrentValue: 0,
-Limit:        32,
-},
-{
-Name: map[string]string{
-"value":          "Standard DSv4 Family vCPUs",
-"localizedValue": "Standard DSv4 Family vCPUs",
-},
-CurrentValue: 0,
-Limit:        32,
-},
-})
-dataOpsSKUs := []string{"Standard_D8s_v5", "Standard_B2ms", "Standard_B8ms", "Standard_B4ms", "Standard_D8s_v4"}
-mock.SetAvailableSKUsForRegion("eastus", dataOpsSKUs)
-},
-expectError: false,
-},
-{
-name:         "batch SKU availability check error",
-flavor:       "ITPro",
-region:       "eastus",
-subscription: "test-sub",
-mockSetup: func(mock *azurecli.MockAzureCLI) {
+	tests := []struct {
+		name         string
+		flavor       string
+		region       string
+		subscription string
+		mockSetup    func(*azurecli.MockAzureCLI)
+		expectError  bool
+	}{
+		{
+			name:         "all flavors successful",
+			flavor:       "all",
+			region:       "eastus",
+			subscription: "test-sub",
+			mockSetup: func(mock *azurecli.MockAzureCLI) {
+				// Set up quota for all possible SKUs
+				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
+					{
+						Name: map[string]string{
+							"value":          "Standard DSv5 Family vCPUs",
+							"localizedValue": "Standard DSv5 Family vCPUs",
+						},
+						CurrentValue: 0,
+						Limit:        64,
+					},
+					{
+						Name: map[string]string{
+							"value":          "Standard BS Family vCPUs",
+							"localizedValue": "Standard BS Family vCPUs",
+						},
+						CurrentValue: 0,
+						Limit:        32,
+					},
+					{
+						Name: map[string]string{
+							"value":          "Standard DSv4 Family vCPUs",
+							"localizedValue": "Standard DSv4 Family vCPUs",
+						},
+						CurrentValue: 0,
+						Limit:        32,
+					},
+				})
+				// All SKUs from ITPro, DevOps, and DataOps flavors
+				allSKUs := []string{"Standard_D8s_v5", "Standard_B2ms", "Standard_B8ms", "Standard_B4ms", "Standard_D8s_v4"}
+				mock.SetAvailableSKUsForRegion("eastus", allSKUs)
+			},
+			expectError: false,
+		},
+		{
+			name:         "DataOps flavor",
+			flavor:       "DataOps",
+			region:       "eastus",
+			subscription: "test-sub",
+			mockSetup: func(mock *azurecli.MockAzureCLI) {
+				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
+					{
+						Name: map[string]string{
+							"value":          "Standard DSv5 Family vCPUs",
+							"localizedValue": "Standard DSv5 Family vCPUs",
+						},
+						CurrentValue: 0,
+						Limit:        64,
+					},
+					{
+						Name: map[string]string{
+							"value":          "Standard BS Family vCPUs",
+							"localizedValue": "Standard BS Family vCPUs",
+						},
+						CurrentValue: 0,
+						Limit:        32,
+					},
+					{
+						Name: map[string]string{
+							"value":          "Standard DSv4 Family vCPUs",
+							"localizedValue": "Standard DSv4 Family vCPUs",
+						},
+						CurrentValue: 0,
+						Limit:        32,
+					},
+				})
+				dataOpsSKUs := []string{"Standard_D8s_v5", "Standard_B2ms", "Standard_B8ms", "Standard_B4ms", "Standard_D8s_v4"}
+				mock.SetAvailableSKUsForRegion("eastus", dataOpsSKUs)
+			},
+			expectError: false,
+		},
+		{
+			name:         "batch SKU availability check error",
+			flavor:       "ITPro",
+			region:       "eastus",
+			subscription: "test-sub",
+			mockSetup: func(mock *azurecli.MockAzureCLI) {
 				// Set up quota data so RunQuotaChecks has the data it needs
 				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
 					{
@@ -565,104 +565,104 @@ mockSetup: func(mock *azurecli.MockAzureCLI) {
 						Limit:        64,
 					},
 				})
-mock.SetErrorForCheckSKUAvailability(fmt.Errorf("batch check failed"))
-},
-expectError: false,
-},
-}
+				mock.SetErrorForCheckSKUAvailability(fmt.Errorf("batch check failed"))
+			},
+			expectError: false,
+		},
+	}
 
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-mock := azurecli.NewMockAzureCLI()
-tt.mockSetup(mock)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := azurecli.NewMockAzureCLI()
+			tt.mockSetup(mock)
 
-results, err := RunQuotaChecks(mock, tt.region, tt.flavor, tt.subscription)
+			results, err := RunQuotaChecks(mock, tt.region, tt.flavor, tt.subscription)
 
-if tt.expectError && err == nil {
-t.Errorf("Expected error, got nil")
-}
+			if tt.expectError && err == nil {
+				t.Errorf("Expected error, got nil")
+			}
 
-if !tt.expectError && err != nil {
-t.Errorf("Expected no error, got %v", err)
-}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error, got %v", err)
+			}
 
-if !tt.expectError && len(results) == 0 {
-t.Errorf("Expected results, got empty slice")
-}
-})
-}
+			if !tt.expectError && len(results) == 0 {
+				t.Errorf("Expected results, got empty slice")
+			}
+		})
+	}
 }
 
 func TestHelperFunctionsComprehensive(t *testing.T) {
-// Test getFlavorSKUs with all cases including unknown
-tests := []struct {
-flavor       string
-expectedSKUs int
-}{
-{"itpro", 1},
-{"ITPRO", 1}, // Test case insensitivity
-{"devops", 5},
-{"DEVOPS", 5},
-{"dataops", 5},
-{"DATAOPS", 5},
-{"unknown", 0},
-{"", 0},
-}
+	// Test getFlavorSKUs with all cases including unknown
+	tests := []struct {
+		flavor       string
+		expectedSKUs int
+	}{
+		{"itpro", 1},
+		{"ITPRO", 1}, // Test case insensitivity
+		{"devops", 5},
+		{"DEVOPS", 5},
+		{"dataops", 5},
+		{"DATAOPS", 5},
+		{"unknown", 0},
+		{"", 0},
+	}
 
-for _, tt := range tests {
-t.Run(fmt.Sprintf("getFlavorSKUs_%s", tt.flavor), func(t *testing.T) {
-skus := getFlavorSKUs(tt.flavor)
-if len(skus) != tt.expectedSKUs {
-t.Errorf("Expected %d SKUs for flavor %s, got %d", tt.expectedSKUs, tt.flavor, len(skus))
-}
-})
-}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("getFlavorSKUs_%s", tt.flavor), func(t *testing.T) {
+			skus := getFlavorSKUs(tt.flavor)
+			if len(skus) != tt.expectedSKUs {
+				t.Errorf("Expected %d SKUs for flavor %s, got %d", tt.expectedSKUs, tt.flavor, len(skus))
+			}
+		})
+	}
 
-// Test getRequiredVCPUForSKU with known and unknown SKUs
-vcpuTests := []struct {
-sku      string
-expected int
-}{
-{"Standard_D8s_v5", 8},
-{"Standard_D8s_v4", 8},
-{"Standard_B2ms", 2},
-{"Standard_B4ms", 4},
-{"Standard_B8ms", 8},
-{"Standard_Unknown", 1}, // Fallback case
-{"", 1},                 // Empty case
-}
+	// Test getRequiredVCPUForSKU with known and unknown SKUs
+	vcpuTests := []struct {
+		sku      string
+		expected int
+	}{
+		{"Standard_D8s_v5", 8},
+		{"Standard_D8s_v4", 8},
+		{"Standard_B2ms", 2},
+		{"Standard_B4ms", 4},
+		{"Standard_B8ms", 8},
+		{"Standard_Unknown", 1}, // Fallback case
+		{"", 1},                 // Empty case
+	}
 
-for _, tt := range vcpuTests {
-t.Run(fmt.Sprintf("getRequiredVCPUForSKU_%s", tt.sku), func(t *testing.T) {
-vcpu := getRequiredVCPUForSKU(tt.sku)
-if vcpu != tt.expected {
-t.Errorf("Expected %d vCPU for SKU %s, got %d", tt.expected, tt.sku, vcpu)
-}
-})
-}
+	for _, tt := range vcpuTests {
+		t.Run(fmt.Sprintf("getRequiredVCPUForSKU_%s", tt.sku), func(t *testing.T) {
+			vcpu := getRequiredVCPUForSKU(tt.sku)
+			if vcpu != tt.expected {
+				t.Errorf("Expected %d vCPU for SKU %s, got %d", tt.expected, tt.sku, vcpu)
+			}
+		})
+	}
 
-// Test mapSKUToFamilyQuotaName with edge cases
-familyTests := []struct {
-sku      string
-expected string
-}{
-{"Standard_D8s_v5", "Standard Dsv5 Family vCPUs"},
-{"Standard_B2ms", "Standard BS Family vCPUs"},
-{"Standard_B4ms", "Standard BS Family vCPUs"},
-{"Standard_D8s_v4", "Standard Dsv4 Family vCPUs"},
-{"Standard_F4s_v2", "Standard Fsv2 Family vCPUs"},
-{"Standard_X", "Standard X Family vCPUs"}, // Single part, not B-series
-{"", ""},           // Empty string
-{"InvalidFormat", "Standard InvalidFormat Family vCPUs"}, // No underscore
-{"Standard_", ""},     // Just prefix
-}
+	// Test mapSKUToFamilyQuotaName with edge cases
+	familyTests := []struct {
+		sku      string
+		expected string
+	}{
+		{"Standard_D8s_v5", "Standard Dsv5 Family vCPUs"},
+		{"Standard_B2ms", "Standard BS Family vCPUs"},
+		{"Standard_B4ms", "Standard BS Family vCPUs"},
+		{"Standard_D8s_v4", "Standard Dsv4 Family vCPUs"},
+		{"Standard_F4s_v2", "Standard Fsv2 Family vCPUs"},
+		{"Standard_X", "Standard X Family vCPUs"}, // Single part, not B-series
+		{"", ""}, // Empty string
+		{"InvalidFormat", "Standard InvalidFormat Family vCPUs"}, // No underscore
+		{"Standard_", ""}, // Just prefix
+	}
 
-for _, tt := range familyTests {
-t.Run(fmt.Sprintf("mapSKUToFamilyQuotaName_%s", tt.sku), func(t *testing.T) {
-family := mapSKUToFamilyQuotaName(tt.sku)
-if family != tt.expected {
-t.Errorf("Expected family name '%s' for SKU %s, got '%s'", tt.expected, tt.sku, family)
-}
-})
-}
+	for _, tt := range familyTests {
+		t.Run(fmt.Sprintf("mapSKUToFamilyQuotaName_%s", tt.sku), func(t *testing.T) {
+			family := mapSKUToFamilyQuotaName(tt.sku)
+			if family != tt.expected {
+				t.Errorf("Expected family name '%s' for SKU %s, got '%s'", tt.expected, tt.sku, family)
+			}
+		})
+	}
 }

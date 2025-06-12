@@ -38,11 +38,11 @@ type DownloadInfo struct {
 
 // BackupInfo contains backup information for rollback capability
 type BackupInfo struct {
-	BackupPath    string
-	OriginalPath  string
-	BackupTime    time.Time
-	Version       string
-	ChecksumMD5   string
+	BackupPath   string
+	OriginalPath string
+	BackupTime   time.Time
+	Version      string
+	ChecksumMD5  string
 }
 
 // GetPlatformInfo detects the current platform and returns appropriate binary info
@@ -221,7 +221,7 @@ func checkPermissions(targetPath string) (bool, error) {
 	// Always check the parent directory permissions since we can't reliably
 	// test write access to a file that might be currently executing
 	parentDir := filepath.Dir(targetPath)
-	
+
 	// Try to create a temp file in the parent directory
 	tempFile, err := os.CreateTemp(parentDir, "perm-test-")
 	if err != nil {
@@ -232,16 +232,16 @@ func checkPermissions(targetPath string) (bool, error) {
 	}
 	tempFile.Close()
 	os.Remove(tempFile.Name())
-	
+
 	// For system directories like /usr/local/bin, we should ask for user choice
 	// even if we can write (since it's a system-wide installation)
-	if strings.HasPrefix(targetPath, "/usr/") || 
-	   strings.HasPrefix(targetPath, "/bin/") || 
-	   strings.HasPrefix(targetPath, "/sbin/") ||
-	   strings.HasPrefix(targetPath, "/opt/") {
+	if strings.HasPrefix(targetPath, "/usr/") ||
+		strings.HasPrefix(targetPath, "/bin/") ||
+		strings.HasPrefix(targetPath, "/sbin/") ||
+		strings.HasPrefix(targetPath, "/opt/") {
 		return true, nil
 	}
-	
+
 	return false, nil
 }
 
@@ -518,14 +518,14 @@ func replaceBinaryUnix(downloadInfo *DownloadInfo) error {
 	// Try a different approach: rename current binary and move new one in place
 	// This should work even if the current binary is running
 	oldBinaryPath := downloadInfo.FinalPath + ".old"
-	
+
 	// Step 1: Rename current binary
 	fmt.Printf("🔄 Renaming current binary: %s -> %s\n", downloadInfo.FinalPath, oldBinaryPath)
 	err := os.Rename(downloadInfo.FinalPath, oldBinaryPath)
 	if err != nil {
 		return fmt.Errorf("failed to rename current binary: %v", err)
 	}
-	
+
 	// Step 2: Copy new binary into place
 	fmt.Printf("🔄 Installing new binary: %s -> %s\n", downloadInfo.TempPath, downloadInfo.FinalPath)
 	err = copyFile(downloadInfo.TempPath, downloadInfo.FinalPath)
@@ -534,7 +534,7 @@ func replaceBinaryUnix(downloadInfo *DownloadInfo) error {
 		os.Rename(oldBinaryPath, downloadInfo.FinalPath)
 		return fmt.Errorf("failed to install new binary: %v", err)
 	}
-	
+
 	// Step 3: Make new binary executable
 	err = os.Chmod(downloadInfo.FinalPath, 0755)
 	if err != nil {
@@ -543,7 +543,7 @@ func replaceBinaryUnix(downloadInfo *DownloadInfo) error {
 		os.Rename(oldBinaryPath, downloadInfo.FinalPath)
 		return fmt.Errorf("failed to make new binary executable: %v", err)
 	}
-	
+
 	// Step 4: Create a cleanup script to remove old binary and temp files
 	scriptPath := filepath.Join(filepath.Dir(downloadInfo.TempPath), "cleanup.sh")
 	cleanupScript := fmt.Sprintf(`#!/bin/bash
@@ -563,7 +563,7 @@ rm -f "%s" 2>/dev/null || true
 		cmd := exec.Command("bash", scriptPath)
 		cmd.Start()
 	}
-	
+
 	fmt.Println("✅ Binary replacement completed successfully!")
 	fmt.Println("🎉 You can now run the command again to use the new version.")
 
@@ -685,7 +685,7 @@ func RestoreBackup(backup *BackupInfo) error {
 
 	// Perform restore
 	fmt.Printf("🔄 Restoring version %s...\n", backup.Version)
-	
+
 	if runtime.GOOS == "windows" {
 		// Windows: rename current and restore
 		tempPath := backup.OriginalPath + ".temp"

@@ -31,7 +31,7 @@ const (
 func CheckForUpdates(includePrereleases bool) (*VersionInfo, error) {
 	var apiURL string
 	var release config.GitHubRelease
-	
+
 	// Create HTTP client with timeout
 	client := &http.Client{
 		Timeout: 10 * time.Second,
@@ -40,7 +40,7 @@ func CheckForUpdates(includePrereleases bool) (*VersionInfo, error) {
 	if includePrereleases {
 		// When including prereleases, get all releases and find the latest
 		apiURL = config.GetRepositoryAllReleasesURL()
-		
+
 		if utils.DebugMode {
 			utils.Debug("Checking for updates (including prereleases) from: %s", apiURL)
 		}
@@ -70,7 +70,7 @@ func CheckForUpdates(includePrereleases bool) (*VersionInfo, error) {
 	} else {
 		// For stable releases only, use the /releases/latest endpoint
 		apiURL = config.GetRepositoryURL()
-		
+
 		if utils.DebugMode {
 			utils.Debug("Checking for updates (stable only) from: %s", apiURL)
 		}
@@ -165,21 +165,21 @@ type versionParts struct {
 // parseVersion parses a version string into its components
 func parseVersion(version string) versionParts {
 	var parts versionParts
-	
+
 	// Split on '+' to separate build metadata
 	buildSplit := strings.Split(version, "+")
 	if len(buildSplit) > 1 {
 		parts.build = buildSplit[1]
 	}
-	
+
 	// Split on '-' to separate pre-release
 	preReleaseSplit := strings.Split(buildSplit[0], "-")
 	parts.core = strings.Split(preReleaseSplit[0], ".")
-	
+
 	if len(preReleaseSplit) > 1 {
 		parts.preRelease = strings.Join(preReleaseSplit[1:], "-")
 	}
-	
+
 	return parts
 }
 
@@ -223,7 +223,7 @@ func comparePreRelease(pre1, pre2 string) int {
 	if pre1 == "" && pre2 == "" {
 		return 0
 	}
-	
+
 	// Version without pre-release has higher precedence
 	if pre1 == "" && pre2 != "" {
 		return 1
@@ -231,7 +231,7 @@ func comparePreRelease(pre1, pre2 string) int {
 	if pre1 != "" && pre2 == "" {
 		return -1
 	}
-	
+
 	// Both have pre-release, compare them lexically
 	if pre1 < pre2 {
 		return -1
@@ -239,7 +239,7 @@ func comparePreRelease(pre1, pre2 string) int {
 	if pre1 > pre2 {
 		return 1
 	}
-	
+
 	return 0
 }
 
