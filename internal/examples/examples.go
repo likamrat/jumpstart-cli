@@ -386,4 +386,88 @@ var examplesRegistry = map[string]*ExampleSet{
 			},
 		},
 	},
+	"upgrade.check": {
+		Examples: []Example{
+			{
+				Description: "Check for stable updates only",
+				Command:     "js upgrade check --yes",
+			},
+			{
+				Description: "Check for updates including pre-releases",
+				Command:     "js upgrade check -y -p",
+			},
+			{
+				Description: "Check for updates with debug output enabled",
+				Command:     "js upgrade check -y --debug",
+			},
+			{
+				Description: "Check for updates including pre-releases (long form)",
+				Command:     "js upgrade check --yes --pre-release",
+			},
+		},
+	},
+	"upgrade.install": {
+		Examples: []Example{
+			{
+				Description: "Install latest stable version",
+				Command:     "js upgrade install --yes",
+			},
+			{
+				Description: "Install latest version including pre-releases",
+				Command:     "js upgrade install -y -p",
+			},
+			{
+				Description: "Force install even if already up-to-date",
+				Command:     "js upgrade install -y -f",
+			},
+			{
+				Description: "Install with all options enabled",
+				Command:     "js upgrade install --yes --force --pre-release",
+			},
+			{
+				Description: "Install with debug output enabled",
+				Command:     "js upgrade install -y --debug",
+			},
+		},
+	},
+	"upgrade.rollback": {
+		Examples: []Example{
+			{
+				Description: "Rollback interactively (choose from list)",
+				Command:     "js upgrade rollback --yes",
+			},
+			{
+				Description: "Rollback to specific version",
+				Command:     "js upgrade rollback -y --version=0.1.2",
+			},
+			{
+				Description: "Rollback to specific version (long form)",
+				Command:     "js upgrade rollback --yes --version=0.1.0",
+			},
+			{
+				Description: "Rollback with debug output enabled",
+				Command:     "js upgrade rollback -y --debug",
+			},
+		},
+	},
+	"upgrade.list": {
+		Examples: []Example{
+			{
+				Description: "List all available backup versions",
+				Command:     "js upgrade list --yes",
+			},
+			{
+				Description: "List backups with debug output enabled",
+				Command:     "js upgrade list -y --debug",
+			},
+			{
+				Description: "List backups in JSON format",
+				Command:     "js upgrade list -y --output=json",
+			},
+			{
+				Description: "List backups in table format (default)",
+				Command:     "js upgrade list -y -o table",
+			},
+		},
+	},
 }

@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strings"
 
+	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/upgrade/installer"
 	"jumpstartcli/internal/upgrade/version"
 	"jumpstartcli/internal/utils"
@@ -19,37 +20,165 @@ func NewUpgradeCmd() *cobra.Command {
 		Short: "Upgrade the Jumpstart CLI to the latest version",
 		Long: `Check for and install the latest version of the Jumpstart CLI.
 
-Examples:
-  js upgrade                    # Check and upgrade if newer version available
-  js upgrade --check           # Only check for updates, don't install
-  js upgrade --pre-release     # Include pre-release versions
-  js upgrade --force           # Force upgrade even if already latest
-  js upgrade --rollback        # Rollback to a previous version
-  js upgrade --list-backups    # List available backup versions
+Subcommands:
+  • check      Check for available updates without installing
+  • install    Download and install the latest version
+  • rollback   Rollback to a previous version
+  • list       List available backup versions
 
-The upgrade command checks GitHub releases for the latest version and can
-automatically download and install updates. It also supports rolling back
-to previous versions if needed.`,
+Use 'js upgrade <subcommand> --help' for more details.`,
+		// Disable suggestions to use our custom handling
+		DisableSuggestions: true,
+		SilenceErrors:      true,
+		SilenceUsage:       true,
+		// Use RunE instead of Args for better control over suggestion handling
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Get flag values
-			checkOnly, _ := cmd.Flags().GetBool("check")
-			preRelease, _ := cmd.Flags().GetBool("pre-release")
-			force, _ := cmd.Flags().GetBool("force")
+			if len(args) > 0 {
+				// Check if the first argument matches any subcommand
+				validCommands := []string{"check", "install", "rollback", "list"}
+				invalidCommand := args[0]
 
-			if utils.DebugMode {
-				utils.Debug("Upgrade flags: check=%t, pre-release=%t, force=%t",
-					checkOnly, preRelease, force)
+				for _, validCmd := range validCommands {
+					if invalidCommand == validCmd {
+						return nil // Valid command, continue normal processing
+					}
+				}
+
+				// General similarity checking
+				if suggestion := utils.SuggestSimilarCommand(invalidCommand, validCommands, 3); suggestion != "" {
+					utils.PrintDidYouMean(invalidCommand, suggestion)
+					return nil
+				}
+
+				// No suggestion found, show normal error
+				return fmt.Errorf("unknown subcommand '%s' for 'js upgrade'", invalidCommand)
 			}
-
-			// Regular upgrade process starts here
-			return performUpgrade(checkOnly, preRelease, force)
+			// If no args, show help
+			utils.ShowHelpWithoutTypes(cmd)
+			return nil
 		},
 	}
 
-	// Add flags
-	upgradeCmd.Flags().BoolP("check", "c", false, "Only check for updates, don't install")
-	upgradeCmd.Flags().BoolP("force", "f", false, "Force upgrade even if already latest version")
-	upgradeCmd.Flags().BoolP("pre-release", "p", false, "Include pre-release versions in check")
+	// upgrade check
+	var upgradeCheckCmd = &cobra.Command{
+		Use:   "check",
+		Short: "Check for available updates without installing",
+		Long: `Check for available updates to the Jumpstart CLI without installing them.
+
+This command will check GitHub releases for newer versions and display
+version information without making any changes to your installation.
+
+Use --yes/-y to execute the check operation.
+
+` + examples.GetExamples("upgrade.check").FormatExamples(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			yes, _ := cmd.Flags().GetBool("yes")
+
+			// If --yes not provided, show help
+			if !yes {
+				utils.ShowHelpWithoutTypes(cmd)
+				return nil
+			}
+
+			preRelease, _ := cmd.Flags().GetBool("pre-release")
+			return performUpgrade(true, preRelease, false) // checkOnly=true
+		},
+	}
+	upgradeCheckCmd.Flags().BoolP("yes", "y", false, "Execute the check operation")
+	upgradeCheckCmd.Flags().BoolP("pre-release", "p", false, "Include pre-release versions in check")
+
+	// upgrade install
+	var upgradeInstallCmd = &cobra.Command{
+		Use:   "install",
+		Short: "Download and install the latest version",
+		Long: `Download and install the latest version of the Jumpstart CLI.
+
+This command will check for updates, download the latest version,
+and replace your current installation with the newer version.
+
+Use --yes/-y to execute the installation operation.
+
+` + examples.GetExamples("upgrade.install").FormatExamples(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			yes, _ := cmd.Flags().GetBool("yes")
+
+			// If --yes not provided, show help
+			if !yes {
+				utils.ShowHelpWithoutTypes(cmd)
+				return nil
+			}
+
+			preRelease, _ := cmd.Flags().GetBool("pre-release")
+			force, _ := cmd.Flags().GetBool("force")
+			return performUpgrade(false, preRelease, force) // checkOnly=false
+		},
+	}
+	upgradeInstallCmd.Flags().BoolP("yes", "y", false, "Execute the installation operation")
+	upgradeInstallCmd.Flags().BoolP("pre-release", "p", false, "Include pre-release versions")
+	upgradeInstallCmd.Flags().BoolP("force", "f", false, "Force upgrade even if already latest version")
+
+	// upgrade rollback (placeholder for future implementation)
+	var upgradeRollbackCmd = &cobra.Command{
+		Use:   "rollback",
+		Short: "Rollback to a previous version",
+		Long: `Rollback to a previous version of the Jumpstart CLI.
+
+This command will restore a previous version from your backup installations.
+You can specify a version or select from available backups interactively.
+
+Use --yes/-y to execute the rollback operation.
+
+` + examples.GetExamples("upgrade.rollback").FormatExamples(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			yes, _ := cmd.Flags().GetBool("yes")
+
+			// If --yes not provided, show help
+			if !yes {
+				utils.ShowHelpWithoutTypes(cmd)
+				return nil
+			}
+
+			fmt.Println(utils.WarnColor("🚧 Rollback functionality is not yet implemented"))
+			fmt.Println("This feature will allow rolling back to previous versions.")
+			return nil
+		},
+	}
+	upgradeRollbackCmd.Flags().BoolP("yes", "y", false, "Execute the rollback operation")
+	upgradeRollbackCmd.Flags().String("version", "", "Specific version to rollback to")
+
+	// upgrade list (placeholder for future implementation)
+	var upgradeListCmd = &cobra.Command{
+		Use:   "list",
+		Short: "List available backup versions",
+		Long: `List available backup versions that can be restored.
+
+This command will display all backup versions available for rollback,
+including version numbers, installation dates, and current status.
+
+Use --yes/-y to execute the list operation.
+
+` + examples.GetExamples("upgrade.list").FormatExamples(),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			yes, _ := cmd.Flags().GetBool("yes")
+
+			// If --yes not provided, show help
+			if !yes {
+				utils.ShowHelpWithoutTypes(cmd)
+				return nil
+			}
+
+			fmt.Println(utils.WarnColor("🚧 List backups functionality is not yet implemented"))
+			fmt.Println("This feature will show available backup versions.")
+			return nil
+		},
+	}
+	upgradeListCmd.Flags().BoolP("yes", "y", false, "Execute the list operation")
+
+	// Add subcommands
+	upgradeCmd.AddCommand(upgradeCheckCmd)
+	upgradeCmd.AddCommand(upgradeInstallCmd)
+	upgradeCmd.AddCommand(upgradeRollbackCmd)
+	upgradeCmd.AddCommand(upgradeListCmd)
 
 	return upgradeCmd
 }
@@ -83,14 +212,17 @@ func performUpgrade(checkOnly, preRelease, force bool) error {
 
 	// If no newer version and not forcing, stop here
 	if !versionInfo.IsNewer && !force {
-		if force {
-			fmt.Println(utils.WarnColor("⚠️  No newer version available, but --force specified"))
-		}
+		fmt.Println(utils.InfoColor("✅ You are already running the latest version!"))
 		return nil
 	}
 
 	// Proceed with upgrade
 	if versionInfo.IsNewer || force {
+		// Show appropriate message for force installation
+		if force && !versionInfo.IsNewer {
+			fmt.Println(utils.WarnColor("⚠️  Force installation requested - reinstalling current version"))
+		}
+
 		// Check if we have a download URL
 		if versionInfo.DownloadURL == "" {
 			fmt.Println(utils.WarnColor("🚧 No binary available for automatic download"))

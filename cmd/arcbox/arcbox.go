@@ -51,9 +51,10 @@ func NewArcboxCmdWithCLI(cli azurecli.AzureCLI) *cobra.Command {
 		Long: `Manage Jumpstart ArcBox automation resources.
 
 Subcommands:
-  • deploy   Deploy a new Jumpstart ArcBox deployment
-  • delete   Delete a Jumpstart ArcBox deployment
-  • list     List all Jumpstart ArcBox deployments
+  • deploy     Deploy a new Jumpstart ArcBox deployment
+  • delete     Delete a Jumpstart ArcBox deployment
+  • list       List all Jumpstart ArcBox deployments
+  • preflight  Run preflight checks for ArcBox deployment
 
 Use 'js arcbox <subcommand> --help' for more details.`,
 		// Disable suggestions to use our custom handling
