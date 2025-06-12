@@ -20,6 +20,15 @@ type MockAzureCLI struct {
 	// Resource provider mock data
 	RegisteredProviders map[string]bool // provider -> registration status
 
+	// Resource group mock data
+	ResourceGroups      []ResourceGroupInfo
+	ResourceGroupExists map[string]bool             // resource group name -> exists
+	Resources           map[string][]ResourceInfo   // resource group -> resources
+	Deployments         map[string][]DeploymentInfo // resource group -> deployments
+	VMs                 map[string][]VMInfo         // resource group -> VMs
+	SpecificResources   map[string]*ResourceInfo    // resource ID -> resource
+	SpecificDeployments map[string]*DeploymentInfo  // deployment key -> deployment
+
 	// Error injection
 	GetCurrentSubscriptionError    error
 	GetSubscriptionError           error
@@ -30,6 +39,16 @@ type MockAzureCLI struct {
 	CheckSKUAvailabilityError      error
 	CheckProviderRegistrationError error
 	RegisterProviderError          error
+
+	// Resource group error injection
+	CheckResourceGroupExistsError error
+	ListResourceGroupsError       error
+	DeleteResourceGroupError      error
+	ListResourcesError            error
+	GetResourceError              error
+	ListDeploymentsError          error
+	GetDeploymentError            error
+	ListVMsError                  error
 
 	// Call tracking
 	GetCurrentSubscriptionCalled        bool
@@ -49,6 +68,23 @@ type MockAzureCLI struct {
 	CheckProviderRegistrationCalledWith string
 	RegisterProviderCalled              bool
 	RegisterProviderCalledWith          string
+
+	// Resource group call tracking
+	CheckResourceGroupExistsCalled     bool
+	CheckResourceGroupExistsCalledWith string
+	ListResourceGroupsCalled           bool
+	DeleteResourceGroupCalled          bool
+	DeleteResourceGroupCalledWith      string
+	ListResourcesCalled                bool
+	ListResourcesCalledWith            string
+	GetResourceCalled                  bool
+	GetResourceCalledWith              string
+	ListDeploymentsCalled              bool
+	ListDeploymentsCalledWith          string
+	GetDeploymentCalled                bool
+	GetDeploymentCalledWith            string
+	ListVMsCalled                      bool
+	ListVMsCalledWith                  string
 }
 
 // NewMockAzureCLI creates a new mock Azure CLI implementation with default test data
@@ -98,6 +134,35 @@ func NewMockAzureCLI() *MockAzureCLI {
 		"westus2": {"Standard_D8s_v5", "Standard_B2ms"},
 	}
 
+	// Default resource groups for testing
+	defaultResourceGroups := []ResourceGroupInfo{
+		{Name: "test-rg-1", Location: "eastus"},
+		{Name: "arcbox-rg", Location: "westus2"},
+		{Name: "another-rg", Location: "centralus"},
+	}
+
+	// Default resources for testing
+	defaultResources := map[string][]ResourceInfo{
+		"arcbox-rg": {
+			{ID: "/subscriptions/test-sub/resourceGroups/arcbox-rg/providers/Microsoft.Compute/virtualMachines/ArcBox-Client", Name: "ArcBox-Client", Type: "Microsoft.Compute/virtualMachines"},
+			{ID: "/subscriptions/test-sub/resourceGroups/arcbox-rg/providers/Microsoft.KeyVault/vaults/ArcBox-KeyVault", Name: "ArcBox-KeyVault", Type: "Microsoft.KeyVault/vaults"},
+		},
+	}
+
+	// Default deployments for testing
+	defaultDeployments := map[string][]DeploymentInfo{
+		"arcbox-rg": {
+			{Name: "arcbox-deployment", ProvisioningState: "Succeeded"},
+		},
+	}
+
+	// Default VMs for testing
+	defaultVMs := map[string][]VMInfo{
+		"arcbox-rg": {
+			{Name: "ArcBox-Client", ResourceGroup: "arcbox-rg", Location: "westus2", PowerState: "VM running"},
+		},
+	}
+
 	// Default registered resource providers for testing
 	defaultRegisteredProviders := map[string]bool{
 		"Microsoft.Compute":              true,
@@ -116,6 +181,13 @@ func NewMockAzureCLI() *MockAzureCLI {
 		VMSKUs:                         defaultVMSKUs,
 		AvailableSKUs:                  defaultAvailableSKUs,
 		RegisteredProviders:            defaultRegisteredProviders,
+		ResourceGroups:                 defaultResourceGroups,
+		ResourceGroupExists:            map[string]bool{"arcbox-rg": true, "test-rg-1": true, "another-rg": true},
+		Resources:                      defaultResources,
+		Deployments:                    defaultDeployments,
+		VMs:                            defaultVMs,
+		SpecificResources:              make(map[string]*ResourceInfo),
+		SpecificDeployments:            make(map[string]*DeploymentInfo),
 		CheckSKUAvailabilityCalledWith: make(map[string]string),
 		CurrentSubscription: &SubscriptionInfo{
 			ID:        "608937df-4e8f-4dc5-8bc6-16f30646ebd9",
@@ -463,4 +535,288 @@ func (m *MockAzureCLI) SetErrorForCheckProviderRegistration(err error) {
 // SetErrorForRegisterProvider sets an error for RegisterProvider calls (test helper)
 func (m *MockAzureCLI) SetErrorForRegisterProvider(err error) {
 	m.RegisterProviderError = err
+}
+
+// Resource group operations mock implementations
+
+// CheckResourceGroupExists checks if a resource group exists (mock implementation)
+func (m *MockAzureCLI) CheckResourceGroupExists(name string) (bool, error) {
+	m.CheckResourceGroupExistsCalled = true
+	m.CheckResourceGroupExistsCalledWith = name
+
+	if m.CheckResourceGroupExistsError != nil {
+		return false, m.CheckResourceGroupExistsError
+	}
+
+	if name == "" {
+		return false, fmt.Errorf("resource group name cannot be empty")
+	}
+
+	// Check mock data
+	if exists, found := m.ResourceGroupExists[name]; found {
+		return exists, nil
+	}
+
+	// Check if it's in the default resource groups
+	for _, rg := range m.ResourceGroups {
+		if rg.Name == name {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// ListResourceGroups lists all resource groups (mock implementation)
+func (m *MockAzureCLI) ListResourceGroups() ([]ResourceGroupInfo, error) {
+	m.ListResourceGroupsCalled = true
+
+	if m.ListResourceGroupsError != nil {
+		return nil, m.ListResourceGroupsError
+	}
+
+	return m.ResourceGroups, nil
+}
+
+// DeleteResourceGroup deletes a resource group (mock implementation)
+func (m *MockAzureCLI) DeleteResourceGroup(name string, noWait bool) error {
+	m.DeleteResourceGroupCalled = true
+	m.DeleteResourceGroupCalledWith = name
+
+	if m.DeleteResourceGroupError != nil {
+		return m.DeleteResourceGroupError
+	}
+
+	if name == "" {
+		return fmt.Errorf("resource group name cannot be empty")
+	}
+
+	// Remove from mock data
+	delete(m.ResourceGroupExists, name)
+	delete(m.Resources, name)
+	delete(m.Deployments, name)
+	delete(m.VMs, name)
+
+	// Remove from resource groups list
+	for i, rg := range m.ResourceGroups {
+		if rg.Name == name {
+			m.ResourceGroups = append(m.ResourceGroups[:i], m.ResourceGroups[i+1:]...)
+			break
+		}
+	}
+
+	return nil
+}
+
+// ListResources lists all resources in a resource group (mock implementation)
+func (m *MockAzureCLI) ListResources(resourceGroup string) ([]ResourceInfo, error) {
+	m.ListResourcesCalled = true
+	m.ListResourcesCalledWith = resourceGroup
+
+	if m.ListResourcesError != nil {
+		return nil, m.ListResourcesError
+	}
+
+	if resourceGroup == "" {
+		return nil, fmt.Errorf("resource group cannot be empty")
+	}
+
+	if resources, exists := m.Resources[resourceGroup]; exists {
+		return resources, nil
+	}
+
+	return []ResourceInfo{}, nil
+}
+
+// GetResource retrieves a specific resource by its ID (mock implementation)
+func (m *MockAzureCLI) GetResource(resourceID string) (*ResourceInfo, error) {
+	m.GetResourceCalled = true
+	m.GetResourceCalledWith = resourceID
+
+	if m.GetResourceError != nil {
+		return nil, m.GetResourceError
+	}
+
+	if resourceID == "" {
+		return nil, fmt.Errorf("resource ID cannot be empty")
+	}
+
+	if resource, exists := m.SpecificResources[resourceID]; exists {
+		return resource, nil
+	}
+
+	// Search in all resource groups
+	for _, resources := range m.Resources {
+		for _, resource := range resources {
+			if resource.ID == resourceID {
+				return &resource, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("resource not found: %s", resourceID)
+}
+
+// ListDeployments lists all deployments in a resource group (mock implementation)
+func (m *MockAzureCLI) ListDeployments(resourceGroup string) ([]DeploymentInfo, error) {
+	m.ListDeploymentsCalled = true
+	m.ListDeploymentsCalledWith = resourceGroup
+
+	if m.ListDeploymentsError != nil {
+		return nil, m.ListDeploymentsError
+	}
+
+	if resourceGroup == "" {
+		return nil, fmt.Errorf("resource group cannot be empty")
+	}
+
+	if deployments, exists := m.Deployments[resourceGroup]; exists {
+		return deployments, nil
+	}
+
+	return []DeploymentInfo{}, nil
+}
+
+// GetDeployment retrieves a specific deployment by its name (mock implementation)
+func (m *MockAzureCLI) GetDeployment(resourceGroup, deploymentName string) (*DeploymentInfo, error) {
+	m.GetDeploymentCalled = true
+	m.GetDeploymentCalledWith = fmt.Sprintf("%s/%s", resourceGroup, deploymentName)
+
+	if m.GetDeploymentError != nil {
+		return nil, m.GetDeploymentError
+	}
+
+	if resourceGroup == "" || deploymentName == "" {
+		return nil, fmt.Errorf("resource group and deployment name cannot be empty")
+	}
+
+	// Check specific deployments first
+	key := fmt.Sprintf("%s/%s", resourceGroup, deploymentName)
+	if deployment, exists := m.SpecificDeployments[key]; exists {
+		return deployment, nil
+	}
+
+	// Search in resource group deployments
+	if deployments, exists := m.Deployments[resourceGroup]; exists {
+		for _, deployment := range deployments {
+			if deployment.Name == deploymentName {
+				return &deployment, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("deployment not found: %s in resource group %s", deploymentName, resourceGroup)
+}
+
+// ListVMs lists all VMs in a resource group (mock implementation)
+func (m *MockAzureCLI) ListVMs(resourceGroup string) ([]VMInfo, error) {
+	m.ListVMsCalled = true
+	m.ListVMsCalledWith = resourceGroup
+
+	if m.ListVMsError != nil {
+		return nil, m.ListVMsError
+	}
+
+	if resourceGroup == "" {
+		return nil, fmt.Errorf("resource group cannot be empty")
+	}
+
+	if vms, exists := m.VMs[resourceGroup]; exists {
+		return vms, nil
+	}
+
+	return []VMInfo{}, nil
+}
+
+// Test helper methods for resource group operations
+
+// SetResourceGroupExists sets the existence status for a resource group (test helper)
+func (m *MockAzureCLI) SetResourceGroupExists(name string, exists bool) {
+	if m.ResourceGroupExists == nil {
+		m.ResourceGroupExists = make(map[string]bool)
+	}
+	m.ResourceGroupExists[name] = exists
+}
+
+// SetResourcesForGroup sets the resources for a specific resource group (test helper)
+func (m *MockAzureCLI) SetResourcesForGroup(resourceGroup string, resources []ResourceInfo) {
+	if m.Resources == nil {
+		m.Resources = make(map[string][]ResourceInfo)
+	}
+	m.Resources[resourceGroup] = resources
+}
+
+// SetDeploymentsForGroup sets the deployments for a specific resource group (test helper)
+func (m *MockAzureCLI) SetDeploymentsForGroup(resourceGroup string, deployments []DeploymentInfo) {
+	if m.Deployments == nil {
+		m.Deployments = make(map[string][]DeploymentInfo)
+	}
+	m.Deployments[resourceGroup] = deployments
+}
+
+// SetVMsForGroup sets the VMs for a specific resource group (test helper)
+func (m *MockAzureCLI) SetVMsForGroup(resourceGroup string, vms []VMInfo) {
+	if m.VMs == nil {
+		m.VMs = make(map[string][]VMInfo)
+	}
+	m.VMs[resourceGroup] = vms
+}
+
+// SetSpecificResource sets a specific resource by ID (test helper)
+func (m *MockAzureCLI) SetSpecificResource(resourceID string, resource *ResourceInfo) {
+	if m.SpecificResources == nil {
+		m.SpecificResources = make(map[string]*ResourceInfo)
+	}
+	m.SpecificResources[resourceID] = resource
+}
+
+// SetSpecificDeployment sets a specific deployment (test helper)
+func (m *MockAzureCLI) SetSpecificDeployment(resourceGroup, deploymentName string, deployment *DeploymentInfo) {
+	if m.SpecificDeployments == nil {
+		m.SpecificDeployments = make(map[string]*DeploymentInfo)
+	}
+	key := fmt.Sprintf("%s/%s", resourceGroup, deploymentName)
+	m.SpecificDeployments[key] = deployment
+}
+
+// Error injection helper methods for resource group operations
+
+// SetErrorForCheckResourceGroupExists sets an error for CheckResourceGroupExists calls (test helper)
+func (m *MockAzureCLI) SetErrorForCheckResourceGroupExists(err error) {
+	m.CheckResourceGroupExistsError = err
+}
+
+// SetErrorForListResourceGroups sets an error for ListResourceGroups calls (test helper)
+func (m *MockAzureCLI) SetErrorForListResourceGroups(err error) {
+	m.ListResourceGroupsError = err
+}
+
+// SetErrorForDeleteResourceGroup sets an error for DeleteResourceGroup calls (test helper)
+func (m *MockAzureCLI) SetErrorForDeleteResourceGroup(err error) {
+	m.DeleteResourceGroupError = err
+}
+
+// SetErrorForListResources sets an error for ListResources calls (test helper)
+func (m *MockAzureCLI) SetErrorForListResources(err error) {
+	m.ListResourcesError = err
+}
+
+// SetErrorForGetResource sets an error for GetResource calls (test helper)
+func (m *MockAzureCLI) SetErrorForGetResource(err error) {
+	m.GetResourceError = err
+}
+
+// SetErrorForListDeployments sets an error for ListDeployments calls (test helper)
+func (m *MockAzureCLI) SetErrorForListDeployments(err error) {
+	m.ListDeploymentsError = err
+}
+
+// SetErrorForGetDeployment sets an error for GetDeployment calls (test helper)
+func (m *MockAzureCLI) SetErrorForGetDeployment(err error) {
+	m.GetDeploymentError = err
+}
+
+// SetErrorForListVMs sets an error for ListVMs calls (test helper)
+func (m *MockAzureCLI) SetErrorForListVMs(err error) {
+	m.ListVMsError = err
 }

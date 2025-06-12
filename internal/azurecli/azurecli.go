@@ -40,6 +40,38 @@ type SKUInfo struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
+// ResourceGroupInfo represents Azure resource group information
+type ResourceGroupInfo struct {
+	Name       string                 `json:"name"`
+	Location   string                 `json:"location"`
+	Properties map[string]interface{} `json:"properties,omitempty"`
+}
+
+// ResourceInfo represents Azure resource information
+type ResourceInfo struct {
+	ID         string                 `json:"id"`
+	Name       string                 `json:"name"`
+	Type       string                 `json:"type"`
+	Location   string                 `json:"location,omitempty"`
+	Tags       map[string]string      `json:"tags,omitempty"`
+	Properties map[string]interface{} `json:"properties,omitempty"`
+}
+
+// DeploymentInfo represents Azure deployment information
+type DeploymentInfo struct {
+	Name              string                 `json:"name"`
+	Properties        map[string]interface{} `json:"properties,omitempty"`
+	ProvisioningState string                 `json:"provisioningState,omitempty"`
+}
+
+// VMInfo represents Azure VM information
+type VMInfo struct {
+	Name          string `json:"name"`
+	ResourceGroup string `json:"resourceGroup,omitempty"`
+	Location      string `json:"location,omitempty"`
+	PowerState    string `json:"powerState,omitempty"`
+}
+
 // AzureCLI defines the interface for Azure CLI operations
 type AzureCLI interface {
 	// Subscription operations
@@ -59,6 +91,22 @@ type AzureCLI interface {
 	// Resource provider operations
 	CheckProviderRegistration(provider string) (bool, error)
 	RegisterProvider(provider string) error
+
+	// Resource group operations
+	CheckResourceGroupExists(name string) (bool, error)
+	ListResourceGroups() ([]ResourceGroupInfo, error)
+	DeleteResourceGroup(name string, noWait bool) error
+
+	// Resource operations
+	ListResources(resourceGroup string) ([]ResourceInfo, error)
+	GetResource(resourceID string) (*ResourceInfo, error)
+
+	// Deployment operations
+	ListDeployments(resourceGroup string) ([]DeploymentInfo, error)
+	GetDeployment(resourceGroup, deploymentName string) (*DeploymentInfo, error)
+
+	// VM operations
+	ListVMs(resourceGroup string) ([]VMInfo, error)
 }
 
 // RealAzureCLI implements the AzureCLI interface using actual Azure CLI commands
@@ -266,4 +314,191 @@ func (r *RealAzureCLI) RegisterProvider(provider string) error {
 	}
 
 	return nil
+}
+
+// CheckResourceGroupExists checks if a resource group exists
+func (r *RealAzureCLI) CheckResourceGroupExists(name string) (bool, error) {
+	if name == "" {
+		return false, fmt.Errorf("resource group name cannot be empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "group", "exists", "--name", name, "-o", "tsv")
+	output, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return false, fmt.Errorf("timeout while checking resource group %s existence", name)
+		}
+		return false, fmt.Errorf("failed to check resource group %s existence: %v", name, err)
+	}
+
+	exists := strings.TrimSpace(string(output))
+	return exists == "true", nil
+}
+
+// ListResourceGroups lists all resource groups in the current subscription
+func (r *RealAzureCLI) ListResourceGroups() ([]ResourceGroupInfo, error) {
+	cmd := exec.Command("az", "group", "list", "--output", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list resource groups: %v", err)
+	}
+
+	var groups []ResourceGroupInfo
+	if err := json.Unmarshal(output, &groups); err != nil {
+		return nil, fmt.Errorf("failed to parse resource group data: %v", err)
+	}
+
+	return groups, nil
+}
+
+// DeleteResourceGroup deletes a resource group
+func (r *RealAzureCLI) DeleteResourceGroup(name string, noWait bool) error {
+	if name == "" {
+		return fmt.Errorf("resource group name cannot be empty")
+	}
+
+	args := []string{"group", "delete", "--name", name, "--yes"}
+	if noWait {
+		args = append(args, "--no-wait")
+	}
+
+	cmd := exec.Command("az", args...)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to delete resource group %s: %v", name, err)
+	}
+
+	return nil
+}
+
+// ListResources lists all resources in a resource group
+func (r *RealAzureCLI) ListResources(resourceGroup string) ([]ResourceInfo, error) {
+	if resourceGroup == "" {
+		return nil, fmt.Errorf("resource group cannot be empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "resource", "list", "--resource-group", resourceGroup, "--output", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("timeout while listing resources in resource group %s", resourceGroup)
+		}
+		return nil, fmt.Errorf("failed to list resources in resource group %s: %v", resourceGroup, err)
+	}
+
+	var resources []ResourceInfo
+	if err := json.Unmarshal(output, &resources); err != nil {
+		return nil, fmt.Errorf("failed to parse resource data: %v", err)
+	}
+
+	return resources, nil
+}
+
+// GetResource retrieves a specific resource by its ID
+func (r *RealAzureCLI) GetResource(resourceID string) (*ResourceInfo, error) {
+	if resourceID == "" {
+		return nil, fmt.Errorf("resource ID cannot be empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "resource", "show", "--ids", resourceID, "--output", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("timeout while retrieving resource %s", resourceID)
+		}
+		return nil, fmt.Errorf("failed to retrieve resource %s: %v", resourceID, err)
+	}
+
+	var resource ResourceInfo
+	if err := json.Unmarshal(output, &resource); err != nil {
+		return nil, fmt.Errorf("failed to parse resource data: %v", err)
+	}
+
+	return &resource, nil
+}
+
+// ListDeployments lists all deployments in a resource group
+func (r *RealAzureCLI) ListDeployments(resourceGroup string) ([]DeploymentInfo, error) {
+	if resourceGroup == "" {
+		return nil, fmt.Errorf("resource group cannot be empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "deployment", "group", "list", "--resource-group", resourceGroup, "--output", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("timeout while listing deployments in resource group %s", resourceGroup)
+		}
+		return nil, fmt.Errorf("failed to list deployments in resource group %s: %v", resourceGroup, err)
+	}
+
+	var deployments []DeploymentInfo
+	if err := json.Unmarshal(output, &deployments); err != nil {
+		return nil, fmt.Errorf("failed to parse deployment data: %v", err)
+	}
+
+	return deployments, nil
+}
+
+// GetDeployment retrieves a specific deployment by its name
+func (r *RealAzureCLI) GetDeployment(resourceGroup, deploymentName string) (*DeploymentInfo, error) {
+	if resourceGroup == "" || deploymentName == "" {
+		return nil, fmt.Errorf("resource group and deployment name cannot be empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "deployment", "group", "show", "--resource-group", resourceGroup, "--name", deploymentName, "--output", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("timeout while retrieving deployment %s in resource group %s", deploymentName, resourceGroup)
+		}
+		return nil, fmt.Errorf("failed to retrieve deployment %s in resource group %s: %v", deploymentName, resourceGroup, err)
+	}
+
+	var deployment DeploymentInfo
+	if err := json.Unmarshal(output, &deployment); err != nil {
+		return nil, fmt.Errorf("failed to parse deployment data: %v", err)
+	}
+
+	return &deployment, nil
+}
+
+// ListVMs lists all VMs in a resource group
+func (r *RealAzureCLI) ListVMs(resourceGroup string) ([]VMInfo, error) {
+	if resourceGroup == "" {
+		return nil, fmt.Errorf("resource group cannot be empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "vm", "list", "--resource-group", resourceGroup, "--output", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("timeout while listing VMs in resource group %s", resourceGroup)
+		}
+		return nil, fmt.Errorf("failed to list VMs in resource group %s: %v", resourceGroup, err)
+	}
+
+	var vms []VMInfo
+	if err := json.Unmarshal(output, &vms); err != nil {
+		return nil, fmt.Errorf("failed to parse VM data: %v", err)
+	}
+
+	return vms, nil
 }

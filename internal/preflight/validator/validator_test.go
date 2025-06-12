@@ -1311,6 +1311,9 @@ func TestValidateAllWithRealValidators(t *testing.T) {
 
 	engine := NewValidationEngine()
 
+	// Create a mock Azure CLI for testing
+	mockCLI := azurecli.NewMockAzureCLI()
+
 	// Test with different contexts to trigger different validation paths
 	testCases := []struct {
 		name string
@@ -1322,6 +1325,7 @@ func TestValidateAllWithRealValidators(t *testing.T) {
 				Solution: "arcbox",
 				Flavor:   "ITPro",
 				Location: "eastus",
+				AzureCLI: mockCLI, // Add the Azure CLI instance
 				Parameters: map[string]string{
 					"subscription": "test-subscription",
 				},
@@ -1334,6 +1338,7 @@ func TestValidateAllWithRealValidators(t *testing.T) {
 				Solution: "arcbox",
 				Flavor:   "DevOps",
 				Location: "westus2",
+				AzureCLI: mockCLI, // Add the Azure CLI instance
 				Parameters: map[string]string{
 					"subscription":       "test-subscription",
 					"ssh-rsa-public-key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC7yOPFqGPZcr15xDpTKhMa+F8e4oV0NqWRGGZdOQnBvnM7lBZEO3nZPH2eZi6a comment@example.com",
@@ -1349,6 +1354,7 @@ func TestValidateAllWithRealValidators(t *testing.T) {
 				Solution: "arcbox",
 				Flavor:   "DataOps",
 				Location: "centralus",
+				AzureCLI: mockCLI, // Add the Azure CLI instance
 				Parameters: map[string]string{
 					"subscription":       "test-subscription",
 					"ssh-rsa-public-key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC7yOPFqGPZcr15xDpTKhMa+F8e4oV0NqWRGGZdOQnBvnM7lBZEO3nZPH2eZi6a comment@example.com",

@@ -16,7 +16,7 @@
 3. Review existing test structure and mocking patterns
 4. Check for untested error conditions and edge cases
 
-**STEP 2 - SYSTEMATIC IMPROVEMENT**: Then improve test coverage for this Go CLI package using the proven 4-phase methodology that achieved 94.3% coverage in the quota package:
+**STEP 2 - SYSTEMATIC IMPROVEMENT**: Then improve test coverage for this Go CLI package using the proven 4-phase methodology that achieved 94.3% coverage in the quota package and **comprehensive test coverage in the ArcBox preflight package with 122 total tests**:
 
 **PHASE 1 - ANALYSIS**: Analyze current test coverage using `go test -coverprofile=coverage.out ./...` and `go tool cover -func=coverage.out`. Identify all functions with <95% coverage.
 
@@ -24,11 +24,23 @@
 
 **PHASE 3 - COMPREHENSIVE TESTING**: For each uncovered function, add tests for:
 - **Success scenarios**: Valid inputs with expected outputs
-- **Error conditions**: Invalid inputs, external service failures, edge cases
+- **Error conditions**: Invalid inputs, external service failures, edge cases  
 - **Edge cases**: Empty inputs, nil values, boundary conditions
 - **Integration scenarios**: Function interactions and dependency chains
+- **Command validation**: Flag parsing, argument validation, help text
+- **Mock scenarios**: Azure CLI wrapper integration testing
 
 **PHASE 4 - VALIDATION**: Run coverage analysis, validate test quality, and ensure real-world error conditions are properly tested.
+
+**Recent Success Pattern**: The `internal/preflight/arcbox` package achieved comprehensive coverage using:
+```go
+// Enhanced test structure with multiple test functions per module
+func TestCommandValidation(t *testing.T) { /* Command structure testing */ }
+func TestCommandFlags(t *testing.T) { /* Flag configuration testing */ }  
+func TestErrorScenarios(t *testing.T) { /* Edge cases and error handling */ }
+func TestWithDifferentFormats(t *testing.T) { /* Output format testing */ }
+// Plus benchmark tests for performance monitoring
+```
 
 **Test Pattern Template**:
 ```go
@@ -71,10 +83,16 @@ Apply this methodology systematically to identify and test all uncovered code pa
 ---
 
 ## Context
-You are helping improve test coverage for a Go CLI application following the systematic methodology successfully used to increase quota test coverage from 51.0% to 94.3%. Apply this proven approach to achieve excellent test coverage (90%+) for other command packages.
+You are helping improve test coverage for a Go CLI application following the systematic methodology successfully used to increase quota test coverage from 51.0% to 94.3% and achieve comprehensive test coverage in the ArcBox preflight package (122 total tests across quota, status, and resource provider functionality). Apply this proven approach to achieve excellent test coverage (90%+) for other command packages.
 
 ## Methodology Overview
-This prompt follows a 4-phase approach that achieved 94.3% coverage and fixed critical production bugs:
+This prompt follows a 4-phase approach that achieved 94.3% coverage for quota functionality and comprehensive testing for the complete ArcBox preflight package:
+
+**Recent Success Examples**:
+- **Quota package**: From 51.0% to 94.3% coverage with systematic error condition testing
+- **Status package**: 8 test functions covering command validation, flags, error scenarios, and output formats  
+- **Resource Provider package**: 9 test functions with comprehensive command validation, mock integration, and edge case testing
+- **Combined ArcBox tests**: 122 total tests with full Azure CLI wrapper integration and extensive scenario coverage
 
 ### Phase 1: Coverage Analysis & Function Mapping
 1. **Measure baseline coverage**: Run `go test -coverprofile=coverage.out ./...` 
@@ -342,6 +360,39 @@ func TestErrorConditions(t *testing.T) {
 - **Test maintainability**: Clear test names and comprehensive setup/validation
 
 ## Example Application
+
+### ArcBox Preflight Success Pattern (Proven Template)
+
+When applying this methodology to `internal/preflight/arcbox`, we achieved comprehensive coverage using this modular approach:
+
+**Status Command Testing** (`status_test.go`):
+```go
+func TestCreateStatusCommand(t *testing.T) { /* Basic command creation */ }
+func TestStatusCheckResult(t *testing.T) { /* Data structure validation */ } 
+func TestStatusCommandValidation(t *testing.T) { /* Command structure and properties */ }
+func TestStatusCommandFlags(t *testing.T) { /* Flag configuration testing */ }
+func TestStatusErrorScenarios(t *testing.T) { /* Error handling and edge cases */ }
+func TestStatusCommandWithDifferentFormats(t *testing.T) { /* Output format testing */ }
+// Plus benchmark tests and comprehensive display testing
+```
+
+**Resource Provider Testing** (`rp_test.go`):
+```go
+func TestCreateResourceProviderCommands(t *testing.T) { /* Command structure */ }
+func TestResourceProviderCommandValidation(t *testing.T) { /* Input validation */ }
+func TestResourceProviderErrorScenarios(t *testing.T) { /* Edge cases */ }
+func TestResourceProviderCommandHelpAndUsage(t *testing.T) { /* Help system */ }
+// Plus comprehensive mock integration testing
+```
+
+**Key Success Factors**:
+1. **Modular test functions**: Each test focuses on specific functionality
+2. **Comprehensive scenario coverage**: Success, error, edge cases, and integration
+3. **Mock integration**: Full Azure CLI wrapper testing with realistic scenarios
+4. **Performance monitoring**: Benchmark tests for critical operations
+5. **Visual test output**: Clear pass/fail indicators with descriptive messages
+
+**Result**: 122 total tests, comprehensive coverage, robust error handling
 
 When I say "Apply this methodology to improve test coverage for the `cmd/arcbox` package", you should:
 

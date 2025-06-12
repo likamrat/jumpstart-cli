@@ -169,14 +169,14 @@ This operation is irreversible and will permanently remove all ArcBox resources.
 
 			// Set Azure subscription if provided
 			if subscription != "" {
-				if err := setAzureSubscription(subscription); err != nil {
+				if err := setAzureSubscription(cli, subscription); err != nil {
 					utils.Error("Failed to set subscription: %v", err)
 					os.Exit(1)
 				}
 			}
 
 			// Check if resource group exists
-			rgExists, err := checkResourceGroupExists(resourceGroupName, subscription)
+			rgExists, err := checkResourceGroupExists(cli, resourceGroupName, subscription)
 			if err != nil {
 				utils.Error("Unable to check resource group '%s': %v", resourceGroupName, err)
 				utils.Error("Please verify Azure CLI authentication and subscription access.")
@@ -297,7 +297,7 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 
 			// Validate subscription access if specific subscription is provided
 			if subscription != "" {
-				if _, err := getSubscription(subscription); err != nil {
+				if _, err := getSubscription(cli, subscription); err != nil {
 					utils.Error("Cannot access subscription '%s'. Please verify the subscription ID and your permissions.", subscription)
 					os.Exit(1)
 				}
@@ -811,7 +811,9 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 		fmt.Println()
 	}
 
-	waitForDeploymentAndShowStatus(resourceGroup, deploymentName)
+	// Create Azure CLI instance for deployment monitoring
+	azCLI := azurecli.NewAzureCLI()
+	waitForDeploymentAndShowStatus(azCLI, resourceGroup, deploymentName)
 }
 
 // resourceStatus holds resource info for status output
@@ -822,39 +824,29 @@ type resourceStatus struct {
 	State string
 }
 
-// getDeploymentResourceStatus returns a slice of resourceStatus for the resource group
-func getDeploymentResourceStatus(resourceGroup string) []resourceStatus {
-	cmd := exec.Command("az", "resource", "list", "--resource-group", resourceGroup, "-o", "json")
-	output, err := cmd.Output()
+// getDeploymentResourceStatus returns a slice of resourceStatus for the resource group using Azure CLI wrapper
+func getDeploymentResourceStatus(azCLI azurecli.AzureCLI, resourceGroup string) []resourceStatus {
+	resources, err := azCLI.ListResources(resourceGroup)
 	if err != nil {
 		return nil
 	}
-	var resources []map[string]interface{}
-	if err := json.Unmarshal(output, &resources); err != nil {
-		return nil
-	}
+
 	var result []resourceStatus
 	for _, res := range resources {
-		name, _ := res["name"].(string)
-		typeStr, _ := res["type"].(string)
-		id, _ := res["id"].(string)
 		// Get detailed state for each resource
-		showCmd := exec.Command("az", "resource", "show", "--ids", id, "-o", "json")
-		showOut, showErr := showCmd.Output()
+		detailedResource, err := azCLI.GetResource(res.ID)
 		provState := "Unknown"
-		if showErr == nil {
-			var showRes map[string]interface{}
-			if err := json.Unmarshal(showOut, &showRes); err == nil {
-				if props, ok := showRes["properties"].(map[string]interface{}); ok {
-					if ps, ok := props["provisioningState"].(string); ok {
-						provState = ps
-					}
+		if err == nil && detailedResource != nil {
+			if props, ok := detailedResource.Properties["provisioningState"]; ok {
+				if ps, ok := props.(string); ok {
+					provState = ps
 				}
 			}
 		}
+
 		result = append(result, resourceStatus{
-			Name:  name,
-			Type:  typeStr,
+			Name:  res.Name,
+			Type:  res.Type,
 			State: provState,
 		})
 	}
@@ -901,8 +893,8 @@ func printDeploymentResourceList(resources []resourceStatus) {
 	}
 }
 
-// waitForDeploymentAndShowStatus polls deployment status and prints resource-level operations
-func waitForDeploymentAndShowStatus(resourceGroup, deploymentName string) {
+// waitForDeploymentAndShowStatus polls deployment status and prints resource-level operations using Azure CLI wrapper
+func waitForDeploymentAndShowStatus(azCLI azurecli.AzureCLI, resourceGroup, deploymentName string) {
 	start := time.Now()
 	cState := color.New(color.FgHiBlue, color.Bold).SprintFunc()
 	cWarn := color.New(color.FgHiYellow, color.Bold).SprintFunc()
@@ -948,8 +940,8 @@ func waitForDeploymentAndShowStatus(resourceGroup, deploymentName string) {
 	lastResourceStates := make(map[string]string)
 	for {
 		if time.Now().After(nextPoll) {
-			state = getDeploymentProvisioningState(resourceGroup, deploymentName)
-			resources = getDeploymentResourceStatus(resourceGroup)
+			state = getDeploymentProvisioningState(azCLI, resourceGroup, deploymentName)
+			resources = getDeploymentResourceStatus(azCLI, resourceGroup)
 			resourceNames = make(map[string]bool)
 			stateChanged := false
 			for _, r := range resources {
@@ -994,7 +986,7 @@ func waitForDeploymentAndShowStatus(resourceGroup, deploymentName string) {
 				// Show cursor again
 				fmt.Print("\033[?25h")
 				fmt.Println() // Move to new line before error
-				printDeploymentErrorDetails(resourceGroup, deploymentName)
+				printDeploymentErrorDetails(azCLI, resourceGroup, deploymentName)
 				fmt.Println(utils.ErrorColor("[ERROR] Deployment failed or was canceled, or a resource failed. Please check the Azure Portal for details."))
 				break
 			}
@@ -1011,7 +1003,7 @@ func waitForDeploymentAndShowStatus(resourceGroup, deploymentName string) {
 				printDeploymentResourceList(resources)
 
 				// Get deployment duration from Azure as source of truth
-				azureDuration, err := getAzureDeploymentDuration(resourceGroup, deploymentName)
+				azureDuration, err := getAzureDeploymentDuration(azCLI, resourceGroup, deploymentName)
 				if err != nil {
 					// Fallback to local timing if Azure timing is unavailable
 					elapsed := time.Since(start)
@@ -1065,7 +1057,7 @@ func runArcBoxList(allSubscriptions, currentSubscription bool, subscriptionID, o
 		subscriptions, err = getAllSubscriptions(azCLI)
 	} else if subscriptionID != "" {
 		fmt.Printf(utils.InfoColor("[INFO] Searching for ArcBox deployments in subscription %s...\n"), subscriptionID)
-		sub, err := getSubscription(subscriptionID)
+		sub, err := getSubscription(azCLI, subscriptionID)
 		if err != nil {
 			return err
 		}
@@ -1087,7 +1079,7 @@ func runArcBoxList(allSubscriptions, currentSubscription bool, subscriptionID, o
 	var allDeployments []ArcBoxDeployment
 	for _, sub := range subscriptions {
 		// Scan each subscription with spinner animation
-		deployments := scanSubscriptionWithSpinner(sub)
+		deployments := scanSubscriptionWithSpinner(azCLI, sub)
 		allDeployments = append(allDeployments, deployments...)
 	}
 
@@ -1147,56 +1139,46 @@ func getCurrentSubscription(azCLI azurecli.AzureCLI) (AzureSubscription, error) 
 	}, nil
 }
 
-// getSubscription returns information about a specific subscription
-func getSubscription(subscriptionID string) (AzureSubscription, error) {
-	cmd := exec.Command("az", "account", "show", "--subscription", subscriptionID, "--query", "{id:id,name:name}", "-o", "json")
-	output, err := cmd.Output()
+// getSubscription returns information about a specific subscription using Azure CLI wrapper
+func getSubscription(azCLI azurecli.AzureCLI, subscriptionID string) (AzureSubscription, error) {
+	sub, err := azCLI.GetSubscription(subscriptionID)
 	if err != nil {
 		return AzureSubscription{}, fmt.Errorf("failed to get subscription %s: %v", subscriptionID, err)
 	}
 
-	var subscription AzureSubscription
-	if err := json.Unmarshal(output, &subscription); err != nil {
-		return AzureSubscription{}, fmt.Errorf("failed to parse subscription %s: %v", subscriptionID, err)
-	}
-
-	return subscription, nil
+	return AzureSubscription{
+		ID:   sub.ID,
+		Name: sub.Name,
+	}, nil
 }
 
-// discoverArcBoxDeployments discovers ArcBox deployments in a subscription
-func discoverArcBoxDeployments(subscriptionID, subscriptionName string) ([]ArcBoxDeployment, error) {
+// discoverArcBoxDeployments discovers ArcBox deployments in a subscription using Azure CLI wrapper
+func discoverArcBoxDeployments(azCLI azurecli.AzureCLI, subscriptionID, subscriptionName string) ([]ArcBoxDeployment, error) {
 	// Set subscription context
-	if err := setAzureSubscription(subscriptionID); err != nil {
+	if err := setAzureSubscription(azCLI, subscriptionID); err != nil {
 		return nil, fmt.Errorf("failed to set subscription context: %v", err)
 	}
 
-	// Get all resource groups
-	cmd := exec.Command("az", "group", "list", "--query", "[].{name:name,location:location,properties:properties}", "-o", "json")
-	output, err := cmd.Output()
+	// Get all resource groups using Azure CLI wrapper
+	resourceGroups, err := azCLI.ListResourceGroups()
 	if err != nil {
 		return nil, fmt.Errorf("failed to list resource groups: %v", err)
-	}
-
-	var resourceGroups []map[string]interface{}
-	if err := json.Unmarshal(output, &resourceGroups); err != nil {
-		return nil, fmt.Errorf("failed to parse resource groups: %v", err)
 	}
 
 	// Silently process resource groups (spinner provides visual feedback)
 	// fmt.Printf("📋 Found %d resource groups to check\n", len(resourceGroups))
 
 	// Pre-filter resource groups to exclude obvious non-ArcBox ones
-	var candidateRGs []map[string]interface{}
+	var candidateRGs []azurecli.ResourceGroupInfo
 	for _, rg := range resourceGroups {
-		rgName, _ := rg["name"].(string)
-		rgNameLower := strings.ToLower(rgName)
+		rgNameLower := strings.ToLower(rg.Name)
 
 		// Skip obviously non-ArcBox resource groups
 		if strings.Contains(rgNameLower, "localbox") ||
-			strings.HasPrefix(rgName, "MC_") ||
-			strings.HasPrefix(rgName, "DefaultResourceGroup-") ||
-			strings.HasPrefix(rgName, "NetworkWatcherRG") ||
-			strings.HasPrefix(rgName, "AzSecPackAutoConfigRG") {
+			strings.HasPrefix(rg.Name, "MC_") ||
+			strings.HasPrefix(rg.Name, "DefaultResourceGroup-") ||
+			strings.HasPrefix(rg.Name, "NetworkWatcherRG") ||
+			strings.HasPrefix(rg.Name, "AzSecPackAutoConfigRG") {
 			continue
 		}
 
@@ -1208,13 +1190,13 @@ func discoverArcBoxDeployments(subscriptionID, subscriptionName string) ([]ArcBo
 
 	var deployments []ArcBoxDeployment
 	for _, rg := range candidateRGs {
-		rgName, _ := rg["name"].(string)
-		location, _ := rg["location"].(string)
+		rgName := rg.Name
+		location := rg.Location
 
 		// Silently check resource groups (spinner provides visual feedback)
 
 		// Check if this resource group contains an ArcBox deployment
-		if isArcBoxResourceGroup(rgName) {
+		if isArcBoxResourceGroup(azCLI, rgName) {
 			deployment := ArcBoxDeployment{
 				ResourceGroupName: rgName,
 				SubscriptionID:    subscriptionID,
@@ -1223,7 +1205,7 @@ func discoverArcBoxDeployments(subscriptionID, subscriptionName string) ([]ArcBo
 			}
 
 			// Enrich deployment information
-			enrichArcBoxDeployment(&deployment)
+			enrichArcBoxDeployment(azCLI, &deployment)
 			deployments = append(deployments, deployment)
 			// Silently collect deployments (results shown after spinner completes)
 		}
@@ -1233,7 +1215,7 @@ func discoverArcBoxDeployments(subscriptionID, subscriptionName string) ([]ArcBo
 }
 
 // isArcBoxResourceGroup checks if a resource group contains an ArcBox deployment
-func isArcBoxResourceGroup(resourceGroupName string) bool {
+func isArcBoxResourceGroup(azCLI azurecli.AzureCLI, resourceGroupName string) bool {
 	// First, exclude resource groups that are clearly LocalBox deployments
 	resourceGroupNameLower := strings.ToLower(resourceGroupName)
 	if strings.Contains(resourceGroupNameLower, "localbox") {
@@ -1251,17 +1233,17 @@ func isArcBoxResourceGroup(resourceGroupName string) bool {
 	}
 
 	// Method 1: Check for resources with ArcBox solution tag (most reliable but slower)
-	if hasArcBoxSolutionTag(resourceGroupName) {
+	if hasArcBoxSolutionTag(azCLI, resourceGroupName) {
 		return true
 	}
 
 	// Method 2: Check for ArcBox deployments by name pattern (faster)
-	if hasArcBoxDeployments(resourceGroupName) {
+	if hasArcBoxDeployments(azCLI, resourceGroupName) {
 		return true
 	}
 
 	// Method 3: Check for ArcBox naming patterns in resources (slower)
-	if hasArcBoxNamingPattern(resourceGroupName) {
+	if hasArcBoxNamingPattern(azCLI, resourceGroupName) {
 		return true
 	}
 
@@ -1271,37 +1253,53 @@ func isArcBoxResourceGroup(resourceGroupName string) bool {
 	return false
 }
 
-// hasArcBoxSolutionTag checks for resources with the ArcBox solution tag
-func hasArcBoxSolutionTag(resourceGroupName string) bool {
-	cmd := exec.Command("timeout", "10s", "az", "resource", "list", "--resource-group", resourceGroupName,
-		"--query", "[?tags.Solution=='jumpstart_arcbox'].id", "-o", "tsv")
-	output, err := cmd.Output()
+// hasArcBoxSolutionTag checks for resources with the ArcBox solution tag using Azure CLI wrapper
+func hasArcBoxSolutionTag(azCLI azurecli.AzureCLI, resourceGroupName string) bool {
+	resources, err := azCLI.ListResources(resourceGroupName)
 	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(string(output)) != ""
+
+	// Check if any resource has the ArcBox solution tag
+	for _, resource := range resources {
+		if tags, ok := resource.Tags["Solution"]; ok && tags == "jumpstart_arcbox" {
+			return true
+		}
+	}
+	return false
 }
 
-// hasArcBoxDeployments checks for deployments with the ArcBox naming pattern
-func hasArcBoxDeployments(resourceGroupName string) bool {
-	cmd := exec.Command("timeout", "10s", "az", "deployment", "group", "list", "--resource-group", resourceGroupName,
-		"--query", "[?contains(name, 'arcbox') || contains(name, 'ArcBox') || contains(name, 'Arcbox') || contains(name, 'ARCBOX')].name", "-o", "tsv")
-	output, err := cmd.Output()
+// hasArcBoxDeployments checks for deployments with the ArcBox naming pattern using Azure CLI wrapper
+func hasArcBoxDeployments(azCLI azurecli.AzureCLI, resourceGroupName string) bool {
+	deployments, err := azCLI.ListDeployments(resourceGroupName)
 	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(string(output)) != ""
+
+	// Check if any deployment has ArcBox in its name (case-insensitive)
+	for _, deployment := range deployments {
+		if strings.Contains(strings.ToLower(deployment.Name), "arcbox") {
+			return true
+		}
+	}
+	return false
 }
 
-// hasArcBoxNamingPattern checks for ArcBox naming patterns in resources
-func hasArcBoxNamingPattern(resourceGroupName string) bool {
-	cmd := exec.Command("timeout", "10s", "az", "resource", "list", "--resource-group", resourceGroupName,
-		"--query", "[?starts_with(name,'ArcBox') || starts_with(name,'arcbox')].id", "-o", "tsv")
-	output, err := cmd.Output()
+// hasArcBoxNamingPattern checks for ArcBox naming patterns in resources using Azure CLI wrapper
+func hasArcBoxNamingPattern(azCLI azurecli.AzureCLI, resourceGroupName string) bool {
+	resources, err := azCLI.ListResources(resourceGroupName)
 	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(string(output)) != ""
+
+	// Check if any resource has ArcBox naming pattern
+	for _, resource := range resources {
+		resourceName := strings.ToLower(resource.Name)
+		if strings.HasPrefix(resourceName, "arcbox") {
+			return true
+		}
+	}
+	return false
 }
 
 // hasArcBoxResources checks for characteristic ArcBox resource types
@@ -1324,132 +1322,136 @@ func hasArcBoxResources(resourceGroupName string) bool {
 	return true
 }
 
-// enrichArcBoxDeployment adds additional information to an ArcBox deployment
-func enrichArcBoxDeployment(deployment *ArcBoxDeployment) {
+// enrichArcBoxDeployment adds additional information to an ArcBox deployment using Azure CLI wrapper
+func enrichArcBoxDeployment(azCLI azurecli.AzureCLI, deployment *ArcBoxDeployment) {
 	// Get resource count
-	deployment.ResourceCount = getResourceCount(deployment.ResourceGroupName)
+	deployment.ResourceCount = getResourceCount(azCLI, deployment.ResourceGroupName)
 
 	// Get creation date from resource group
-	deployment.CreatedDate = getResourceGroupCreationDate(deployment.ResourceGroupName)
+	deployment.CreatedDate = getResourceGroupCreationDate(azCLI, deployment.ResourceGroupName)
 
 	// Determine ArcBox flavor and naming prefix
-	deployment.Flavor, deployment.NamingPrefix = detectArcBoxFlavor(deployment.ResourceGroupName)
+	deployment.Flavor, deployment.NamingPrefix = detectArcBoxFlavor(azCLI, deployment.ResourceGroupName)
 
 	// Get deployment status
-	deployment.Status = getDeploymentStatus(deployment.ResourceGroupName)
+	deployment.Status = getDeploymentStatus(azCLI, deployment.ResourceGroupName)
 }
 
-// getResourceCount returns the number of resources in a resource group
-func getResourceCount(resourceGroupName string) int {
-	cmd := exec.Command("az", "resource", "list", "--resource-group", resourceGroupName, "--query", "length(@)", "-o", "tsv")
-	output, err := cmd.Output()
+// getResourceCount returns the number of resources in a resource group using Azure CLI wrapper
+func getResourceCount(azCLI azurecli.AzureCLI, resourceGroupName string) int {
+	resources, err := azCLI.ListResources(resourceGroupName)
 	if err != nil {
 		return 0
 	}
-	count, err := strconv.Atoi(strings.TrimSpace(string(output)))
-	if err != nil {
-		return 0
-	}
-	return count
+	return len(resources)
 }
 
-// getResourceGroupCreationDate returns the creation date of a resource group
-func getResourceGroupCreationDate(resourceGroupName string) string {
+// getResourceGroupCreationDate returns the creation date of a resource group using Azure CLI wrapper
+func getResourceGroupCreationDate(azCLI azurecli.AzureCLI, resourceGroupName string) string {
 	// Try to get creation date from deployment history - use the EARLIEST deployment
-	deployCmd := exec.Command("az", "deployment", "group", "list", "--resource-group", resourceGroupName,
-		"--query", "min_by(@, &properties.timestamp).properties.timestamp", "-o", "tsv")
-	deployOutput, err := deployCmd.Output()
-	if err == nil && strings.TrimSpace(string(deployOutput)) != "" {
-		if timestamp, err := time.Parse(time.RFC3339, strings.TrimSpace(string(deployOutput))); err == nil {
+	deployments, err := azCLI.ListDeployments(resourceGroupName)
+	if err == nil && len(deployments) > 0 {
+		// Find the earliest deployment by timestamp
+		var earliestTime time.Time
+		for i, deployment := range deployments {
+			// Extract timestamp from properties
+			if properties, ok := deployment.Properties["timestamp"]; ok {
+				if timestampStr, ok := properties.(string); ok {
+					if timestamp, err := time.Parse(time.RFC3339, timestampStr); err == nil {
+						if i == 0 || timestamp.Before(earliestTime) {
+							earliestTime = timestamp
+						}
+					}
+				}
+			}
+		}
+		if !earliestTime.IsZero() {
 			// Convert UTC time to local time before formatting the date
-			localTime := timestamp.Local()
+			localTime := earliestTime.Local()
 			return localTime.Format("2006-01-02")
 		}
 	}
 
-	// Fallback: try to get resource group creation time from Azure Resource Graph
-	// This queries the resource group itself for its creation time
-	rgCmd := exec.Command("az", "group", "show", "--name", resourceGroupName,
-		"--query", "properties.provisioningState", "-o", "tsv")
-	if rgOutput, rgErr := rgCmd.Output(); rgErr == nil && strings.TrimSpace(string(rgOutput)) == "Succeeded" {
-		// If resource group exists but no deployments found, try alternative method
-		// Get the earliest resource creation time as a proxy
-		resourceCmd := exec.Command("az", "resource", "list", "--resource-group", resourceGroupName,
-			"--query", "min_by(@, &properties.timeCreated).properties.timeCreated", "-o", "tsv")
-		if resourceOutput, resourceErr := resourceCmd.Output(); resourceErr == nil && strings.TrimSpace(string(resourceOutput)) != "" {
-			if timestamp, err := time.Parse(time.RFC3339, strings.TrimSpace(string(resourceOutput))); err == nil {
-				// Convert UTC time to local time before formatting the date
-				localTime := timestamp.Local()
-				return localTime.Format("2006-01-02")
+	// Fallback: use today's date if we can't determine the actual creation date
+	return time.Now().Format("2006-01-02")
+}
+
+// detectArcBoxFlavor detects the ArcBox flavor and naming prefix from resources using Azure CLI wrapper
+func detectArcBoxFlavor(azCLI azurecli.AzureCLI, resourceGroupName string) (string, string) {
+	// First, find the ArcBox deployment by looking for deployments containing "arcbox" (case-insensitive)
+	deployments, err := azCLI.ListDeployments(resourceGroupName)
+	if err != nil {
+		// Fallback to old method if deployment not found
+		return detectArcBoxFlavorFallback(azCLI, resourceGroupName)
+	}
+
+	// Find ArcBox deployment
+	var arcboxDeployment *azurecli.DeploymentInfo
+	for _, deployment := range deployments {
+		if strings.Contains(strings.ToLower(deployment.Name), "arcbox") {
+			arcboxDeployment = &deployment
+			break
+		}
+	}
+
+	if arcboxDeployment == nil {
+		// Fallback to old method if no arcbox deployment found
+		return detectArcBoxFlavorFallback(azCLI, resourceGroupName)
+	}
+
+	// Get the flavor parameter from the deployment
+	deploymentDetails, err := azCLI.GetDeployment(resourceGroupName, arcboxDeployment.Name)
+	if err != nil {
+		// Fallback to old method if parameter not found
+		return detectArcBoxFlavorFallback(azCLI, resourceGroupName)
+	}
+
+	// Extract flavor from deployment parameters
+	if parameters, ok := deploymentDetails.Properties["parameters"]; ok {
+		if paramsMap, ok := parameters.(map[string]interface{}); ok {
+			if flavorParam, ok := paramsMap["flavor"]; ok {
+				if flavorMap, ok := flavorParam.(map[string]interface{}); ok {
+					if value, ok := flavorMap["value"]; ok {
+						if flavorStr, ok := value.(string); ok && flavorStr != "" {
+							return flavorStr, "ArcBox"
+						}
+					}
+				}
 			}
 		}
 	}
 
-	return "Unknown"
+	// Fallback to old method if flavor parameter is empty
+	return detectArcBoxFlavorFallback(azCLI, resourceGroupName)
 }
 
-// detectArcBoxFlavor detects the ArcBox flavor and naming prefix from resources
-// detectArcBoxFlavor determines the flavor by checking deployment parameters
-func detectArcBoxFlavor(resourceGroupName string) (string, string) {
-	// First, find the ArcBox deployment by looking for deployments containing "arcbox" (case-insensitive)
-	cmd := exec.Command("az", "deployment", "group", "list", "--resource-group", resourceGroupName,
-		"--query", "[?contains(name, 'arcbox') || contains(name, 'ArcBox') || contains(name, 'Arcbox') || contains(name, 'ARCBOX')].name", "-o", "tsv")
-	output, err := cmd.Output()
+// detectArcBoxFlavorFallback provides fallback flavor detection using resource inspection with Azure CLI wrapper
+func detectArcBoxFlavorFallback(azCLI azurecli.AzureCLI, resourceGroupName string) (string, string) {
+	// Get all resources in the resource group
+	resources, err := azCLI.ListResources(resourceGroupName)
 	if err != nil {
-		// Fallback to old method if deployment not found
-		return detectArcBoxFlavorFallback(resourceGroupName)
+		return "ITPro", "ArcBox"
 	}
 
-	deploymentNames := strings.Split(strings.TrimSpace(string(output)), "\n")
-	if len(deploymentNames) == 0 || deploymentNames[0] == "" {
-		// Fallback to old method if no arcbox deployment found
-		return detectArcBoxFlavorFallback(resourceGroupName)
-	}
-
-	// Use the first (or most recent) arcbox deployment
-	deploymentName := strings.TrimSpace(deploymentNames[0])
-
-	// Get the flavor parameter from the deployment
-	flavorCmd := exec.Command("az", "deployment", "group", "show", "--resource-group", resourceGroupName,
-		"--name", deploymentName, "--query", "properties.parameters.flavor.value", "-o", "tsv")
-	flavorOutput, err := flavorCmd.Output()
-	if err != nil {
-		// Fallback to old method if parameter not found
-		return detectArcBoxFlavorFallback(resourceGroupName)
-	}
-
-	flavor := strings.TrimSpace(string(flavorOutput))
-	if flavor == "" {
-		// Fallback to old method if flavor parameter is empty
-		return detectArcBoxFlavorFallback(resourceGroupName)
-	}
-
-	// Return the detected flavor and default prefix
-	return flavor, "ArcBox"
-}
-
-// detectArcBoxFlavorFallback provides fallback flavor detection using resource inspection
-func detectArcBoxFlavorFallback(resourceGroupName string) (string, string) {
 	// Check for SQL Server (indicates DataOps)
-	sqlCmd := exec.Command("az", "resource", "list", "--resource-group", resourceGroupName,
-		"--resource-type", "Microsoft.Sql/servers", "--query", "[].id", "-o", "tsv")
-	if sqlOutput, err := sqlCmd.Output(); err == nil && strings.TrimSpace(string(sqlOutput)) != "" {
-		return "DataOps", "ArcBox"
+	for _, resource := range resources {
+		if resource.Type == "Microsoft.Sql/servers" {
+			return "DataOps", "ArcBox"
+		}
 	}
 
 	// Check for AKS cluster (indicates DevOps)
-	aksCmd := exec.Command("az", "resource", "list", "--resource-group", resourceGroupName,
-		"--resource-type", "Microsoft.ContainerService/managedClusters", "--query", "[].id", "-o", "tsv")
-	if aksOutput, err := aksCmd.Output(); err == nil && strings.TrimSpace(string(aksOutput)) != "" {
-		return "DevOps", "ArcBox"
+	for _, resource := range resources {
+		if resource.Type == "Microsoft.ContainerService/managedClusters" {
+			return "DevOps", "ArcBox"
+		}
 	}
 
 	// Check for naming prefix from VM names
-	vmCmd := exec.Command("az", "vm", "list", "--resource-group", resourceGroupName, "--query", "[].name", "-o", "tsv")
-	if vmOutput, err := vmCmd.Output(); err == nil {
-		vmNames := strings.Split(strings.TrimSpace(string(vmOutput)), "\n")
-		for _, vmName := range vmNames {
-			vmName = strings.TrimSpace(vmName)
+	vms, err := azCLI.ListVMs(resourceGroupName)
+	if err == nil {
+		for _, vm := range vms {
+			vmName := strings.TrimSpace(vm.Name)
 			if vmName != "" {
 				// Extract prefix (everything before "Client" or "VM")
 				if strings.Contains(vmName, "Client") {
@@ -1465,18 +1467,11 @@ func detectArcBoxFlavorFallback(resourceGroupName string) (string, string) {
 	return "ITPro", "ArcBox"
 }
 
-// getDeploymentStatus returns the overall deployment status with improved logic
-func getDeploymentStatus(resourceGroupName string) string {
+// getDeploymentStatus returns the overall deployment status with improved logic using Azure CLI wrapper
+func getDeploymentStatus(azCLI azurecli.AzureCLI, resourceGroupName string) string {
 	// Get all deployments in the resource group with their states
-	cmd := exec.Command("az", "deployment", "group", "list", "--resource-group", resourceGroupName,
-		"--query", "[].{name:name,state:properties.provisioningState,timestamp:properties.timestamp}", "-o", "json")
-	output, err := cmd.Output()
+	deployments, err := azCLI.ListDeployments(resourceGroupName)
 	if err != nil {
-		return "Unknown"
-	}
-
-	var deployments []map[string]interface{}
-	if err := json.Unmarshal(output, &deployments); err != nil {
 		return "Unknown"
 	}
 
@@ -1490,8 +1485,8 @@ func getDeploymentStatus(resourceGroupName string) string {
 	var anyFailed bool
 
 	for _, deployment := range deployments {
-		name, _ := deployment["name"].(string)
-		state, _ := deployment["state"].(string)
+		name := deployment.Name
+		state := deployment.ProvisioningState
 
 		// Check if this is an ArcBox deployment (contains "arcbox" case-insensitive)
 		if strings.Contains(strings.ToLower(name), "arcbox") {
@@ -1524,20 +1519,28 @@ func getDeploymentStatus(resourceGroupName string) string {
 		return "Failed"
 	}
 
-	// Get the most recent deployment status as fallback
-	mostRecentCmd := exec.Command("az", "deployment", "group", "list", "--resource-group", resourceGroupName,
-		"--query", "max_by(@, &properties.timestamp).properties.provisioningState", "-o", "tsv")
-	recentOutput, err := mostRecentCmd.Output()
-	if err != nil {
-		return "Unknown"
+	// Get the most recent deployment status as fallback - find deployment with latest timestamp
+	var mostRecentDeployment *azurecli.DeploymentInfo
+	var latestTime time.Time
+
+	for _, deployment := range deployments {
+		if timestampInterface, ok := deployment.Properties["timestamp"]; ok {
+			if timestampStr, ok := timestampInterface.(string); ok {
+				if timestamp, err := time.Parse(time.RFC3339, timestampStr); err == nil {
+					if mostRecentDeployment == nil || timestamp.After(latestTime) {
+						mostRecentDeployment = &deployment
+						latestTime = timestamp
+					}
+				}
+			}
+		}
 	}
 
-	status := strings.TrimSpace(string(recentOutput))
-	if status == "" {
-		return "Unknown"
+	if mostRecentDeployment != nil {
+		return mostRecentDeployment.ProvisioningState
 	}
 
-	return status
+	return "Unknown"
 }
 
 // outputArcBoxDeploymentsTable outputs deployments in table format
@@ -1601,40 +1604,25 @@ func getStatusIcon(status string) string {
 	}
 }
 
-// getDeploymentProvisioningState returns the provisioning state of the deployment
-func getDeploymentProvisioningState(resourceGroup, deploymentName string) string {
-	cmd := exec.Command("az", "deployment", "group", "show", "--resource-group", resourceGroup, "--name", deploymentName, "-o", "json")
-	output, err := cmd.Output()
+// getDeploymentProvisioningState returns the provisioning state of the deployment using Azure CLI wrapper
+func getDeploymentProvisioningState(azCLI azurecli.AzureCLI, resourceGroup, deploymentName string) string {
+	deployment, err := azCLI.GetDeployment(resourceGroup, deploymentName)
 	if err != nil {
 		return "Unknown"
 	}
-	var result map[string]interface{}
-	if err := json.Unmarshal(output, &result); err != nil {
-		return "Unknown"
-	}
-	if props, ok := result["properties"].(map[string]interface{}); ok {
-		if state, ok := props["provisioningState"].(string); ok {
-			return state
-		}
-	}
-	return "Unknown"
+	return deployment.ProvisioningState
 }
 
-// printDeploymentErrorDetails prints error details for a failed deployment
-func printDeploymentErrorDetails(resourceGroup, deploymentName string) {
-	cmd := exec.Command("az", "deployment", "group", "show", "--resource-group", resourceGroup, "--name", deploymentName, "-o", "json")
-	output, err := cmd.Output()
+// printDeploymentErrorDetails prints error details for a failed deployment using Azure CLI wrapper
+func printDeploymentErrorDetails(azCLI azurecli.AzureCLI, resourceGroup, deploymentName string) {
+	deployment, err := azCLI.GetDeployment(resourceGroup, deploymentName)
 	if err != nil {
 		fmt.Println(utils.ErrorColor("[ERROR] Unable to retrieve deployment error details."))
 		return
 	}
-	var result map[string]interface{}
-	if err := json.Unmarshal(output, &result); err != nil {
-		fmt.Println(utils.ErrorColor("[ERROR] Unable to parse deployment error details."))
-		return
-	}
-	if props, ok := result["properties"].(map[string]interface{}); ok {
-		if errObj, ok := props["error"].(map[string]interface{}); ok {
+
+	if errorInterface, ok := deployment.Properties["error"]; ok {
+		if errObj, ok := errorInterface.(map[string]interface{}); ok {
 			if msg, ok := errObj["message"].(string); ok {
 				fmt.Println(utils.ErrorColor("[ERROR]"), msg)
 			}
@@ -1642,26 +1630,18 @@ func printDeploymentErrorDetails(resourceGroup, deploymentName string) {
 	}
 }
 
-// getAzureDeploymentDuration gets the actual deployment duration from Azure timestamps
-func getAzureDeploymentDuration(resourceGroup, deploymentName string) (time.Duration, error) {
-	cmd := exec.Command("az", "deployment", "group", "show", "--resource-group", resourceGroup, "--name", deploymentName, "-o", "json")
-	output, err := cmd.Output()
+// getAzureDeploymentDuration gets the actual deployment duration from Azure timestamps using Azure CLI wrapper
+func getAzureDeploymentDuration(azCLI azurecli.AzureCLI, resourceGroup, deploymentName string) (time.Duration, error) {
+	deployment, err := azCLI.GetDeployment(resourceGroup, deploymentName)
 	if err != nil {
 		return 0, err
 	}
 
-	var result map[string]interface{}
-	if err := json.Unmarshal(output, &result); err != nil {
-		return 0, err
-	}
-
-	if props, ok := result["properties"].(map[string]interface{}); ok {
+	if props, ok := deployment.Properties["timestamp"].(string); ok {
 		// Get start and end timestamps
 		var startTimeStr, endTimeStr string
-		if ts, ok := props["timestamp"].(string); ok {
-			startTimeStr = ts
-		}
-		if duration, ok := props["duration"].(string); ok {
+		startTimeStr = props
+		if duration, ok := deployment.Properties["duration"].(string); ok {
 			// Azure returns duration in ISO 8601 format like "PT1H30M45S"
 			if duration != "" {
 				parsed, err := parseISO8601Duration(duration)
@@ -1800,7 +1780,7 @@ func getSubscriptionID(cmd *cobra.Command) string {
 }
 
 // scanSubscriptionWithSpinner scans a subscription for ArcBox deployments with spinner
-func scanSubscriptionWithSpinner(sub AzureSubscription) []ArcBoxDeployment {
+func scanSubscriptionWithSpinner(azCLI azurecli.AzureCLI, sub AzureSubscription) []ArcBoxDeployment {
 	// Set up spinner for scanning
 	stopSpinner := make(chan struct{})
 	spinnerDone := make(chan struct{})
@@ -1836,7 +1816,7 @@ func scanSubscriptionWithSpinner(sub AzureSubscription) []ArcBoxDeployment {
 	}()
 
 	// Perform the actual scanning
-	deployments, err := discoverArcBoxDeployments(sub.ID, sub.Name)
+	deployments, err := discoverArcBoxDeployments(azCLI, sub.ID, sub.Name)
 
 	// Stop spinner and wait for cleanup
 	close(stopSpinner)
@@ -1854,31 +1834,23 @@ func scanSubscriptionWithSpinner(sub AzureSubscription) []ArcBoxDeployment {
 	return deployments
 }
 
-// setAzureSubscription sets the Azure CLI subscription context
-func setAzureSubscription(subscriptionID string) error {
+// setAzureSubscription sets the Azure CLI subscription context using Azure CLI wrapper
+func setAzureSubscription(azCLI azurecli.AzureCLI, subscriptionID string) error {
 	if subscriptionID == "" {
 		return fmt.Errorf("subscription ID is empty")
 	}
-	cmd := exec.Command("az", "account", "set", "--subscription", subscriptionID)
-	return cmd.Run()
+	return azCLI.SetSubscription(subscriptionID)
 }
 
-// checkResourceGroupExists checks if a resource group exists
-func checkResourceGroupExists(resourceGroupName, subscriptionID string) (bool, error) {
+// checkResourceGroupExists checks if a resource group exists using Azure CLI wrapper
+func checkResourceGroupExists(azCLI azurecli.AzureCLI, resourceGroupName, subscriptionID string) (bool, error) {
 	if subscriptionID != "" {
-		if err := setAzureSubscription(subscriptionID); err != nil {
+		if err := setAzureSubscription(azCLI, subscriptionID); err != nil {
 			return false, fmt.Errorf("failed to set subscription context: %v", err)
 		}
 	}
 
-	cmd := exec.Command("az", "group", "exists", "--name", resourceGroupName)
-	output, err := cmd.Output()
-	if err != nil {
-		return false, fmt.Errorf("failed to check resource group existence: %v", err)
-	}
-
-	exists := strings.TrimSpace(string(output)) == "true"
-	return exists, nil
+	return azCLI.CheckResourceGroupExists(resourceGroupName)
 }
 
 // --- Location validation functions ---

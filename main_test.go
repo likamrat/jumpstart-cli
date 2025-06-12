@@ -8,9 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"jumpstartcli/internal/utils"
+
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"jumpstartcli/internal/utils"
 )
 
 // Color functions for test output
@@ -360,11 +361,11 @@ func TestMainCommandRouting(t *testing.T) {
 				// Create a test to verify command exists and can be routed
 				// Note: We can't easily test main() directly without causing exit,
 				// so we test the core functionality through the root command
-				
+
 				// Test the suggestion logic that would be used in main
 				validCommands := []string{"agora", "arcbox", "completion", "localbox", "repo", "subscription", "upgrade", "version"}
 				testInput := "invalid_cmd"
-				
+
 				suggestion := utils.SuggestSimilarCommand(testInput, validCommands, 2)
 				_ = suggestion // Use the suggestion to avoid unused variable warning
 
@@ -383,10 +384,10 @@ func TestMainCommandRouting(t *testing.T) {
 			shouldFind bool
 			expected   string
 		}{
-			{"arcboks", true, "arcbox"},   // close to arcbox
-			{"agoda", true, "agora"},      // close to agora
-			{"versoin", true, "version"},  // close to version
-			{"xyz123", false, ""},         // no close match
+			{"arcboks", true, "arcbox"},  // close to arcbox
+			{"agoda", true, "agora"},     // close to agora
+			{"versoin", true, "version"}, // close to version
+			{"xyz123", false, ""},        // no close match
 		}
 
 		for _, tc := range invalidCommands {
@@ -423,10 +424,10 @@ func TestMainCLIInitialization(t *testing.T) {
 
 		// Test the core initialization logic that main() performs
 		var rootCmd = &cobra.Command{
-			Use:     "js",
-			Short:   "Jumpstart CLI",
-			Long:    `Jumpstart CLI - Azure Arc Jumpstart automation tool.`,
-			Version: utils.CliVersion,
+			Use:                "js",
+			Short:              "Jumpstart CLI",
+			Long:               `Jumpstart CLI - Azure Arc Jumpstart automation tool.`,
+			Version:            utils.CliVersion,
 			SilenceUsage:       true,
 			SilenceErrors:      true,
 			DisableSuggestions: true,
@@ -515,8 +516,8 @@ func TestMainErrorHandling(t *testing.T) {
 
 		// Test the error parsing logic from main()
 		testCases := []struct {
-			errorMsg     string
-			expectedCmd  string
+			errorMsg      string
+			expectedCmd   string
 			shouldExtract bool
 		}{
 			{`unknown command "badcmd" for "js"`, "badcmd", true},
@@ -568,10 +569,10 @@ func TestMainFunction(t *testing.T) {
 		// We can't directly test main() because it calls os.Exit
 		// Instead, we test the core logic by creating a similar command structure
 		var rootCmd = &cobra.Command{
-			Use:     "js",
-			Short:   "Jumpstart CLI",
-			Long:    `Jumpstart CLI - Azure Arc Jumpstart automation tool.`,
-			Version: utils.CliVersion,
+			Use:                "js",
+			Short:              "Jumpstart CLI",
+			Long:               `Jumpstart CLI - Azure Arc Jumpstart automation tool.`,
+			Version:            utils.CliVersion,
 			SilenceUsage:       true,
 			SilenceErrors:      true,
 			DisableSuggestions: true,
@@ -645,10 +646,10 @@ func TestMainFunction(t *testing.T) {
 
 		// Recreate the exact command structure from main()
 		var rootCmd = &cobra.Command{
-			Use:     "js",
-			Short:   "Jumpstart CLI",
-			Long:    `Jumpstart CLI - Azure Arc Jumpstart automation tool.`,
-			Version: utils.CliVersion,
+			Use:                "js",
+			Short:              "Jumpstart CLI",
+			Long:               `Jumpstart CLI - Azure Arc Jumpstart automation tool.`,
+			Version:            utils.CliVersion,
 			SilenceUsage:       true,
 			SilenceErrors:      true,
 			DisableSuggestions: true,
@@ -719,9 +720,9 @@ func TestMainErrorHandlingIntegration(t *testing.T) {
 
 		// Test the exact error parsing logic from main()
 		testErrors := []struct {
-			errorStr       string
-			expectedCmd    string
-			shouldSuggest  bool
+			errorStr        string
+			expectedCmd     string
+			shouldSuggest   bool
 			expectedSuggest string
 		}{
 			{`unknown command "arcboks" for "js"`, "arcboks", true, "arcbox"},
@@ -744,10 +745,10 @@ func TestMainErrorHandlingIntegration(t *testing.T) {
 
 							if tc.shouldSuggest {
 								if suggestion == tc.expectedSuggest {
-									printTestStatus(true, fmt.Sprintf("Error parsing for '%s'", tc.expectedCmd), 
+									printTestStatus(true, fmt.Sprintf("Error parsing for '%s'", tc.expectedCmd),
 										fmt.Sprintf("Correctly suggested '%s'", suggestion))
 								} else {
-									printTestStatus(false, fmt.Sprintf("Error parsing for '%s'", tc.expectedCmd), 
+									printTestStatus(false, fmt.Sprintf("Error parsing for '%s'", tc.expectedCmd),
 										fmt.Sprintf("Expected '%s', got '%s'", tc.expectedSuggest, suggestion))
 									t.Errorf("Expected suggestion '%s', got '%s'", tc.expectedSuggest, suggestion)
 								}
@@ -755,7 +756,7 @@ func TestMainErrorHandlingIntegration(t *testing.T) {
 								if suggestion == "" {
 									printTestStatus(true, fmt.Sprintf("No suggestion for '%s'", tc.expectedCmd), "Correctly found no suggestion")
 								} else {
-									printTestStatus(false, fmt.Sprintf("No suggestion for '%s'", tc.expectedCmd), 
+									printTestStatus(false, fmt.Sprintf("No suggestion for '%s'", tc.expectedCmd),
 										fmt.Sprintf("Expected no suggestion, got '%s'", suggestion))
 									t.Errorf("Expected no suggestion, got '%s'", suggestion)
 								}
@@ -772,8 +773,8 @@ func TestMainErrorHandlingIntegration(t *testing.T) {
 
 		// Test different error types that main() handles
 		errorTypes := []struct {
-			name     string
-			errorStr string
+			name             string
+			errorStr         string
 			isUnknownCommand bool
 		}{
 			{"Unknown command error", `unknown command "badcmd" for "js"`, true},
@@ -789,7 +790,7 @@ func TestMainErrorHandlingIntegration(t *testing.T) {
 				if isUnknownCommand == et.isUnknownCommand {
 					printTestStatus(true, fmt.Sprintf("Error type '%s'", et.name), "Correctly categorized")
 				} else {
-					printTestStatus(false, fmt.Sprintf("Error type '%s'", et.name), 
+					printTestStatus(false, fmt.Sprintf("Error type '%s'", et.name),
 						fmt.Sprintf("Expected isUnknownCommand=%v, got %v", et.isUnknownCommand, isUnknownCommand))
 					t.Errorf("Error categorization failed for '%s'", et.name)
 				}
@@ -818,7 +819,7 @@ func TestMainValidCommandList(t *testing.T) {
 				[]string{"agora", "arcbox", "completion", "localbox", "repo", "subscription", "upgrade", "version"},
 			},
 			{
-				"Error handler list", 
+				"Error handler list",
 				[]string{"arcbox", "agora", "localbox", "subscription", "repo", "version", "completion", "upgrade"},
 			},
 		}
@@ -873,12 +874,12 @@ func TestMainVersionTemplate(t *testing.T) {
 
 		// Test the version template from main()
 		expectedTemplate := "Jumpstart CLI version: {{.Version}}\n"
-		
+
 		var rootCmd = &cobra.Command{
 			Use:     "js",
 			Version: utils.CliVersion,
 		}
-		
+
 		// Set the same template as main()
 		rootCmd.SetVersionTemplate(expectedTemplate)
 
@@ -910,7 +911,7 @@ func TestMainHelpConfiguration(t *testing.T) {
 		color.Cyan(testInfoColor("Testing help command hidden configuration..."))
 
 		var rootCmd = &cobra.Command{Use: "js"}
-		
+
 		// Set hidden help command as in main()
 		rootCmd.SetHelpCommand(&cobra.Command{Hidden: true})
 
@@ -923,7 +924,7 @@ func TestMainHelpConfiguration(t *testing.T) {
 		color.Cyan(testInfoColor("Testing custom help function setup..."))
 
 		var rootCmd = &cobra.Command{Use: "js"}
-		
+
 		// Set custom help function as in main()
 		rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 			utils.ShowHelpWithoutTypes(cmd)
@@ -942,7 +943,7 @@ func TestMainPersistentHelpFlag(t *testing.T) {
 		color.Cyan(testInfoColor("Testing persistent help flag configuration..."))
 
 		var rootCmd = &cobra.Command{Use: "js"}
-		
+
 		// Add persistent help flag as in main()
 		rootCmd.PersistentFlags().BoolP("help", "h", false, "Show help message and exit. Display command usage information")
 
@@ -1025,7 +1026,7 @@ func TestCreateRootCommand(t *testing.T) {
 			flag := rootCmd.PersistentFlags().Lookup(test.flagName)
 			if flag != nil {
 				printTestStatus(true, fmt.Sprintf("%s existence", test.name), "Flag exists")
-				
+
 				if test.hasShort && flag.Shorthand == test.shorthand {
 					printTestStatus(true, fmt.Sprintf("%s shorthand", test.name), fmt.Sprintf("Shorthand '%s' correctly set", test.shorthand))
 				} else if !test.hasShort && flag.Shorthand == "" {
@@ -1047,7 +1048,7 @@ func TestCreateRootCommand(t *testing.T) {
 		rootCmd := createRootCommand()
 
 		expectedCommands := []string{"agora", "arcbox", "completion", "localbox", "repo", "subscription", "upgrade", "version"}
-		
+
 		for _, cmdName := range expectedCommands {
 			cmd, _, err := rootCmd.Find([]string{cmdName})
 			if err == nil && cmd.Name() == cmdName {
@@ -1094,13 +1095,15 @@ func TestCreateRootCommand(t *testing.T) {
 
 			for _, tc := range testCases {
 				t.Run(tc.input, func(t *testing.T) {
-					output := captureOutput(func() {
+					stdout, stderr := captureOutputAndError(func() {
 						err := rootCmd.RunE(rootCmd, []string{tc.input})
 						if err != nil {
 							t.Errorf("Unexpected error: %v", err)
 						}
 					})
 
+					// Check both stdout and stderr for the suggestion message
+					output := stdout + stderr
 					if strings.Contains(output, tc.expected) && strings.Contains(output, "Did you mean") {
 						printTestStatus(true, fmt.Sprintf("Suggestion for %s", tc.input), fmt.Sprintf("Correctly suggested '%s'", tc.expected))
 					} else {
@@ -1129,15 +1132,15 @@ func TestHandleCommandError(t *testing.T) {
 		color.Cyan(testInfoColor("Testing unknown command error handling..."))
 
 		testCases := []struct {
-			errorMsg    string
-			shouldExit  bool
+			errorMsg         string
+			shouldExit       bool
 			expectSuggestion bool
-			expectedCmd string
+			expectedCmd      string
 		}{
 			{`unknown command "arcboks" for "js"`, false, true, "arcboks"}, // Should suggest arcbox
-			{`unknown command "agoda" for "js"`, false, true, "agoda"},    // Should suggest agora
-			{`unknown command "xyz123" for "js"`, true, false, "xyz123"},  // No suggestion, should exit
-			{"some other error", true, false, ""},                         // Other error, should exit
+			{`unknown command "agoda" for "js"`, false, true, "agoda"},     // Should suggest agora
+			{`unknown command "xyz123" for "js"`, true, false, "xyz123"},   // No suggestion, should exit
+			{"some other error", true, false, ""},                          // Other error, should exit
 		}
 
 		for _, tc := range testCases {
@@ -1147,10 +1150,13 @@ func TestHandleCommandError(t *testing.T) {
 				exitCode = 0
 
 				err := fmt.Errorf("%s", tc.errorMsg)
-				
-				output := captureOutput(func() {
+
+				stdout, stderr := captureOutputAndError(func() {
 					handleCommandError(err, mockExitFunc)
 				})
+
+				// Check both stdout and stderr for output
+				output := stdout + stderr
 
 				if tc.shouldExit {
 					if exitCalled && exitCode == 1 {
@@ -1188,7 +1194,7 @@ func TestHandleCommandError(t *testing.T) {
 		exitCode = 0
 
 		err := fmt.Errorf("permission denied")
-		
+
 		output, stderr := captureOutputAndError(func() {
 			handleCommandError(err, mockExitFunc)
 		})
@@ -1232,7 +1238,7 @@ func TestRunMain(t *testing.T) {
 
 		// Test with no args (should show welcome and not exit)
 		os.Args = []string{"js"}
-		
+
 		// Reset exit tracking
 		exitCalled = false
 		exitCode = 0
@@ -1261,14 +1267,17 @@ func TestRunMain(t *testing.T) {
 
 		// Test with invalid command that should trigger suggestion
 		os.Args = []string{"js", "arcboks"}
-		
+
 		// Reset exit tracking
 		exitCalled = false
 		exitCode = 0
 
-		output := captureOutput(func() {
+		stdout, stderr := captureOutputAndError(func() {
 			runMain(mockExitFunc)
 		})
+
+		// Check both stdout and stderr for output
+		output := stdout + stderr
 
 		// Should not exit if suggestion is provided
 		if !exitCalled {
@@ -1291,7 +1300,7 @@ func TestRunMain(t *testing.T) {
 
 		// Test with invalid command that should not trigger suggestion
 		os.Args = []string{"js", "completely_invalid_xyz123"}
-		
+
 		// Reset exit tracking
 		exitCalled = false
 		exitCode = 0
@@ -1331,7 +1340,7 @@ func TestActualMainFunction(t *testing.T) {
 		color.Cyan(testInfoColor("Testing main function integration..."))
 
 		// Test that all the components main() depends on exist and work
-		
+
 		// Test createRootCommand
 		rootCmd := createRootCommand()
 		if rootCmd != nil && rootCmd.Use == "js" {
@@ -1355,7 +1364,7 @@ func TestActualMainFunction(t *testing.T) {
 		// We already tested this extensively above, so just verify it works
 		originalArgs := os.Args
 		os.Args = []string{"js"}
-		
+
 		var testExitCalled bool
 		testExitFunc := func(code int) {
 			testExitCalled = true
@@ -1363,7 +1372,7 @@ func TestActualMainFunction(t *testing.T) {
 
 		// This should execute without calling exit
 		runMain(testExitFunc)
-		
+
 		if !testExitCalled {
 			printTestStatus(true, "runMain integration", "Core main logic works without exit")
 		} else {

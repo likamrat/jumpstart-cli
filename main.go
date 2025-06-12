@@ -63,10 +63,10 @@ func createRootCommand() *cobra.Command {
 	rootCmd.AddCommand(arcbox.NewArcboxCmd())             // ArcBox parent command
 	rootCmd.AddCommand(completion.NewCompletionCmd())     // completion
 	rootCmd.AddCommand(localbox.NewLocalboxCmd())         // localbox
+	rootCmd.AddCommand(repo.NewRepoCmd())                 // repo
 	rootCmd.AddCommand(subscription.NewSubscriptionCmd()) // subscription command
 
 	// Add remaining commands in alphabetical order
-	rootCmd.AddCommand(repo.NewRepoCmd())
 	rootCmd.AddCommand(upgrade.NewUpgradeCmd())
 	rootCmd.AddCommand(version.NewVersionCmd())
 
@@ -101,7 +101,7 @@ func handleCommandError(err error, exitFunc ExitFunc) {
 			parts := strings.Split(errorStr, "\"")
 			if len(parts) >= 2 {
 				invalidCommand := parts[1]
-				validCommands := []string{"arcbox", "agora", "localbox", "subscription", "repo", "version", "completion", "upgrade"}
+				validCommands := []string{"agora", "arcbox", "completion", "localbox", "repo", "subscription", "upgrade", "version"}
 
 				if suggestion := utils.SuggestSimilarCommand(invalidCommand, validCommands, 2); suggestion != "" {
 					utils.PrintDidYouMean(invalidCommand, suggestion)
@@ -120,7 +120,7 @@ func handleCommandError(err error, exitFunc ExitFunc) {
 // runMain is the testable version of main that accepts an exit function
 func runMain(exitFunc ExitFunc) {
 	rootCmd := createRootCommand()
-	
+
 	if err := rootCmd.Execute(); err != nil {
 		handleCommandError(err, exitFunc)
 	}

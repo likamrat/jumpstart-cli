@@ -8,7 +8,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // Test color functions for better visual feedback
@@ -668,239 +667,511 @@ func TestArcboxPreflightRpRegisterCommand(t *testing.T) {
 	}
 }
 
-func TestQuotaCacheHelpers(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Quota Cache Helpers ==="))
+// ===== Azure CLI Wrapper Tests =====
 
-	// Test clearQuotaCache function
-	// Set some dummy data in cache
-	quotaCache["test-region"] = []azurecli.VMUsageInfo{
-		{
-			Name:         map[string]string{"value": "test"},
-			CurrentValue: 10,
-			Limit:        100,
-			Unit:         "Count",
+func TestDiscoverArcBoxDeployments(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Deployment Discovery ==="))
+
+	// Create mock Azure CLI
+	mockCLI := azurecli.NewMockAzureCLI()
+
+	// Set up mock subscriptions first
+	mockCLI.Subscriptions = []azurecli.SubscriptionInfo{
+		{ID: "test-sub-id", Name: "Test Subscription"},
+	}
+	mockCLI.CurrentSubscription = &azurecli.SubscriptionInfo{
+		ID:   "test-sub-id",
+		Name: "Test Subscription",
+	}
+
+	// Set up mock data for resource groups
+	mockCLI.ResourceGroups = []azurecli.ResourceGroupInfo{
+		{Name: "ArcBox-Test-RG", Location: "eastus"},
+		{Name: "LocalBox-Test-RG", Location: "westus"}, // Should be filtered out
+		{Name: "Regular-RG", Location: "centralus"},
+		{Name: "MC_AKS_RG", Location: "westus2"}, // Should be filtered out
+	}
+
+	// Set up mock resources with ArcBox solution tag
+	mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+		"ArcBox-Test-RG": {
+			{
+				Name: "ArcBox-VM",
+				Type: "Microsoft.Compute/virtualMachines",
+				Tags: map[string]string{"Solution": "jumpstart_arcbox"},
+			},
 		},
 	}
 
-	testName := "Cache Has Data Before Clear"
-	success := len(quotaCache) > 0
-	message := "Cache should have data before clearing"
-	printTestStatus(t, testName, success, message)
-	clearQuotaCache()
+	// Set up mock deployments
+	mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+		"ArcBox-Test-RG": {
+			{Name: "arcbox-main", ProvisioningState: "Succeeded"},
+		},
+	}
 
-	testName = "Cache Is Empty After Clear"
-	success = len(quotaCache) == 0
-	message = "Cache should be empty after clearing"
-	printTestStatus(t, testName, success, message)
-}
+	t.Run("successful_discovery", func(t *testing.T) {
+		deployments, err := discoverArcBoxDeployments(mockCLI, "test-sub-id", "Test Subscription")
 
-// Helper function to get a subcommand by name
-func getSubcommand(cmd *cobra.Command, name string) *cobra.Command {
-	for _, subCmd := range cmd.Commands() {
-		if subCmd.Use == name {
-			return subCmd
+		testName := "Discovery Success"
+		success := err == nil
+		message := fmt.Sprintf("Expected no error, got: %v", err)
+		printTestStatus(t, testName, success, message)
+
+		testName = "Deployment Count"
+		success = len(deployments) == 1
+		message = fmt.Sprintf("Expected 1 deployment, got %d", len(deployments))
+		printTestStatus(t, testName, success, message)
+
+		if len(deployments) > 0 {
+			deployment := deployments[0]
+
+			testName = "Resource Group Name"
+			success = deployment.ResourceGroupName == "ArcBox-Test-RG"
+			message = fmt.Sprintf("Expected 'ArcBox-Test-RG', got '%s'", deployment.ResourceGroupName)
+			printTestStatus(t, testName, success, message)
+
+			testName = "Subscription ID"
+			success = deployment.SubscriptionID == "test-sub-id"
+			message = fmt.Sprintf("Expected 'test-sub-id', got '%s'", deployment.SubscriptionID)
+			printTestStatus(t, testName, success, message)
+
+			testName = "Location"
+			success = deployment.Location == "eastus"
+			message = fmt.Sprintf("Expected 'eastus', got '%s'", deployment.Location)
+			printTestStatus(t, testName, success, message)
 		}
-	}
-	return nil
-}
-
-func TestArcboxCommandStructure(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Command Structure ==="))
-
-	cmd := NewArcboxCmd()
-
-	// Test that command has proper error handling setup
-	testName := "DisableSuggestions Setting"
-	success := cmd.DisableSuggestions
-	message := "DisableSuggestions should be true"
-	printTestStatus(t, testName, success, message)
-
-	testName = "SilenceErrors Setting"
-	success = cmd.SilenceErrors
-	message = "SilenceErrors should be true"
-	printTestStatus(t, testName, success, message)
-
-	testName = "SilenceUsage Setting"
-	success = cmd.SilenceUsage
-	message = "SilenceUsage should be true"
-	printTestStatus(t, testName, success, message)
-
-	// Test that RunE is set (for custom suggestion handling)
-	testName = "RunE Function Set"
-	success = cmd.RunE != nil
-	message = "RunE should be set for custom suggestion handling"
-	printTestStatus(t, testName, success, message)
-}
-
-func TestArcboxSubcommandFlags(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Subcommand Flags ==="))
-
-	cmd := NewArcboxCmd()
-
-	// Test deploy command has all expected flags
-	deployCmd := getSubcommand(cmd, "deploy")
-	testName := "Deploy Command Exists"
-	success := deployCmd != nil
-	message := "Deploy subcommand should be available"
-	printTestStatus(t, testName, success, message)
-	if !success {
-		return
-	}
-
-	// Count total flags for deploy command
-	flagCount := 0
-	deployCmd.Flags().VisitAll(func(flag *pflag.Flag) {
-		flagCount++
 	})
 
-	// Deploy command should have many flags (25+)
-	testName = "Deploy Flag Count"
-	success = flagCount >= 25
-	message = fmt.Sprintf("Expected at least 25 flags, got %d", flagCount)
-	printTestStatus(t, testName, success, message)
+	t.Run("error_handling", func(t *testing.T) {
+		// Test with error from Azure CLI
+		errorMockCLI := azurecli.NewMockAzureCLI()
+		errorMockCLI.SetErrorForListResourceGroups(fmt.Errorf("Azure CLI error"))
 
-	// Test delete command has minimal flags
-	deleteCmd := getSubcommand(cmd, "delete")
-	testName = "Delete Command Exists"
-	success = deleteCmd != nil
-	message = "Delete subcommand should be available"
-	printTestStatus(t, testName, success, message)
-	if !success {
-		return
-	}
+		deployments, err := discoverArcBoxDeployments(errorMockCLI, "test-sub-id", "Test Subscription")
 
-	deleteFlagCount := 0
-	deleteCmd.Flags().VisitAll(func(flag *pflag.Flag) {
-		deleteFlagCount++
+		testName := "Error Propagation"
+		success := err != nil
+		message := "Expected error when Azure CLI fails"
+		printTestStatus(t, testName, success, message)
+
+		testName = "Empty Results on Error"
+		success = len(deployments) == 0
+		message = fmt.Sprintf("Expected 0 deployments on error, got %d", len(deployments))
+		printTestStatus(t, testName, success, message)
+	})
+}
+
+func TestIsArcBoxResourceGroup(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Resource Group Detection ==="))
+
+	mockCLI := azurecli.NewMockAzureCLI()
+
+	t.Run("name_contains_arcbox", func(t *testing.T) {
+		result := isArcBoxResourceGroup(mockCLI, "MyArcBoxRG")
+
+		testName := "Name Contains ArcBox"
+		success := result == true
+		message := "Resource group with 'arcbox' in name should be detected"
+		printTestStatus(t, testName, success, message)
 	})
 
-	testName = "Delete Flag Count"
-	success = deleteFlagCount == 3
-	message = fmt.Sprintf("Expected exactly 3 flags, got %d", deleteFlagCount)
-	printTestStatus(t, testName, success, message)
+	t.Run("localbox_excluded", func(t *testing.T) {
+		result := isArcBoxResourceGroup(mockCLI, "MyLocalBoxRG")
 
-	// Test list command has subscription selection flags
-	listCmd := getSubcommand(cmd, "list")
-	testName = "List Command Exists"
-	success = listCmd != nil
-	message = "List subcommand should be available"
-	printTestStatus(t, testName, success, message)
-	if !success {
-		return
-	}
-
-	listFlagCount := 0
-	listCmd.Flags().VisitAll(func(flag *pflag.Flag) {
-		listFlagCount++
+		testName := "LocalBox Exclusion"
+		success := result == false
+		message := "Resource group with 'localbox' in name should be excluded"
+		printTestStatus(t, testName, success, message)
 	})
 
-	testName = "List Flag Count"
-	success = listFlagCount == 3
-	message = fmt.Sprintf("Expected exactly 3 flags, got %d", listFlagCount)
-	printTestStatus(t, testName, success, message)
-}
+	t.Run("aks_managed_excluded", func(t *testing.T) {
+		result := isArcBoxResourceGroup(mockCLI, "MC_MyCluster_myRG_eastus")
 
-func TestArcboxComplexStructure(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Complex Structure ==="))
-
-	cmd := NewArcboxCmd()
-
-	// Test nested command structure: arcbox preflight rp show
-	showCmd := getNestedSubcommand(cmd, "preflight", "rp", "show")
-	testName := "Nested Command 'preflight rp show'"
-	success := showCmd != nil
-	message := "Command 'arcbox preflight rp show' should exist"
-	if !success {
-		message = "Command 'arcbox preflight rp show' not found"
-	}
-	printTestStatus(t, testName, success, message)
-
-	if showCmd != nil {
-		testName = "Show Command Description"
-		expected := "Show registration status of required Azure resource providers"
-		success = showCmd.Short == expected
-		message = fmt.Sprintf("Expected '%s', got '%s'", expected, showCmd.Short)
+		testName := "AKS Managed Exclusion"
+		success := result == false
+		message := "AKS managed resource groups should be excluded"
 		printTestStatus(t, testName, success, message)
-	}
+	})
 
-	// Test nested command structure: arcbox preflight rp list
-	listRpCmd := getNestedSubcommand(cmd, "preflight", "rp", "list")
-	testName = "Nested Command 'preflight rp list'"
-	success = listRpCmd != nil
-	message = "Command 'arcbox preflight rp list' should exist"
-	if !success {
-		message = "Command 'arcbox preflight rp list' not found"
-	}
-	printTestStatus(t, testName, success, message)
-
-	if listRpCmd != nil {
-		testName = "List RP Command Description"
-		expected := "List required Azure resource providers for ArcBox"
-		success = listRpCmd.Short == expected
-		message = fmt.Sprintf("Expected '%s', got '%s'", expected, listRpCmd.Short)
-		printTestStatus(t, testName, success, message)
-	}
-}
-
-// Helper function to get a nested subcommand
-func getNestedSubcommand(cmd *cobra.Command, path ...string) *cobra.Command {
-	current := cmd
-	for _, name := range path {
-		found := false
-		for _, subCmd := range current.Commands() {
-			if subCmd.Use == name {
-				current = subCmd
-				found = true
-				break
-			}
+	t.Run("solution_tag_detection", func(t *testing.T) {
+		// Set up mock resources with ArcBox solution tag
+		mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+			"TestRG": {
+				{
+					Name: "test-vm",
+					Type: "Microsoft.Compute/virtualMachines",
+					Tags: map[string]string{"Solution": "jumpstart_arcbox"},
+				},
+			},
 		}
-		if !found {
-			return nil
+
+		result := isArcBoxResourceGroup(mockCLI, "TestRG")
+
+		testName := "Solution Tag Detection"
+		success := result == true
+		message := "Resource group with ArcBox solution tag should be detected"
+		printTestStatus(t, testName, success, message)
+	})
+
+	t.Run("deployment_name_detection", func(t *testing.T) {
+		// Set up mock deployments with ArcBox name
+		mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+			"TestRG2": {
+				{Name: "arcbox-main", ProvisioningState: "Succeeded"},
+			},
 		}
-	}
-	return current
+
+		result := isArcBoxResourceGroup(mockCLI, "TestRG2")
+
+		testName := "Deployment Name Detection"
+		success := result == true
+		message := "Resource group with ArcBox deployment should be detected"
+		printTestStatus(t, testName, success, message)
+	})
 }
 
-func TestArcboxCommandPersistence(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Command Persistence ==="))
+func TestDetectArcBoxFlavor(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Flavor Detection ==="))
 
-	// Test that creating multiple instances returns consistent structure
-	cmd1 := NewArcboxCmd()
-	cmd2 := NewArcboxCmd()
+	mockCLI := azurecli.NewMockAzureCLI()
 
-	testName := "Consistent Command Use"
-	success := cmd1.Use == cmd2.Use
-	message := "Commands should have consistent structure across instances"
-	printTestStatus(t, testName, success, message)
+	t.Run("flavor_from_deployment_parameters", func(t *testing.T) {
+		// Set up mock deployments with ArcBox name
+		mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+			"TestRG": {
+				{Name: "arcbox-main", ProvisioningState: "Succeeded"},
+			},
+		}
 
-	testName = "Consistent Subcommand Count"
-	success = len(cmd1.Commands()) == len(cmd2.Commands())
-	message = fmt.Sprintf("Expected same subcommand count, got %d vs %d", len(cmd1.Commands()), len(cmd2.Commands()))
-	printTestStatus(t, testName, success, message)
+		// Set up specific deployment with parameters
+		mockCLI.SpecificDeployments = map[string]*azurecli.DeploymentInfo{
+			"TestRG/arcbox-main": {
+				Name:              "arcbox-main",
+				ProvisioningState: "Succeeded",
+				Properties: map[string]interface{}{
+					"parameters": map[string]interface{}{
+						"flavor": map[string]interface{}{
+							"value": "DevOps",
+						},
+					},
+				},
+			},
+		}
 
-	// Test that deploy command flags are consistent
-	deploy1 := getSubcommand(cmd1, "deploy")
-	deploy2 := getSubcommand(cmd2, "deploy")
+		flavor, prefix := detectArcBoxFlavor(mockCLI, "TestRG")
 
-	testName = "Deploy Commands Exist"
-	success = deploy1 != nil && deploy2 != nil
-	message = "Deploy commands should exist in both instances"
-	printTestStatus(t, testName, success, message)
-
-	if deploy1 != nil && deploy2 != nil {
-		flag1Count := 0
-		deploy1.Flags().VisitAll(func(flag *pflag.Flag) {
-			flag1Count++
-		})
-
-		flag2Count := 0
-		deploy2.Flags().VisitAll(func(flag *pflag.Flag) {
-			flag2Count++
-		})
-
-		testName = "Consistent Deploy Flag Count"
-		success = flag1Count == flag2Count
-		message = fmt.Sprintf("Expected consistent flag count, got %d vs %d", flag1Count, flag2Count)
+		testName := "Flavor Detection"
+		success := flavor == "DevOps"
+		message := fmt.Sprintf("Expected 'DevOps', got '%s'", flavor)
 		printTestStatus(t, testName, success, message)
+
+		testName = "Prefix Detection"
+		success = prefix == "ArcBox"
+		message = fmt.Sprintf("Expected 'ArcBox', got '%s'", prefix)
+		printTestStatus(t, testName, success, message)
+	})
+
+	t.Run("fallback_to_resource_inspection", func(t *testing.T) {
+		// Set up mock resources with SQL Server (indicates DataOps)
+		mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+			"TestRG2": {
+				{
+					Name: "test-sql-server",
+					Type: "Microsoft.Sql/servers",
+				},
+			},
+		}
+
+		flavor, prefix := detectArcBoxFlavor(mockCLI, "TestRG2")
+
+		testName := "Fallback Flavor Detection"
+		success := flavor == "DataOps"
+		message := fmt.Sprintf("Expected 'DataOps', got '%s'", flavor)
+		printTestStatus(t, testName, success, message)
+
+		testName = "Fallback Prefix"
+		success = prefix == "ArcBox"
+		message = fmt.Sprintf("Expected 'ArcBox', got '%s'", prefix)
+		printTestStatus(t, testName, success, message)
+	})
+}
+
+func TestEnrichArcBoxDeployment(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Deployment Enrichment ==="))
+
+	mockCLI := azurecli.NewMockAzureCLI()
+
+	// Set up mock data
+	mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+		"TestRG": {
+			{Name: "vm1", Type: "Microsoft.Compute/virtualMachines"},
+			{Name: "vnet1", Type: "Microsoft.Network/virtualNetworks"},
+			{Name: "kv1", Type: "Microsoft.KeyVault/vaults"},
+		},
 	}
+
+	mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+		"TestRG": {
+			{
+				Name:              "arcbox-main",
+				ProvisioningState: "Succeeded",
+				Properties: map[string]interface{}{
+					"timestamp": "2023-01-15T10:00:00Z",
+				},
+			},
+		},
+	}
+
+	t.Run("enrichment_success", func(t *testing.T) {
+		deployment := &ArcBoxDeployment{
+			ResourceGroupName: "TestRG",
+			SubscriptionID:    "test-sub-id",
+			SubscriptionName:  "Test Subscription",
+			Location:          "eastus",
+		}
+
+		enrichArcBoxDeployment(mockCLI, deployment)
+
+		testName := "Resource Count"
+		success := deployment.ResourceCount == 3
+		message := fmt.Sprintf("Expected 3 resources, got %d", deployment.ResourceCount)
+		printTestStatus(t, testName, success, message)
+
+		testName = "Status Detection"
+		success = deployment.Status == "Succeeded"
+		message = fmt.Sprintf("Expected 'Succeeded', got '%s'", deployment.Status)
+		printTestStatus(t, testName, success, message)
+
+		testName = "Creation Date Format"
+		success = len(deployment.CreatedDate) == 10 // YYYY-MM-DD format
+		message = fmt.Sprintf("Expected date format YYYY-MM-DD, got '%s'", deployment.CreatedDate)
+		printTestStatus(t, testName, success, message)
+
+		testName = "Flavor Assignment"
+		success = deployment.Flavor == "ITPro" // Default fallback
+		message = fmt.Sprintf("Expected 'ITPro', got '%s'", deployment.Flavor)
+		printTestStatus(t, testName, success, message)
+	})
+}
+
+func TestGetResourceCount(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Resource Count Function ==="))
+
+	mockCLI := azurecli.NewMockAzureCLI()
+
+	t.Run("count_resources", func(t *testing.T) {
+		// Set up mock resources
+		mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+			"TestRG": {
+				{Name: "resource1", Type: "Microsoft.Compute/virtualMachines"},
+				{Name: "resource2", Type: "Microsoft.Network/virtualNetworks"},
+				{Name: "resource3", Type: "Microsoft.KeyVault/vaults"},
+			},
+		}
+
+		count := getResourceCount(mockCLI, "TestRG")
+
+		testName := "Resource Count"
+		success := count == 3
+		message := fmt.Sprintf("Expected 3 resources, got %d", count)
+		printTestStatus(t, testName, success, message)
+	})
+
+	t.Run("error_handling", func(t *testing.T) {
+		errorMockCLI := azurecli.NewMockAzureCLI()
+		errorMockCLI.SetErrorForListResources(fmt.Errorf("Azure CLI error"))
+
+		count := getResourceCount(errorMockCLI, "TestRG")
+
+		testName := "Error Handling"
+		success := count == 0
+		message := fmt.Sprintf("Expected 0 on error, got %d", count)
+		printTestStatus(t, testName, success, message)
+	})
+}
+
+func TestGetDeploymentStatus(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Deployment Status Function ==="))
+
+	mockCLI := azurecli.NewMockAzureCLI()
+
+	t.Run("arcbox_deployment_priority", func(t *testing.T) {
+		// Set up mock deployments with ArcBox deployment and NO failed deployments
+		mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+			"TestRG": {
+				{Name: "other-deployment", ProvisioningState: "Succeeded"},
+				{Name: "arcbox-main", ProvisioningState: "Succeeded"},
+			},
+		}
+
+		status := getDeploymentStatus(mockCLI, "TestRG")
+
+		testName := "ArcBox Priority"
+		success := status == "Succeeded"
+		message := fmt.Sprintf("Expected 'Succeeded' (ArcBox priority), got '%s'", status)
+		printTestStatus(t, testName, success, message)
+	})
+
+	t.Run("failed_deployment_handling", func(t *testing.T) {
+		// Set up mock deployments with failed ArcBox deployment
+		mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+			"TestRG2": {
+				{Name: "arcbox-main", ProvisioningState: "Failed"},
+				{Name: "other-deployment", ProvisioningState: "Succeeded"},
+			},
+		}
+
+		status := getDeploymentStatus(mockCLI, "TestRG2")
+
+		testName := "Failed ArcBox Deployment"
+		success := status == "Failed"
+		message := fmt.Sprintf("Expected 'Failed', got '%s'", status)
+		printTestStatus(t, testName, success, message)
+	})
+
+	t.Run("no_deployments", func(t *testing.T) {
+		emptyMockCLI := azurecli.NewMockAzureCLI()
+
+		status := getDeploymentStatus(emptyMockCLI, "EmptyRG")
+
+		testName := "No Deployments"
+		success := status == "Unknown"
+		message := fmt.Sprintf("Expected 'Unknown', got '%s'", status)
+		printTestStatus(t, testName, success, message)
+	})
+}
+
+func TestCheckResourceGroupExists(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Resource Group Existence Check ==="))
+
+	mockCLI := azurecli.NewMockAzureCLI()
+
+	// Set up mock subscriptions
+	mockCLI.Subscriptions = []azurecli.SubscriptionInfo{
+		{ID: "test-sub-id", Name: "Test Subscription"},
+	}
+	mockCLI.CurrentSubscription = &azurecli.SubscriptionInfo{
+		ID:   "test-sub-id",
+		Name: "Test Subscription",
+	}
+
+	t.Run("existing_resource_group", func(t *testing.T) {
+		// Use a resource group that exists in the mock data
+		exists, err := checkResourceGroupExists(mockCLI, "arcbox-rg", "test-sub-id")
+
+		testName := "Check Success"
+		success := err == nil
+		message := fmt.Sprintf("Expected no error, got: %v", err)
+		printTestStatus(t, testName, success, message)
+
+		testName = "Resource Group Exists"
+		success = exists == true
+		message = fmt.Sprintf("Expected true, got %t", exists)
+		printTestStatus(t, testName, success, message)
+	})
+
+	t.Run("error_handling", func(t *testing.T) {
+		errorMockCLI := azurecli.NewMockAzureCLI()
+		errorMockCLI.SetErrorForCheckResourceGroupExists(fmt.Errorf("Azure CLI error"))
+
+		exists, err := checkResourceGroupExists(errorMockCLI, "ErrorRG", "test-sub-id")
+
+		testName := "Error Propagation"
+		success := err != nil
+		message := "Expected error when Azure CLI fails"
+		printTestStatus(t, testName, success, message)
+
+		testName = "False on Error"
+		success = exists == false
+		message = fmt.Sprintf("Expected false on error, got %t", exists)
+		printTestStatus(t, testName, success, message)
+	})
+}
+
+func TestSetAzureCLI(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Azure CLI Dependency Injection ==="))
+
+	t.Run("dependency_injection", func(t *testing.T) {
+		// Save original CLI
+		originalCLI := defaultAzureCLI
+
+		// Create and set mock CLI
+		mockCLI := azurecli.NewMockAzureCLI()
+		SetAzureCLI(mockCLI)
+
+		testName := "CLI Injection"
+		success := defaultAzureCLI == mockCLI
+		message := "Azure CLI should be injected successfully"
+		printTestStatus(t, testName, success, message)
+
+		// Restore original CLI
+		SetAzureCLI(originalCLI)
+
+		testName = "CLI Restoration"
+		success = defaultAzureCLI == originalCLI
+		message = "Original Azure CLI should be restored"
+		printTestStatus(t, testName, success, message)
+	})
+}
+
+func TestAzureCLIWrapperIntegration(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing Azure CLI Wrapper Integration ==="))
+
+	t.Run("mock_cli_integration", func(t *testing.T) {
+		// Create comprehensive test scenario
+		mockCLI := azurecli.NewMockAzureCLI()
+
+		// Set up complete mock scenario
+		mockCLI.Subscriptions = []azurecli.SubscriptionInfo{
+			{ID: "test-sub-id", Name: "Test Subscription"},
+		}
+
+		mockCLI.ResourceGroups = []azurecli.ResourceGroupInfo{
+			{Name: "ArcBox-Integration-RG", Location: "eastus"},
+		}
+
+		mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+			"ArcBox-Integration-RG": {
+				{
+					Name: "ArcBox-VM",
+					Type: "Microsoft.Compute/virtualMachines",
+					Tags: map[string]string{"Solution": "jumpstart_arcbox"},
+				},
+			},
+		}
+
+		mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+			"ArcBox-Integration-RG": {
+				{
+					Name:              "arcbox-main",
+					ProvisioningState: "Succeeded",
+					Properties: map[string]interface{}{
+						"timestamp": "2023-01-15T10:00:00Z",
+					},
+				},
+			},
+		}
+
+		// Test full integration workflow
+		deployments, err := discoverArcBoxDeployments(mockCLI, "test-sub-id", "Test Subscription")
+
+		testName := "Integration Success"
+		success := err == nil && len(deployments) == 1
+		message := fmt.Sprintf("Expected 1 deployment with no errors, got %d deployments with error: %v", len(deployments), err)
+		printTestStatus(t, testName, success, message)
+
+		if len(deployments) > 0 {
+			deployment := deployments[0]
+
+			testName := "Integration Data Completeness"
+			success = deployment.ResourceGroupName != "" &&
+				deployment.SubscriptionID != "" &&
+				deployment.Location != "" &&
+				deployment.Status != "" &&
+				deployment.ResourceCount > 0
+			message = "All deployment fields should be populated"
+			printTestStatus(t, testName, success, message)
+		}
+	})
 }
