@@ -48,6 +48,7 @@ type MockAzureCLI struct {
 	GetResourceError              error
 	ListDeploymentsError          error
 	GetDeploymentError            error
+	CreateDeploymentError         error
 	ListVMsError                  error
 
 	// Call tracking
@@ -83,6 +84,8 @@ type MockAzureCLI struct {
 	ListDeploymentsCalledWith          string
 	GetDeploymentCalled                bool
 	GetDeploymentCalledWith            string
+	CreateDeploymentCalled             bool
+	CreateDeploymentCalledWith         string
 	ListVMsCalled                      bool
 	ListVMsCalledWith                  string
 }
@@ -728,6 +731,23 @@ func (m *MockAzureCLI) ListVMs(resourceGroup string) ([]VMInfo, error) {
 	return []VMInfo{}, nil
 }
 
+// CreateDeployment creates a new deployment in a resource group (mock implementation)
+func (m *MockAzureCLI) CreateDeployment(resourceGroup, deploymentName, templateURI string, parameters []string, noWait bool) error {
+	m.CreateDeploymentCalled = true
+	m.CreateDeploymentCalledWith = fmt.Sprintf("%s/%s/%s", resourceGroup, deploymentName, templateURI)
+
+	if m.CreateDeploymentError != nil {
+		return m.CreateDeploymentError
+	}
+
+	if resourceGroup == "" || deploymentName == "" || templateURI == "" {
+		return fmt.Errorf("resource group, deployment name, and template URI cannot be empty")
+	}
+
+	// Mock successful deployment creation
+	return nil
+}
+
 // Test helper methods for resource group operations
 
 // SetResourceGroupExists sets the existence status for a resource group (test helper)
@@ -816,7 +836,7 @@ func (m *MockAzureCLI) SetErrorForGetDeployment(err error) {
 	m.GetDeploymentError = err
 }
 
-// SetErrorForListVMs sets an error for ListVMs calls (test helper)
-func (m *MockAzureCLI) SetErrorForListVMs(err error) {
-	m.ListVMsError = err
+// SetErrorForCreateDeployment sets an error for CreateDeployment calls (test helper)
+func (m *MockAzureCLI) SetErrorForCreateDeployment(err error) {
+	m.CreateDeploymentError = err
 }

@@ -14,7 +14,6 @@ import (
 	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/preflight/arcbox"
-	"jumpstartcli/internal/preflight/validator"
 	"jumpstartcli/internal/table"
 	"jumpstartcli/internal/urlutils"
 	"jumpstartcli/internal/utils"
@@ -205,12 +204,8 @@ This operation is irreversible and will permanently remove all ArcBox resources.
 			// Perform deletion
 			fmt.Printf(utils.InfoColor("[INFO] Deleting ArcBox resource group '%s'...\n"), resourceGroupName)
 
-			// Use Azure CLI to delete the resource group
-			deleteCmd := exec.Command("az", "group", "delete", "--name", resourceGroupName, "--yes", "--no-wait")
-			deleteCmd.Stdout = os.Stdout
-			deleteCmd.Stderr = os.Stderr
-
-			err = deleteCmd.Run()
+			// Use Azure CLI wrapper to delete the resource group
+			err = cli.DeleteResourceGroup(resourceGroupName, true)
 			if err != nil {
 				utils.Error("Failed to delete resource group '%s': %v", resourceGroupName, err)
 				utils.Error("Please check the Azure Portal for more details.")
@@ -425,7 +420,7 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 			for i, location := range locations {
 				// Clear quota cache between locations to ensure fresh data
 				if i > 0 {
-					validator.ClearQuotaCache()
+					clearQuotaCache()
 				}
 
 				if len(locations) > 1 && utils.OutputFormat == "table" {
@@ -679,10 +674,12 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 	}
 
 	var azArgs []string
+	var params []string // Declare params outside the conditionals
+
 	if useParamFile && paramFile != "" {
 		azArgs = []string{"deployment", "group", "create", "--resource-group", resourceGroup, "--template-file", bicepPath, "--parameters", "@" + paramFile}
 	} else if len(bicepPath) > 4 && (bicepPath[:4] == "http") {
-		params := []string{}
+		params = []string{} // Initialize for HTTP case
 		if windowsAdminUsername != "" {
 			params = append(params, fmt.Sprintf("windowsAdminUsername=%s", windowsAdminUsername))
 		}
@@ -729,7 +726,7 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 			azArgs = append(azArgs, params...)
 		}
 	} else {
-		params := []string{}
+		params = []string{} // Initialize for local file case
 		if windowsAdminUsername != "" {
 			params = append(params, fmt.Sprintf("windowsAdminUsername=%s", windowsAdminUsername))
 		}
@@ -779,19 +776,32 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 
 	// Generate a unique deployment name
 	deploymentName := fmt.Sprintf("arcbox-%d", time.Now().Unix())
-	azArgs = append(azArgs, "--name", deploymentName)
-	azArgs = append(azArgs, "--no-wait")
 
-	azCmd := exec.Command("az", azArgs...)
-	azCmd.Stdout = os.Stdout
-	azCmd.Stderr = os.Stderr
-	err := azCmd.Run()
-	if err != nil {
-		utils.Error("Error starting az deployment: %v", err)
-		fmt.Println("Please check your parameters, resource group, and Azure login status.")
-		portalUrl := fmt.Sprintf("https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Resources%%2Fdeployments/resourceGroup/%s", resourceGroup)
-		fmt.Printf("View failed deployment details in the Azure Portal: %s\n", portalUrl)
-		os.Exit(1)
+	// Create Azure CLI instance for deployment operations
+	azCLI := azurecli.NewAzureCLI()
+
+	// Handle deployment creation based on the deployment method
+	if useParamFile && paramFile != "" {
+		// For parameter file case, still use the CreateDeployment method
+		// but params will be empty since they're in the file
+		err := azCLI.CreateDeployment(resourceGroup, deploymentName, bicepPath, []string{"@" + paramFile}, true)
+		if err != nil {
+			utils.Error("Error starting az deployment: %v", err)
+			fmt.Println("Please check your parameters, resource group, and Azure login status.")
+			portalUrl := fmt.Sprintf("https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Resources%%2Fdeployments/resourceGroup/%s", resourceGroup)
+			fmt.Printf("View failed deployment details in the Azure Portal: %s\n", portalUrl)
+			os.Exit(1)
+		}
+	} else {
+		// For both HTTP and local file cases, use the constructed params
+		err := azCLI.CreateDeployment(resourceGroup, deploymentName, bicepPath, params, true) // noWait = true
+		if err != nil {
+			utils.Error("Error starting az deployment: %v", err)
+			fmt.Println("Please check your parameters, resource group, and Azure login status.")
+			portalUrl := fmt.Sprintf("https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Resources%%2Fdeployments/resourceGroup/%s", resourceGroup)
+			fmt.Printf("View failed deployment details in the Azure Portal: %s\n", portalUrl)
+			os.Exit(1)
+		}
 	}
 
 	// Get subscription ID for portal link
@@ -812,7 +822,6 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 	}
 
 	// Create Azure CLI instance for deployment monitoring
-	azCLI := azurecli.NewAzureCLI()
 	waitForDeploymentAndShowStatus(azCLI, resourceGroup, deploymentName)
 }
 
@@ -1302,8 +1311,8 @@ func hasArcBoxNamingPattern(azCLI azurecli.AzureCLI, resourceGroupName string) b
 	return false
 }
 
-// hasArcBoxResources checks for characteristic ArcBox resource types
-func hasArcBoxResources(resourceGroupName string) bool {
+// hasArcBoxResources checks for characteristic ArcBox resource types using Azure CLI wrapper
+func hasArcBoxResources(azCLI azurecli.AzureCLI, resourceGroupName string) bool {
 	// Look for typical ArcBox resources: Key Vault + VM + specific extensions
 	arcboxResourceTypes := []string{
 		"Microsoft.KeyVault/vaults",
@@ -1311,11 +1320,22 @@ func hasArcBoxResources(resourceGroupName string) bool {
 		"Microsoft.Network/virtualNetworks",
 	}
 
-	for _, resourceType := range arcboxResourceTypes {
-		cmd := exec.Command("az", "resource", "list", "--resource-group", resourceGroupName,
-			"--resource-type", resourceType, "--query", "[].id", "-o", "tsv")
-		output, err := cmd.Output()
-		if err != nil || strings.TrimSpace(string(output)) == "" {
+	// Get all resources in the resource group
+	resources, err := azCLI.ListResources(resourceGroupName)
+	if err != nil {
+		return false
+	}
+
+	// Check if each required resource type exists
+	for _, requiredType := range arcboxResourceTypes {
+		found := false
+		for _, resource := range resources {
+			if resource.Type == requiredType {
+				found = true
+				break
+			}
+		}
+		if !found {
 			return false
 		}
 	}
@@ -1757,7 +1777,7 @@ func normalizeBastionSkuCase(sku string) string {
 	}
 }
 
-// getSubscriptionID gets the subscription ID from command flags or default
+// getSubscriptionID gets the subscription ID from command flags or default using Azure CLI wrapper
 func getSubscriptionID(cmd *cobra.Command) string {
 	// Try to get from command flag first
 	subscription, _ := cmd.Flags().GetString("subscription")
@@ -1771,9 +1791,10 @@ func getSubscriptionID(cmd *cobra.Command) string {
 	}
 
 	// Fallback: use current Azure CLI subscription
-	out, err := exec.Command("az", "account", "show", "--query", "id", "-o", "tsv").Output()
-	if err == nil {
-		return strings.TrimSpace(string(out))
+	azCLI := azurecli.NewAzureCLI()
+	currentSub, err := azCLI.GetCurrentSubscription()
+	if err == nil && currentSub != nil {
+		return currentSub.ID
 	}
 
 	return ""

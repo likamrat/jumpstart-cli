@@ -441,9 +441,11 @@ func TestConcurrentValidation(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Concurrent Validation ===")
 
 	engine := NewValidationEngine()
+	mockCLI := azurecli.NewMockAzureCLI()
 	ctx := &ValidationContext{
 		Solution: "test",
 		Flavor:   "test",
+		AzureCLI: mockCLI,
 	}
 
 	// Run multiple validations concurrently
@@ -811,7 +813,8 @@ func TestAzureCLIHealthValidator(t *testing.T) {
 		"Description should not be empty")
 
 	// Test IsApplicable method
-	ctx := &ValidationContext{}
+	mockCLI := azurecli.NewMockAzureCLI()
+	ctx := &ValidationContext{AzureCLI: mockCLI}
 	testutils.PrintTestStatus(t, "IsApplicable", validator.IsApplicable(ctx),
 		"Should always be applicable")
 
@@ -837,7 +840,8 @@ func TestSubscriptionAccessValidator(t *testing.T) {
 		"Description should not be empty")
 
 	// Test IsApplicable method
-	ctx := &ValidationContext{}
+	mockCLI := azurecli.NewMockAzureCLI()
+	ctx := &ValidationContext{AzureCLI: mockCLI}
 	testutils.PrintTestStatus(t, "IsApplicable", validator.IsApplicable(ctx),
 		"Should always be applicable")
 
@@ -897,7 +901,8 @@ func TestQuotaValidator(t *testing.T) {
 		"Description should not be empty")
 
 	// Test IsApplicable method
-	ctx := &ValidationContext{Flavor: "ITPro", Location: "eastus"}
+	mockCLI := azurecli.NewMockAzureCLI()
+	ctx := &ValidationContext{Flavor: "ITPro", Location: "eastus", AzureCLI: mockCLI}
 	testutils.PrintTestStatus(t, "IsApplicable with flavor and location", validator.IsApplicable(ctx),
 		"Should be applicable when flavor and location are provided")
 
@@ -973,7 +978,8 @@ func TestSKUAvailabilityValidator(t *testing.T) {
 		"Description should not be empty")
 
 	// Test IsApplicable method
-	ctx := &ValidationContext{Flavor: "ITPro", Location: "eastus"}
+	mockCLI := azurecli.NewMockAzureCLI()
+	ctx := &ValidationContext{Flavor: "ITPro", Location: "eastus", AzureCLI: mockCLI}
 	testutils.PrintTestStatus(t, "IsApplicable with flavor and location", validator.IsApplicable(ctx),
 		"Should be applicable when flavor and location are provided")
 
@@ -1207,10 +1213,7 @@ func TestHelperFunctions(t *testing.T) {
 	testutils.PrintTestStatus(t, "mapSKUToFamilyQuotaName B2ms",
 		family == "Standard BS Family vCPUs",
 		fmt.Sprintf("B2ms should map to BS family, got: %s", family))
-
-	// Test ClearQuotaCache
-	ClearQuotaCache()
-	testutils.PrintTestStatus(t, "ClearQuotaCache", true, "ClearQuotaCache should not panic")
+}
 }
 
 // Test the remaining helper functions with 0% coverage
@@ -1218,13 +1221,15 @@ func TestRemainingHelperFunctions(t *testing.T) {
 	testutils.PrintTestHeader("=== Testing Remaining Helper Functions ===")
 
 	// Test checkAzureCLIHealth
-	err := checkAzureCLIHealth()
+	mockCLI := azurecli.NewMockAzureCLI()
+	err := checkAzureCLIHealth(mockCLI)
 	testutils.PrintTestStatus(t, "checkAzureCLIHealth", true,
 		fmt.Sprintf("Azure CLI health check completed (err: %v)", err))
 
 	// Test getSubscriptionFromContext with different scenarios
 	ctx := &ValidationContext{
 		Parameters: map[string]string{"subscription": "test-sub-from-param"},
+		AzureCLI:   mockCLI,
 	}
 	sub := getSubscriptionFromContext(ctx)
 	testutils.PrintTestStatus(t, "getSubscriptionFromContext with param",
@@ -1235,8 +1240,11 @@ func TestRemainingHelperFunctions(t *testing.T) {
 	originalEnv := os.Getenv("AZURE_SUBSCRIPTION_ID")
 	os.Setenv("AZURE_SUBSCRIPTION_ID", "test-sub-from-env")
 
-	ctx.Parameters = map[string]string{}
-	sub = getSubscriptionFromContext(ctx)
+	ctxWithoutParam := &ValidationContext{
+		Parameters: map[string]string{},
+		AzureCLI:   mockCLI,
+	}
+	sub = getSubscriptionFromContext(ctxWithoutParam)
 	expectedFromEnv := sub == "test-sub-from-env" || sub != "" // May fall back to az CLI
 	testutils.PrintTestStatus(t, "getSubscriptionFromContext with env", expectedFromEnv,
 		fmt.Sprintf("Should get subscription from env or fallback: %s", sub))
@@ -1249,12 +1257,12 @@ func TestRemainingHelperFunctions(t *testing.T) {
 	}
 
 	// Test setAzureSubscription
-	err = setAzureSubscription("test-subscription")
+	err = setAzureSubscription(mockCLI, "test-subscription")
 	testutils.PrintTestStatus(t, "setAzureSubscription", true,
 		fmt.Sprintf("setAzureSubscription completed (err: %v)", err))
 
 	// Test setAzureSubscription with empty ID
-	err = setAzureSubscription("")
+	err = setAzureSubscription(mockCLI, "")
 	testutils.PrintTestStatus(t, "setAzureSubscription empty", err != nil,
 		"setAzureSubscription with empty ID should return error")
 
@@ -1283,26 +1291,6 @@ func TestRemainingHelperFunctions(t *testing.T) {
 	unavailable := CheckBatchSKUAvailability([]string{"Standard_D8s_v5", "Standard_B2ms"}, "eastus", "test-sub")
 	testutils.PrintTestStatus(t, "CheckBatchSKUAvailability", true,
 		fmt.Sprintf("Batch SKU check completed - unavailable: %v", unavailable))
-
-	// Test getRegionQuotaData (this makes actual Azure CLI calls so may fail in test environment)
-	quotaData, err := getRegionQuotaData("eastus")
-	testutils.PrintTestStatus(t, "getRegionQuotaData", true,
-		fmt.Sprintf("Quota data check completed - data count: %d, err: %v", len(quotaData), err))
-
-	// Test checkSKUAvailabilityInRegion
-	skuAvailable := checkSKUAvailabilityInRegion("Standard_D8s_v5", "eastus", "test-sub")
-	testutils.PrintTestStatus(t, "checkSKUAvailabilityInRegion", true,
-		fmt.Sprintf("SKU availability check completed - available: %v", skuAvailable))
-
-	// Test checkBatchSKUAvailability and checkIndividualSKUs
-	skus := []string{"Standard_D8s_v5", "Standard_B2ms"}
-	unavailableBatch := checkBatchSKUAvailability(skus, "eastus", "test-sub")
-	testutils.PrintTestStatus(t, "checkBatchSKUAvailability internal", true,
-		fmt.Sprintf("Batch SKU check completed - unavailable: %v", unavailableBatch))
-
-	unavailableIndividual := checkIndividualSKUs(skus, "eastus", "test-sub")
-	testutils.PrintTestStatus(t, "checkIndividualSKUs", true,
-		fmt.Sprintf("Individual SKU check completed - unavailable: %v", unavailableIndividual))
 }
 
 // Test ValidateAll with comprehensive coverage
@@ -1593,7 +1581,10 @@ func TestEdgeCasesAndErrorScenarios(t *testing.T) {
 	originalSub := os.Getenv("AZURE_SUBSCRIPTION_ID")
 	os.Unsetenv("AZURE_SUBSCRIPTION_ID")
 
-	ctx = &ValidationContext{Parameters: map[string]string{}}
+	ctx = &ValidationContext{
+		Parameters: map[string]string{},
+		AzureCLI:   azurecli.NewMockAzureCLI(),
+	}
 	sub := getSubscriptionFromContext(ctx)
 	testutils.PrintTestStatus(t, "getSubscriptionFromContext fallback", true,
 		fmt.Sprintf("Fallback subscription lookup: %s", sub))

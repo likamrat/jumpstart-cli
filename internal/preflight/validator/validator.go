@@ -2,12 +2,10 @@
 package validator
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/mail"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
 	"time"
@@ -471,7 +469,7 @@ func (v *AzureCLIHealthValidator) IsApplicable(ctx *ValidationContext) bool {
 
 func (v *AzureCLIHealthValidator) Validate(ctx *ValidationContext) ValidationResult {
 	// Check if Azure CLI is responsive and logged in
-	if err := checkAzureCLIHealth(); err != nil {
+	if err := checkAzureCLIHealth(ctx.AzureCLI); err != nil {
 		return ValidationResult{
 			CheckName:  v.Name(),
 			Passed:     false,
@@ -520,7 +518,7 @@ func (v *SubscriptionAccessValidator) Validate(ctx *ValidationContext) Validatio
 	}
 
 	// Set subscription context
-	if err := setAzureSubscription(subscription); err != nil {
+	if err := setAzureSubscription(ctx.AzureCLI, subscription); err != nil {
 		return ValidationResult{
 			CheckName:  v.Name(),
 			Passed:     false,
@@ -608,7 +606,6 @@ func (v *QuotaValidator) IsApplicable(ctx *ValidationContext) bool {
 func (v *QuotaValidator) Validate(ctx *ValidationContext) ValidationResult {
 	flavor := ctx.Flavor
 	location := ctx.Location
-	subscription := getSubscriptionFromContext(ctx)
 
 	// Get SKUs for the flavor
 	skus := getFlavorSKUsForValidation(flavor)
@@ -622,7 +619,7 @@ func (v *QuotaValidator) Validate(ctx *ValidationContext) ValidationResult {
 		}
 	}
 
-	// Check quota for each SKU
+	// Check quota for each SKU using Azure CLI wrapper
 	var failedChecks []string
 	var warnings []string
 	totalRequired := 0
@@ -631,7 +628,62 @@ func (v *QuotaValidator) Validate(ctx *ValidationContext) ValidationResult {
 		required := getRequiredVCPUForSKU(sku)
 		totalRequired += required
 
-		quotaOK, _, _, _ := checkQuotaForSKU(sku, required, location, subscription, flavor)
+		// Use Azure CLI wrapper for quota checking
+		quotaOK := false
+		if ctx.AzureCLI != nil {
+			// Get quota data for the region using Azure CLI wrapper
+			usages, err := ctx.AzureCLI.ListVMUsage(location)
+			if err == nil {
+				// Map SKU to its quota family name
+				familyName := mapSKUToFamilyQuotaName(sku)
+
+				// Look for the quota usage entry
+				for _, usage := range usages {
+					val, hasVal := usage.Name["value"]
+					localizedValue, hasLocalized := usage.Name["localizedValue"]
+
+					if !hasVal || !hasLocalized {
+						continue
+					}
+
+					// Normalize for comparison
+					familyNorm := strings.ReplaceAll(strings.ToLower(familyName), " ", "")
+					valNorm := strings.ReplaceAll(strings.ToLower(val), " ", "")
+					localizedNorm := strings.ReplaceAll(strings.ToLower(localizedValue), " ", "")
+
+					if familyName != "" && (valNorm == familyNorm || localizedNorm == familyNorm) {
+						available := usage.Limit - usage.CurrentValue
+						quotaOK = available >= required
+						break
+					}
+				}
+
+				// Fallback: try total regional vCPU quota
+				if !quotaOK {
+					for _, usage := range usages {
+						val, hasVal := usage.Name["value"]
+						localizedValue, hasLocalized := usage.Name["localizedValue"]
+
+						if !hasVal || !hasLocalized {
+							continue
+						}
+
+						valNorm := strings.ReplaceAll(strings.ToLower(val), " ", "")
+						localizedNorm := strings.ReplaceAll(strings.ToLower(localizedValue), " ", "")
+
+						if strings.Contains(valNorm, "totalregionalvcpu") || strings.Contains(localizedNorm, "totalregionalvcpu") {
+							available := usage.Limit - usage.CurrentValue
+							quotaOK = available >= required
+							break
+						}
+					}
+				}
+			}
+		} else {
+			// Azure CLI wrapper is required for quota validation
+			failedChecks = append(failedChecks, fmt.Sprintf("%s (Azure CLI wrapper required)", sku))
+			continue
+		}
 
 		if !quotaOK {
 			failedChecks = append(failedChecks, fmt.Sprintf("%s (%d vCPU)", sku, required))
@@ -731,7 +783,6 @@ func (v *SKUAvailabilityValidator) IsApplicable(ctx *ValidationContext) bool {
 func (v *SKUAvailabilityValidator) Validate(ctx *ValidationContext) ValidationResult {
 	flavor := ctx.Flavor
 	location := ctx.Location
-	subscription := getSubscriptionFromContext(ctx)
 
 	// Get SKUs for the flavor
 	skus := getFlavorSKUsForValidation(flavor)
@@ -745,8 +796,26 @@ func (v *SKUAvailabilityValidator) Validate(ctx *ValidationContext) ValidationRe
 		}
 	}
 
-	// Optimized: Check all SKUs in a single batched call instead of individual calls
-	unavailableSkus := checkBatchSKUAvailability(skus, location, subscription)
+	// Check SKU availability using Azure CLI wrapper
+	var unavailableSkus []string
+	if ctx.AzureCLI != nil {
+		// Use Azure CLI wrapper to check SKU availability
+		for _, sku := range skus {
+			available, err := ctx.AzureCLI.CheckSKUAvailability(sku, location)
+			if err != nil || !available {
+				unavailableSkus = append(unavailableSkus, sku)
+			}
+		}
+	} else {
+		// Azure CLI wrapper is required for SKU availability validation
+		return ValidationResult{
+			CheckName:  v.Name(),
+			Passed:     false,
+			Message:    "Azure CLI wrapper required for SKU availability validation",
+			Severity:   "error",
+			Suggestion: "Ensure Azure CLI wrapper is properly initialized",
+		}
+	}
 
 	if len(unavailableSkus) > 0 {
 		return ValidationResult{
@@ -844,11 +913,11 @@ func ValidateEmail(email string) bool {
 
 // --- Helper functions for infrastructure validation ---
 
-func checkAzureCLIHealth() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "az", "account", "show", "-o", "none")
-	return cmd.Run()
+func checkAzureCLIHealth(azCLI azurecli.AzureCLI) error {
+	if !azCLI.IsLoggedIn() {
+		return fmt.Errorf("not logged in to Azure CLI")
+	}
+	return nil
 }
 
 func getSubscriptionFromContext(ctx *ValidationContext) string {
@@ -858,20 +927,21 @@ func getSubscriptionFromContext(ctx *ValidationContext) string {
 	if env := os.Getenv("AZURE_SUBSCRIPTION_ID"); env != "" {
 		return env
 	}
-	// Fallback: use az CLI
-	out, err := exec.Command("az", "account", "show", "--query", "id", "-o", "tsv").Output()
-	if err == nil {
-		return strings.TrimSpace(string(out))
+	// Fallback: use Azure CLI wrapper
+	if ctx.AzureCLI != nil {
+		sub, err := ctx.AzureCLI.GetCurrentSubscription()
+		if err == nil && sub != nil {
+			return sub.ID
+		}
 	}
 	return ""
 }
 
-func setAzureSubscription(subID string) error {
+func setAzureSubscription(azCLI azurecli.AzureCLI, subID string) error {
 	if subID == "" {
 		return fmt.Errorf("subscription ID is empty")
 	}
-	cmd := exec.Command("az", "account", "set", "--subscription", subID)
-	return cmd.Run()
+	return azCLI.SetSubscription(subID)
 }
 
 func getResourceProviderConfig(solution string) *resourceproviders.ResourceProviderConfig {
@@ -931,24 +1001,18 @@ func getRequiredVCPUForSKU(sku string) int {
 	return 1 // Default fallback
 }
 
-// Regional quota cache to avoid repeated Azure CLI calls
-var regionQuotaCache = make(map[string][]map[string]interface{})
-
-// CheckQuotaForSKU is an exported wrapper for the internal quota checking function
-// This allows other packages to access the real Azure CLI quota validation
+// CheckQuotaForSKU is an exported wrapper for quota checking
+// DEPRECATED: Use CheckQuotaForSKUWithCLI directly
 func CheckQuotaForSKU(sku string, required int, region, subscription, flavor string) (bool, int, int, int) {
-	return checkQuotaForSKU(sku, required, region, subscription, flavor)
+	// Use default Azure CLI instance
+	defaultAzCLI := azurecli.NewAzureCLI()
+	return CheckQuotaForSKUWithCLI(defaultAzCLI, sku, required, region, flavor)
 }
 
-// CheckBatchSKUAvailability is an exported wrapper for the internal batch SKU availability checking function
-// This allows other packages to access the real Azure CLI SKU availability validation
-func CheckBatchSKUAvailability(skus []string, region, subscription string) []string {
-	return checkBatchSKUAvailability(skus, region, subscription)
-}
-
-func checkQuotaForSKU(sku string, required int, region, subscription, flavor string) (bool, int, int, int) {
-	// Get quota data for the region (cached or fresh)
-	usages, err := getRegionQuotaData(region)
+// CheckQuotaForSKUWithCLI is the preferred method that uses Azure CLI wrapper
+func CheckQuotaForSKUWithCLI(azCLI azurecli.AzureCLI, sku string, required int, region, flavor string) (bool, int, int, int) {
+	// Get quota data for the region using Azure CLI wrapper
+	usages, err := azCLI.ListVMUsage(region)
 	if err != nil {
 		return false, 0, 0, 0
 	}
@@ -958,9 +1022,12 @@ func checkQuotaForSKU(sku string, required int, region, subscription, flavor str
 
 	// Look for the quota usage entry
 	for _, usage := range usages {
-		name, _ := usage["name"].(map[string]interface{})
-		val, _ := name["value"].(string)
-		localizedValue, _ := name["localizedValue"].(string)
+		val, hasVal := usage.Name["value"]
+		localizedValue, hasLocalized := usage.Name["localizedValue"]
+
+		if !hasVal || !hasLocalized {
+			continue
+		}
 
 		// Normalize for comparison
 		familyNorm := strings.ReplaceAll(strings.ToLower(familyName), " ", "")
@@ -968,28 +1035,29 @@ func checkQuotaForSKU(sku string, required int, region, subscription, flavor str
 		localizedNorm := strings.ReplaceAll(strings.ToLower(localizedValue), " ", "")
 
 		if familyName != "" && (valNorm == familyNorm || localizedNorm == familyNorm) {
-			current := parseInt64(usage["currentValue"])
-			limit := parseInt64(usage["limit"])
+			current := usage.CurrentValue
+			limit := usage.Limit
 			available := limit - current
-
 			return available >= required, current, limit, available
 		}
 	}
 
 	// Fallback: try total regional vCPU quota
 	for _, usage := range usages {
-		name, _ := usage["name"].(map[string]interface{})
-		val, _ := name["value"].(string)
-		localizedValue, _ := name["localizedValue"].(string)
+		val, hasVal := usage.Name["value"]
+		localizedValue, hasLocalized := usage.Name["localizedValue"]
+
+		if !hasVal || !hasLocalized {
+			continue
+		}
 
 		valNorm := strings.ReplaceAll(strings.ToLower(val), " ", "")
 		localizedNorm := strings.ReplaceAll(strings.ToLower(localizedValue), " ", "")
 
 		if strings.Contains(valNorm, "totalregionalvcpu") || strings.Contains(localizedNorm, "totalregionalvcpu") {
-			current := parseInt64(usage["currentValue"])
-			limit := parseInt64(usage["limit"])
+			current := usage.CurrentValue
+			limit := usage.Limit
 			available := limit - current
-
 			return available >= required, current, limit, available
 		}
 	}
@@ -997,39 +1065,24 @@ func checkQuotaForSKU(sku string, required int, region, subscription, flavor str
 	return false, 0, 0, 0
 }
 
-// getRegionQuotaData gets quota data for a region, using cache when available
-func getRegionQuotaData(region string) ([]map[string]interface{}, error) {
-	// Check cache first
-	if cachedData, exists := regionQuotaCache[region]; exists {
-		return cachedData, nil
-	}
+// CheckBatchSKUAvailability is an exported wrapper for SKU availability checking
+// DEPRECATED: Use CheckBatchSKUAvailabilityWithCLI directly
+func CheckBatchSKUAvailability(skus []string, region, subscription string) []string {
+	// Use default Azure CLI instance
+	defaultAzCLI := azurecli.NewAzureCLI()
+	return CheckBatchSKUAvailabilityWithCLI(defaultAzCLI, skus, region)
+}
 
-	// Cache miss - make the actual Azure CLI call
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
-	defer cancel()
-
-	// Run az vm list-usage command
-	cmd := exec.CommandContext(ctx, "az", "vm", "list-usage", "--location", region, "-o", "json")
-
-	output, err := cmd.Output()
-	if err != nil {
-		// Check if it was a timeout
-		if ctx.Err() == context.DeadlineExceeded {
-			// Return error but don't log - the caller will handle timeout display
+// CheckBatchSKUAvailabilityWithCLI is the preferred method that uses Azure CLI wrapper
+func CheckBatchSKUAvailabilityWithCLI(azCLI azurecli.AzureCLI, skus []string, region string) []string {
+	var unavailable []string
+	for _, sku := range skus {
+		available, err := azCLI.CheckSKUAvailability(sku, region)
+		if err != nil || !available {
+			unavailable = append(unavailable, sku)
 		}
-		return nil, err
 	}
-
-	// Parse the output to get quota information
-	var usages []map[string]interface{}
-	if err := json.Unmarshal(output, &usages); err != nil {
-		return nil, err
-	}
-
-	// Cache the result for future calls
-	regionQuotaCache[region] = usages
-
-	return usages, nil
+	return unavailable
 }
 
 // mapSKUToFamilyQuotaName maps a VM SKU to its Azure vCPU family quota name
@@ -1180,95 +1233,6 @@ func isRegionSupportedForArcBox(region string) bool {
 	return false
 }
 
-// checkSKUAvailabilityInRegion validates that a VM SKU is available in the specified region
-// This replicates the logic from checkSkuRestrictionsTable in cmd/arcbox.go
-func checkSKUAvailabilityInRegion(sku, region, subscription string) bool {
-	// Use Azure CLI to check if SKU is available in the region
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	args := []string{"vm", "list-skus", "--resource-type", "virtualMachines", "--location", region, "--query", "[].name", "--output", "tsv"}
-	cmd := exec.CommandContext(ctx, "az", args...)
-	output, err := cmd.Output()
-	if err != nil {
-		// If we can't check, assume it's not available for safety
-		return false
-	}
-
-	skuList := strings.Split(string(output), "\n")
-	for _, s := range skuList {
-		if strings.TrimSpace(s) == sku {
-			return true
-		}
-	}
-
-	return false
-}
-
-// checkBatchSKUAvailability efficiently checks multiple SKUs with fast fallback
-func checkBatchSKUAvailability(skus []string, region, subscription string) []string {
-	// Try batch method first with very short timeout for fast environments
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	args := []string{"vm", "list-skus", "--resource-type", "virtualMachines", "--location", region, "--query", "[].name", "--output", "tsv"}
-	cmd := exec.CommandContext(ctx, "az", args...)
-	output, err := cmd.Output()
-
-	if err != nil {
-		// Fast fallback: instead of individual checks, just assume SKUs are available
-		// This is reasonable since most standard SKUs are available in major regions
-		return []string{} // Return empty list (all SKUs available)
-	}
-
-	// Create a set of available SKUs
-	availableSkus := make(map[string]bool)
-	skuList := strings.Split(string(output), "\n")
-	for _, s := range skuList {
-		sku := strings.TrimSpace(s)
-		if sku != "" {
-			availableSkus[sku] = true
-		}
-	}
-
-	// Check which of our required SKUs are not available
-	var unavailable []string
-	for _, sku := range skus {
-		if !availableSkus[sku] {
-			unavailable = append(unavailable, sku)
-		}
-	}
-
-	return unavailable
-}
-
-// checkIndividualSKUs is a fallback method to check SKUs one by one if batch checking fails
-func checkIndividualSKUs(skus []string, region, subscription string) []string {
-	var unavailable []string
-
-	for _, sku := range skus {
-		// Use a very short timeout for individual checks (5 seconds)
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-
-		args := []string{"vm", "list-skus", "--resource-type", "virtualMachines", "--location", region, "--query", fmt.Sprintf("[?name=='%s'].name", sku), "--output", "tsv"}
-		cmd := exec.CommandContext(ctx, "az", args...)
-		output, err := cmd.Output()
-		cancel()
-
-		if err != nil {
-			// In this case, assume SKU is available to avoid blocking deployments
-			// This is a compromise for environments with slow Azure CLI
-		} else {
-			result := strings.TrimSpace(string(output))
-			if result == "" || result != sku {
-				unavailable = append(unavailable, sku)
-			}
-		}
-	}
-
-	return unavailable
-}
-
 // SSHKeyRequirementValidator validates SSH key requirement for DevOps/DataOps flavors
 type SSHKeyRequirementValidator struct{}
 
@@ -1352,10 +1316,4 @@ func (v *GitHubUserRequirementValidator) Validate(ctx *ValidationContext) Valida
 		Message:   "GitHub user requirement satisfied",
 		Severity:  "info",
 	}
-}
-
-// ClearQuotaCache clears the regional quota cache
-// This should be called when checking multiple regions to ensure fresh data
-func ClearQuotaCache() {
-	regionQuotaCache = make(map[string][]map[string]interface{})
 }

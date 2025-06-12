@@ -104,6 +104,7 @@ type AzureCLI interface {
 	// Deployment operations
 	ListDeployments(resourceGroup string) ([]DeploymentInfo, error)
 	GetDeployment(resourceGroup, deploymentName string) (*DeploymentInfo, error)
+	CreateDeployment(resourceGroup, deploymentName, templateURI string, parameters []string, noWait bool) error
 
 	// VM operations
 	ListVMs(resourceGroup string) ([]VMInfo, error)
@@ -475,6 +476,46 @@ func (r *RealAzureCLI) GetDeployment(resourceGroup, deploymentName string) (*Dep
 	}
 
 	return &deployment, nil
+}
+
+// CreateDeployment creates a new deployment in a resource group
+func (r *RealAzureCLI) CreateDeployment(resourceGroup, deploymentName, templateURI string, parameters []string, noWait bool) error {
+	if resourceGroup == "" || deploymentName == "" || templateURI == "" {
+		return fmt.Errorf("resource group, deployment name, and template URI cannot be empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second) // 5 minutes for deployment start
+	defer cancel()
+
+	args := []string{"deployment", "group", "create", "--resource-group", resourceGroup, "--name", deploymentName}
+
+	// Add template URI or template file
+	if strings.HasPrefix(templateURI, "http://") || strings.HasPrefix(templateURI, "https://") {
+		args = append(args, "--template-uri", templateURI)
+	} else {
+		args = append(args, "--template-file", templateURI)
+	}
+
+	// Add parameters if provided
+	if len(parameters) > 0 {
+		args = append(args, "--parameters")
+		args = append(args, parameters...)
+	}
+
+	// Add no-wait flag if specified
+	if noWait {
+		args = append(args, "--no-wait")
+	}
+
+	cmd := exec.CommandContext(ctx, "az", args...)
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("timeout while creating deployment %s in resource group %s", deploymentName, resourceGroup)
+		}
+		return fmt.Errorf("failed to create deployment %s in resource group %s: %v", deploymentName, resourceGroup, err)
+	}
+
+	return nil
 }
 
 // ListVMs lists all VMs in a resource group
