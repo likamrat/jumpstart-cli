@@ -13,6 +13,7 @@ type MockAzureCLI struct {
 	// Mock data
 	CurrentSubscription *SubscriptionInfo
 	Subscriptions       []SubscriptionInfo
+	Locations           []string
 	VMUsages            map[string][]VMUsageInfo // region -> usage data
 	VMSKUs              map[string][]SKUInfo     // region -> SKU data
 	AvailableSKUs       map[string][]string      // region -> available SKU names
@@ -39,10 +40,12 @@ type MockAzureCLI struct {
 	CheckSKUAvailabilityError      error
 	CheckProviderRegistrationError error
 	RegisterProviderError          error
+	ListLocationsError             error
 
 	// Resource group error injection
 	CheckResourceGroupExistsError error
 	ListResourceGroupsError       error
+	CreateResourceGroupError      error
 	DeleteResourceGroupError      error
 	ListResourcesError            error
 	GetResourceError              error
@@ -59,6 +62,7 @@ type MockAzureCLI struct {
 	SetSubscriptionCalled               bool
 	SetSubscriptionCalledWith           string
 	IsLoggedInCalled                    bool
+	ListLocationsCalled                 bool
 	ListVMUsageCalled                   bool
 	ListVMUsageCalledWith               string
 	ListVMSKUsCalled                    bool
@@ -74,6 +78,8 @@ type MockAzureCLI struct {
 	CheckResourceGroupExistsCalled     bool
 	CheckResourceGroupExistsCalledWith string
 	ListResourceGroupsCalled           bool
+	CreateResourceGroupCalled          bool
+	CreateResourceGroupCalledWith      map[string]string // name -> location
 	DeleteResourceGroupCalled          bool
 	DeleteResourceGroupCalledWith      string
 	ListResourcesCalled                bool
@@ -311,6 +317,22 @@ func (m *MockAzureCLI) IsLoggedIn() bool {
 	return m.IsLoggedInResult
 }
 
+// ListLocations mocks getting available Azure locations
+func (m *MockAzureCLI) ListLocations() ([]string, error) {
+	m.ListLocationsCalled = true
+
+	if m.ListLocationsError != nil {
+		return nil, m.ListLocationsError
+	}
+
+	// Return default locations if none set
+	if len(m.Locations) == 0 {
+		return []string{"eastus", "westus2", "centralus", "westeurope", "southeastasia"}, nil
+	}
+
+	return m.Locations, nil
+}
+
 // ListVMUsage mocks getting VM quota/usage information for a region
 func (m *MockAzureCLI) ListVMUsage(region string) ([]VMUsageInfo, error) {
 	m.ListVMUsageCalled = true
@@ -427,6 +449,7 @@ func (m *MockAzureCLI) Reset() {
 	m.SetSubscriptionCalled = false
 	m.SetSubscriptionCalledWith = ""
 	m.IsLoggedInCalled = false
+	m.ListLocationsCalled = false
 	m.ListVMUsageCalled = false
 	m.ListVMUsageCalledWith = ""
 	m.ListVMSKUsCalled = false
@@ -463,6 +486,10 @@ func (m *MockAzureCLI) SetErrorForListSubscriptions(err error) {
 
 func (m *MockAzureCLI) SetErrorForSetSubscription(err error) {
 	m.SetSubscriptionError = err
+}
+
+func (m *MockAzureCLI) SetErrorForListLocations(err error) {
+	m.ListLocationsError = err
 }
 
 func (m *MockAzureCLI) ClearSubscriptions() {
@@ -579,6 +606,33 @@ func (m *MockAzureCLI) ListResourceGroups() ([]ResourceGroupInfo, error) {
 	}
 
 	return m.ResourceGroups, nil
+}
+
+// CreateResourceGroup creates a resource group (mock implementation)
+func (m *MockAzureCLI) CreateResourceGroup(name, location string) error {
+	m.CreateResourceGroupCalled = true
+	if m.CreateResourceGroupCalledWith == nil {
+		m.CreateResourceGroupCalledWith = make(map[string]string)
+	}
+	m.CreateResourceGroupCalledWith[name] = location
+
+	if m.CreateResourceGroupError != nil {
+		return m.CreateResourceGroupError
+	}
+
+	// Add the resource group to the mock data if it doesn't exist
+	for _, rg := range m.ResourceGroups {
+		if rg.Name == name {
+			return nil // Already exists
+		}
+	}
+
+	m.ResourceGroups = append(m.ResourceGroups, ResourceGroupInfo{
+		Name:     name,
+		Location: location,
+	})
+
+	return nil
 }
 
 // DeleteResourceGroup deletes a resource group (mock implementation)
@@ -809,6 +863,11 @@ func (m *MockAzureCLI) SetErrorForCheckResourceGroupExists(err error) {
 // SetErrorForListResourceGroups sets an error for ListResourceGroups calls (test helper)
 func (m *MockAzureCLI) SetErrorForListResourceGroups(err error) {
 	m.ListResourceGroupsError = err
+}
+
+// SetErrorForCreateResourceGroup sets an error for CreateResourceGroup calls (test helper)
+func (m *MockAzureCLI) SetErrorForCreateResourceGroup(err error) {
+	m.CreateResourceGroupError = err
 }
 
 // SetErrorForDeleteResourceGroup sets an error for DeleteResourceGroup calls (test helper)

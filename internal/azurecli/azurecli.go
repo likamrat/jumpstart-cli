@@ -82,6 +82,7 @@ type AzureCLI interface {
 
 	// Account operations
 	IsLoggedIn() bool
+	ListLocations() ([]string, error)
 
 	// VM Quota operations
 	ListVMUsage(region string) ([]VMUsageInfo, error)
@@ -95,6 +96,7 @@ type AzureCLI interface {
 	// Resource group operations
 	CheckResourceGroupExists(name string) (bool, error)
 	ListResourceGroups() ([]ResourceGroupInfo, error)
+	CreateResourceGroup(name, location string) error
 	DeleteResourceGroup(name string, noWait bool) error
 
 	// Resource operations
@@ -189,6 +191,31 @@ func (r *RealAzureCLI) IsLoggedIn() bool {
 	cmd := exec.Command("az", "account", "show")
 	err := cmd.Run()
 	return err == nil
+}
+
+// ListLocations retrieves available Azure locations
+func (r *RealAzureCLI) ListLocations() ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "account", "list-locations", "--query", "[].name", "-o", "tsv")
+	output, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("timeout while listing Azure locations")
+		}
+		return nil, fmt.Errorf("failed to list Azure locations: %v", err)
+	}
+
+	locations := strings.Split(strings.TrimSpace(string(output)), "\n")
+	var result []string
+	for _, loc := range locations {
+		if trimmed := strings.TrimSpace(loc); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+
+	return result, nil
 }
 
 // ListVMUsage retrieves VM quota/usage information for a specific region
@@ -353,6 +380,29 @@ func (r *RealAzureCLI) ListResourceGroups() ([]ResourceGroupInfo, error) {
 	}
 
 	return groups, nil
+}
+
+// CreateResourceGroup creates a new resource group
+func (r *RealAzureCLI) CreateResourceGroup(name, location string) error {
+	if name == "" {
+		return fmt.Errorf("resource group name cannot be empty")
+	}
+	if location == "" {
+		return fmt.Errorf("location cannot be empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "group", "create", "--name", name, "--location", location, "-o", "none")
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("timeout while creating resource group %s", name)
+		}
+		return fmt.Errorf("failed to create resource group %s: %v", name, err)
+	}
+
+	return nil
 }
 
 // DeleteResourceGroup deletes a resource group

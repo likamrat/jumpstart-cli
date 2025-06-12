@@ -160,7 +160,7 @@ This operation is irreversible and will permanently remove all ArcBox resources.
 			subscription, _ := cmd.Flags().GetString("subscription")
 
 			// Validate Azure CLI is logged in
-			if !utils.IsAzureLoggedIn() {
+			if !utils.IsAzureLoggedInWithCLI(cli) {
 				utils.Error("You are not logged in to Azure. Please run 'az login' and try again.")
 				utils.ShowHelpWithoutTypes(cmd)
 				os.Exit(1)
@@ -247,7 +247,7 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 ` + examples.GetExamples("arcbox.list").FormatExamples(),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Validate Azure CLI is logged in
-			if !utils.IsAzureLoggedIn() {
+			if !utils.IsAzureLoggedInWithCLI(cli) {
 				utils.Error("You are not logged in to Azure. Please run 'az login' and try again.")
 				utils.ShowHelpWithoutTypes(cmd)
 				os.Exit(1)
@@ -537,6 +537,9 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 }
 
 func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bool, _ string) {
+	// Create Azure CLI instance for authentication and resource operations
+	azCLI := azurecli.NewAzureCLI()
+
 	defaultRemote := "https://raw.githubusercontent.com/microsoft/azure_arc/main/azure_jumpstart_arcbox/ARM/azuredeploy.json"
 	templateLocalPath, _ := cmd.Flags().GetString("template-local")
 	templateLocalParamPath, _ := cmd.Flags().GetString("template-params")
@@ -628,7 +631,7 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 		os.Exit(1)
 	}
 
-	if !utils.IsAzureLoggedIn() {
+	if !utils.IsAzureLoggedInWithCLI(azCLI) {
 		utils.Error("You are not logged in to Azure. Please run 'az login' and try again.")
 		utils.ShowHelpWithoutTypes(cmd)
 		os.Exit(1)
@@ -663,9 +666,9 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 		}
 	}
 
-	if !utils.ResourceGroupExists(resourceGroup) {
+	if !utils.ResourceGroupExistsWithCLI(azCLI, resourceGroup) {
 		utils.Info("Resource group '%s' does not exist. Creating it...", resourceGroup)
-		err := utils.CreateResourceGroup(resourceGroup, location)
+		err := utils.CreateResourceGroupWithCLI(azCLI, resourceGroup, location)
 		if err != nil {
 			utils.Error("Failed to create resource group: %v", err)
 			utils.ShowHelpWithoutTypes(cmd)
@@ -776,9 +779,6 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 
 	// Generate a unique deployment name
 	deploymentName := fmt.Sprintf("arcbox-%d", time.Now().Unix())
-
-	// Create Azure CLI instance for deployment operations
-	azCLI := azurecli.NewAzureCLI()
 
 	// Handle deployment creation based on the deployment method
 	if useParamFile && paramFile != "" {

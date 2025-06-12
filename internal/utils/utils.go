@@ -11,6 +11,7 @@ import (
 	"strings"
 	"unicode"
 
+	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/table"
 
@@ -55,29 +56,44 @@ var cmdExecutor CommandExecutor = &RealCommandExecutor{}
 
 // IsAzureLoggedIn checks if the user is logged in to Azure CLI
 func IsAzureLoggedIn() bool {
-	_, err := cmdExecutor.Run("az", "account", "show")
-	return err == nil
+	azCLI := azurecli.NewAzureCLI()
+	return azCLI.IsLoggedIn()
+}
+
+// IsAzureLoggedInWithCLI checks if the user is logged in to Azure CLI using provided Azure CLI interface
+func IsAzureLoggedInWithCLI(azCLI azurecli.AzureCLI) bool {
+	return azCLI.IsLoggedIn()
 }
 
 func ResourceGroupExists(name string) bool {
+	azCLI := azurecli.NewAzureCLI()
+	return ResourceGroupExistsWithCLI(azCLI, name)
+}
+
+func ResourceGroupExistsWithCLI(azCLI azurecli.AzureCLI, name string) bool {
 	if name == "" {
 		return false
 	}
 
-	output, err := cmdExecutor.Run("az", "group", "exists", "--name", name)
+	exists, err := azCLI.CheckResourceGroupExists(name)
 	if err != nil {
 		fmt.Printf("Error checking resource group existence: %v\n", err)
 		return false
 	}
-	return strings.TrimSpace(string(output)) == "true"
+	return exists
 }
 
 func CreateResourceGroup(name string, location string) error {
+	azCLI := azurecli.NewAzureCLI()
+	return CreateResourceGroupWithCLI(azCLI, name, location)
+}
+
+func CreateResourceGroupWithCLI(azCLI azurecli.AzureCLI, name string, location string) error {
 	if name == "" || location == "" {
 		return fmt.Errorf("resource group name and location cannot be empty")
 	}
 
-	_, err := cmdExecutor.Run("az", "group", "create", "--name", name, "--location", location)
+	err := azCLI.CreateResourceGroup(name, location)
 	if err != nil {
 		fmt.Printf("[ERROR] Failed to create resource group: %v\n", err)
 		return err
@@ -797,13 +813,25 @@ func GetRegionDisplayName(region string) string {
 
 // RegionExistsInAzure checks if a region exists in Azure using Azure CLI
 func RegionExistsInAzure(region string) bool {
-	output, err := cmdExecutor.Run("az", "account", "list-locations", "--query", "[?name=='"+NormalizeRegion(region)+"'].name", "--output", "tsv")
+	azCLI := azurecli.NewAzureCLI()
+	return RegionExistsInAzureWithCLI(azCLI, region)
+}
+
+// RegionExistsInAzureWithCLI checks if a region exists in Azure using provided Azure CLI interface
+func RegionExistsInAzureWithCLI(azCLI azurecli.AzureCLI, region string) bool {
+	locations, err := azCLI.ListLocations()
 	if err != nil {
 		return false
 	}
 
-	result := strings.TrimSpace(string(output))
-	return result != ""
+	normalizedRegion := NormalizeRegion(region)
+	for _, location := range locations {
+		if NormalizeRegion(location) == normalizedRegion {
+			return true
+		}
+	}
+
+	return false
 }
 
 // GetBooleanFlagValue handles the global yes/no pattern for boolean flags

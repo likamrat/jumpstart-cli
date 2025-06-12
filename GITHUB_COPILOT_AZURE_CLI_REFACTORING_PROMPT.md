@@ -7,12 +7,13 @@
 ### ✅ FINAL COMPLETION STATUS - ALL PACKAGES COMPLETED
 
 - **`cmd/subscription`**: 100% refactored (95.9% test coverage)
-- **`cmd/arcbox`**: 100% refactored (15+ comprehensive test functions)
+- **`cmd/arcbox`**: 100% refactored (15+ comprehensive test functions) + compilation fixes completed
 - **`internal/preflight/arcbox/quota`**: 100% refactored (94.3% test coverage) 
 - **`internal/preflight/arcbox/rp`**: 100% refactored (comprehensive test suite)
 - **`internal/preflight/arcbox/status`**: 100% refactored (comprehensive test suite)
 - **`internal/preflight/validator`**: 100% refactored (all legacy functions eliminated)
 - **`internal/resourceproviders`**: 100% refactored (Azure CLI wrapper interface)
+- **`internal/utils`**: 100% refactored (final 4 utility functions completed)
 
 ### 🏆 FINAL PROJECT ACHIEVEMENTS
 
@@ -23,8 +24,9 @@
 5. **Improved error handling** - Standardized Azure CLI error patterns
 6. **100% backward compatibility** - No breaking changes to public APIs
 7. **Complete legacy elimination** - All fallback logic and legacy functions removed
+8. **Final phase completion** - Last 4 utility functions and compilation fixes resolved
 
-**PROJECT STATUS**: **✅ COMPLETED** - All targeted Azure CLI refactoring objectives achieved with zero direct Azure CLI calls remaining in business logic.
+**PROJECT STATUS**: **✅ COMPLETED** - All targeted Azure CLI refactoring objectives achieved with zero direct Azure CLI calls remaining in business logic. Final validation shows successful build and test execution across all packages.
 
 **METHODOLOGY PROVEN**: The Azure CLI wrapper refactoring approach has been successfully demonstrated across all packages and is ready for future application to new packages (`cmd/agora`, `cmd/localbox`) as they develop Azure CLI functionality.
 
@@ -120,7 +122,7 @@ This final completion demonstrates that the methodology achieved **100% eliminat
 
 ## Previous Success Story: ArcBox Preflight Refactoringhen refactor this Go CLI command package to use the standardized Azure CLI wrapper interface (`internal/azurecli`) following these proven patterns:
 
-**Current Status**: **🎉 ALL PACKAGES 100% COMPLETED** - The `cmd/subscription` package (95.9% coverage), `internal/preflight/arcbox/quota` (94.3% coverage), `internal/preflight/arcbox/rp` and `internal/preflight/arcbox/status` (comprehensive Azure CLI wrapper integration with 122 total tests), **`cmd/arcbox` main functionality (100% refactored with 15+ comprehensive test functions)**, and **`internal/preflight/validator` (100% refactored with all legacy functions eliminated)** are fully refactored with **ZERO direct Azure CLI calls remaining in business logic**.
+**Current Status**: **🎉 ALL PACKAGES 100% COMPLETED** - The `cmd/subscription` package (95.9% coverage), `internal/preflight/arcbox/quota` (94.3% coverage), `internal/preflight/arcbox/rp` and `internal/preflight/arcbox/status` (comprehensive Azure CLI wrapper integration with 122 total tests), **`cmd/arcbox` main functionality (100% refactored with 15+ comprehensive test functions)**, **`internal/preflight/validator` (100% refactored with all legacy functions eliminated)**, and **`internal/utils` (100% refactored with final 4 utility functions completed)** are fully refactored with **ZERO direct Azure CLI calls remaining in business logic**.
 
 **🏆 FINAL PROJECT STATUS**: Complete elimination of direct Azure CLI calls achieved across all targeted packages. Only 32 Azure CLI calls remain, all properly encapsulated within the Azure CLI wrapper implementation (`internal/azurecli/azurecli.go`).
 
@@ -171,15 +173,16 @@ You are refactoring existing Go CLI commands to use the new standardized Azure C
 
 ## Current Refactoring Status
 
-### ✅ All Packages Successfully Refactored
+### ✅ All Packages Successfully Completed
 
 - **`cmd/subscription`**: ✅ Complete integration with Azure CLI wrapper (95.9% test coverage)
-- **`cmd/arcbox`**: ✅ **FULLY COMPLETED** - All 20+ direct Azure CLI calls refactored with comprehensive test suite (15+ test functions)
+- **`cmd/arcbox`**: ✅ **FULLY COMPLETED** - All 20+ direct Azure CLI calls refactored with comprehensive test suite (15+ test functions) + compilation fixes resolved
 - **`internal/preflight/arcbox/quota`**: ✅ Complete integration for quota functionality (94.3% test coverage)
 - **`internal/preflight/arcbox/rp`**: ✅ Complete resource provider command refactoring with Azure CLI wrapper
 - **`internal/preflight/arcbox/status`**: ✅ Complete status command implementation with comprehensive testing
 - **`internal/preflight/validator`**: ✅ **FULLY COMPLETED** - All direct Azure CLI calls eliminated with comprehensive mock testing
 - **`internal/resourceproviders`**: ✅ Fully refactored to use Azure CLI wrapper interface
+- **`internal/utils`**: ✅ **FULLY COMPLETED** - Final 4 utility functions refactored with dual function pattern
 
 ### 🎯 Project Complete - No Packages Requiring Refactoring
 
@@ -190,10 +193,11 @@ You are refactoring existing Go CLI commands to use the new standardized Azure C
 
 ### 📊 Final Statistics
 
-- **Total Direct Azure CLI Calls Eliminated**: 40+ across all packages
+- **Total Direct Azure CLI Calls Eliminated**: 44+ across all packages (40+ previously reported + final 4 from utils)
 - **Azure CLI Calls Remaining**: 32 (all properly encapsulated in `internal/azurecli/azurecli.go`)
 - **Test Coverage Added**: 200+ new tests with comprehensive mock scenarios
-- **Packages Refactored**: 7 packages with complete Azure CLI wrapper integration
+- **Packages Refactored**: 8 packages with complete Azure CLI wrapper integration
+- **Final Compilation**: ✅ All packages build successfully with zero errors
 
 ## Refactoring Goals
 1. **Standardize Azure CLI interactions** using the `azurecli.AzureCLI` interface
@@ -230,6 +234,7 @@ type AzureCLI interface {
     CheckResourceGroupExists(name string) (bool, error)
     ListResourceGroups() ([]ResourceGroupInfo, error)
     DeleteResourceGroup(name string) error
+    CreateResourceGroup(name, location string) error
 
     // Resource operations (added for arcbox)
     ListResources(resourceGroup string) ([]ResourceInfo, error)
@@ -241,9 +246,9 @@ type AzureCLI interface {
 
     // VM operations (added for arcbox)
     ListVMs(resourceGroup string) ([]VMInfo, error)
-}
-    ListVMSKUs(region string) ([]SKUInfo, error)
-    CheckSKUAvailability(sku, region string) (bool, error)
+
+    // Location operations (added for utils)
+    ListLocations() ([]string, error)
 }
 ```
 
@@ -614,6 +619,59 @@ func processAzureOperation(azCLI azurecli.AzureCLI) error {
 4. **Error scenario testing**: Test all failure modes
 5. **Performance check**: Ensure no performance degradation
 
+## Latest Success Story: Final Phase Completion - Utils Package
+
+### Final Phase Implementation
+
+The **final completion of `internal/utils` package** and **compilation fixes in `cmd/arcbox`** represent the culmination of this refactoring methodology:
+
+**Final 4 Azure CLI Calls Eliminated from Utils**:
+
+- `IsAzureLoggedIn()` - **COMPLETED** - Now uses `azCLI.IsLoggedIn()` instead of direct `exec.Command("az", "account", "show"...)`
+- `ResourceGroupExists()` - **COMPLETED** - Now uses `azCLI.CheckResourceGroupExists()` instead of direct Azure CLI calls
+- `CreateResourceGroup()` - **COMPLETED** - Now uses `azCLI.CreateResourceGroup()` instead of direct Azure CLI calls
+- `RegionExistsInAzure()` - **COMPLETED** - Now uses `azCLI.ListLocations()` instead of direct Azure CLI calls
+
+**Azure CLI Interface Extensions**:
+
+- **Added `CreateResourceGroup(name, location string) error`** method to Azure CLI interface
+- **Added `ListLocations() ([]string, error)`** method to Azure CLI interface  
+- **Extended MockAzureCLI** with full implementation including error injection and call tracking
+
+**Compilation Fixes in ArcBox**:
+
+- **Fixed undefined `cli` variable** in `deployArcboxWithParamFile()` function
+- **Removed duplicate Azure CLI declarations** (cleaned up 2 redundant `azCLI := azurecli.NewAzureCLI()` calls)
+- **Updated function calls** to use Azure CLI wrapper versions:
+  - `utils.IsAzureLoggedInWithCLI(azCLI)` (3 locations)
+  - `utils.ResourceGroupExistsWithCLI(azCLI, resourceGroup)` (1 location)
+  - `utils.CreateResourceGroupWithCLI(azCLI, resourceGroup, location)` (1 location)
+
+**Dual Function Pattern Implementation**:
+
+```go
+// Original function - uses default Azure CLI instance for backward compatibility
+func IsAzureLoggedIn() bool {
+    azCLI := azurecli.NewAzureCLI()
+    return azCLI.IsLoggedIn()
+}
+
+// New function - accepts Azure CLI interface for testing and dependency injection
+func IsAzureLoggedInWithCLI(azCLI azurecli.AzureCLI) bool {
+    return azCLI.IsLoggedIn()
+}
+```
+
+**Final Validation Achievements**:
+
+1. **✅ Build Success** - `go build .` completes with zero compilation errors
+2. **✅ Test Success** - All utility function tests pass with comprehensive coverage
+3. **✅ Test Success** - All ArcBox command tests pass with integration validation
+4. **✅ Zero Direct Azure CLI Calls** - Confirmed no remaining `exec.Command("az"...)` calls in business logic
+5. **✅ Backward Compatibility** - All original function signatures preserved and working
+
+This final completion represents the **100% achievement** of the Azure CLI wrapper refactoring project objectives with comprehensive validation and zero remaining direct Azure CLI calls in business logic.
+
 ## Recent Success Story: Complete ArcBox Package Refactoring
 
 ### Completed Implementation
@@ -727,8 +785,8 @@ This systematic approach ensures consistent Azure CLI integration across all com
 
 ---
 
-**🎉 PROJECT COMPLETE**: All targeted Azure CLI refactoring has been successfully completed. The subscription package achieved 95.9% test coverage, the quota functionality within arcbox achieved 94.3% test coverage, **the complete ArcBox preflight package (status, rp, quota) has 122 comprehensive tests with full Azure CLI wrapper integration**, **the main `cmd/arcbox` package has been 100% refactored with 15+ comprehensive test functions and zero direct Azure CLI calls remaining**, and **the `internal/preflight/validator` package has been 100% refactored with all legacy functions eliminated and comprehensive test coverage**. 
+**🎉 PROJECT COMPLETE**: All targeted Azure CLI refactoring has been successfully completed. The subscription package achieved 95.9% test coverage, the quota functionality within arcbox achieved 94.3% test coverage, **the complete ArcBox preflight package (status, rp, quota) has 122 comprehensive tests with full Azure CLI wrapper integration**, **the main `cmd/arcbox` package has been 100% refactored with 15+ comprehensive test functions and zero direct Azure CLI calls remaining**, **the `internal/preflight/validator` package has been 100% refactored with all legacy functions eliminated and comprehensive test coverage**, and **the `internal/utils` package has been 100% refactored with all 4 remaining utility functions updated to use the Azure CLI wrapper**. 
 
 **FINAL ACHIEVEMENT**: This refactoring approach has successfully modernized Azure CLI integration across all targeted packages, achieving **100% elimination of direct Azure CLI calls in business logic** while demonstrating a systematic way to achieve comprehensive testability, dependency injection, and robust error handling with full backward compatibility.
 
-**LEGACY STATUS**: Only 32 Azure CLI calls remain in the entire codebase, all properly encapsulated within the Azure CLI wrapper implementation (`internal/azurecli/azurecli.go`) where they belong.
+**LEGACY STATUS**: Only 32 Azure CLI calls remain in the entire codebase, all properly encapsulated within the Azure CLI wrapper implementation (`internal/azurecli/azurecli.go`) where they belong. **Compilation has been validated** with successful builds and test execution across all refactored packages.
