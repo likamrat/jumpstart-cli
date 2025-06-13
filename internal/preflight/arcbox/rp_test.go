@@ -1,6 +1,7 @@
 package arcbox
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -99,21 +100,29 @@ func TestListRequiredResourceProviders(t *testing.T) {
 func TestRegisterResourceProvider(t *testing.T) {
 	fmt.Printf("\n%s\n", "=== Testing Register Resource Provider ===")
 
-	// Test successful registration (should exit, so we'll test in a different way)
-	testName := "Function structure test"
-	// Just test that the function exists and can be called without immediate panic
-	defer func() {
-		if r := recover(); r != nil {
-			// If it panics for other reasons, that's fine for this test
-			printRPTestStatus(t, testName, true, "Function exists and is callable")
-		} else {
-			printRPTestStatus(t, testName, true, "Function executed without panicking")
-		}
-	}()
+	// Test successful registration
+	testName := "Successful registration"
+	mockCLI := &azurecli.MockAzureCLI{
+		RegisteredProviders: make(map[string]bool),
+	}
 
-	// We can't actually test the full registration without mocking os.Exit
-	// So we'll just verify the function exists and is properly structured
-	printRPTestStatus(t, testName, true, "RegisterResourceProvider function is accessible")
+	err := RegisterResourceProvider(mockCLI, "Microsoft.Compute")
+	if err != nil {
+		printRPTestStatus(t, testName, false, fmt.Sprintf("Expected no error, got: %v", err))
+	} else {
+		printRPTestStatus(t, testName, true, "Successfully registered resource provider")
+	}
+
+	// Test failed registration
+	testName = "Failed registration"
+	mockCLI.RegisterProviderError = errors.New("mock registration failure")
+
+	err = RegisterResourceProvider(mockCLI, "Microsoft.Storage")
+	if err == nil {
+		printRPTestStatus(t, testName, false, "Expected error, got nil")
+	} else {
+		printRPTestStatus(t, testName, true, fmt.Sprintf("Correctly returned error: %v", err))
+	}
 }
 
 func TestCheckAllResourceProviders(t *testing.T) {
@@ -245,10 +254,11 @@ func TestResourceProviderCommandValidation(t *testing.T) {
 	invalidSubcommands := []string{"invalid", "nonexistent", "badcmd"}
 	for _, invalidCmd := range invalidSubcommands {
 		err = rpCmd.RunE(rpCmd, []string{invalidCmd})
-		success = err != nil
 		expectedErrorMsg := fmt.Sprintf("unknown subcommand '%s' for 'js arcbox preflight rp'", invalidCmd)
 		if err != nil {
-			success = success && err.Error() == expectedErrorMsg
+			success = err.Error() == expectedErrorMsg
+		} else {
+			success = false
 		}
 		message = fmt.Sprintf("Should return error for invalid subcommand '%s'", invalidCmd)
 		printRPTestStatus(t, testName+fmt.Sprintf(" (%s)", invalidCmd), success, message)

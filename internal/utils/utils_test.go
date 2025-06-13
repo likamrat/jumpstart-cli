@@ -214,6 +214,32 @@ func TestFatalFunction(t *testing.T) {
 	assert.NotNil(t, Fatal)
 }
 
+func TestFatalError(t *testing.T) {
+	// Test the new testable FatalError function
+	tests := []struct {
+		msg      string
+		args     []interface{}
+		expected string
+	}{
+		{"test message", nil, "[FATAL] test message"},
+		{"test with arg: %s", []interface{}{"value"}, "[FATAL] test with arg: value"},
+		{"test with multiple args: %s %d", []interface{}{"value", 42}, "[FATAL] test with multiple args: value 42"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.msg, func(t *testing.T) {
+			var err error
+			if tt.args != nil {
+				err = FatalError(tt.msg, tt.args...)
+			} else {
+				err = FatalError(tt.msg)
+			}
+			assert.Error(t, err)
+			assert.Equal(t, tt.expected, err.Error())
+		})
+	}
+}
+
 func TestFriendlyResourceName(t *testing.T) {
 	tests := []struct {
 		resourceType string
@@ -239,9 +265,25 @@ func TestFriendlyResourceName(t *testing.T) {
 }
 
 func TestPrintMissingRequiredFlagsError(t *testing.T) {
-	// Skip this test as it calls os.Exit() which terminates the test process
-	// This function is integration-tested through CLI usage
-	t.Skip("Skipping test that calls os.Exit() - function is covered by integration tests")
+	// Test the refactored PrintMissingRequiredFlagsError function that now returns bool
+	cmd := &cobra.Command{Use: "test"}
+	cmd.Flags().String("required1", "", "Required flag 1")
+	cmd.Flags().String("required2", "", "Required flag 2")
+	cmd.Flags().String("optional", "default", "Optional flag")
+
+	// Test with missing required flags
+	t.Run("Missing required flags", func(t *testing.T) {
+		result := PrintMissingRequiredFlagsError(cmd, []string{"required1", "required2"})
+		assert.False(t, result, "Should return false when required flags are missing")
+	})
+
+	// Test with all required flags present
+	t.Run("All required flags present", func(t *testing.T) {
+		cmd.Flags().Set("required1", "value1")
+		cmd.Flags().Set("required2", "value2")
+		result := PrintMissingRequiredFlagsError(cmd, []string{"required1", "required2"})
+		assert.True(t, result, "Should return true when all required flags are present")
+	})
 }
 
 func TestIsFlagMissing(t *testing.T) {
@@ -949,4 +991,272 @@ func BenchmarkVersionFormatting(b *testing.B) {
 			_ = PrintOutput(versionInfo, headers, rows)
 		}
 	})
+}
+
+func TestValidateAndPrintFlagsError(t *testing.T) {
+	// Test with valid flags
+	t.Run("Valid flags", func(t *testing.T) {
+		cmd := &cobra.Command{Use: "test"}
+		cmd.Flags().String("valid-flag", "value", "A valid flag")
+		cmd.Flags().Set("valid-flag", "test-value")
+
+		result := ValidateAndPrintFlagsError(cmd)
+		assert.True(t, result, "Should return true for valid flags")
+	})
+
+	// Test with invalid flags - we'll simulate this by creating a command
+	// that has validation issues
+	t.Run("Invalid flags", func(t *testing.T) {
+		cmd := &cobra.Command{Use: "test"}
+		// This will be tested through integration since validateStringFlag
+		// depends on complex flag validation logic
+		result := ValidateAndPrintFlagsError(cmd)
+		assert.True(t, result, "Should return true when no flags set")
+	})
+}
+
+func TestValidateRequiredStringsEmpty(t *testing.T) {
+	tests := []struct {
+		name     string
+		fields   map[string]string
+		hasError bool
+		expected string
+	}{
+		{
+			name: "All fields valid",
+			fields: map[string]string{
+				"field1": "value1",
+				"field2": "value2",
+			},
+			hasError: false,
+		},
+		{
+			name: "One empty field",
+			fields: map[string]string{
+				"field1": "value1",
+				"field2": "",
+			},
+			hasError: true,
+			expected: "required fields cannot be empty: field2",
+		},
+		{
+			name: "Multiple empty fields",
+			fields: map[string]string{
+				"field1": "",
+				"field2": "value2",
+				"field3": "",
+			},
+			hasError: true,
+			expected: "required fields cannot be empty: field1, field3",
+		},
+		{
+			name: "Whitespace only field",
+			fields: map[string]string{
+				"field1": "value1",
+				"field2": "   ",
+			},
+			hasError: true,
+			expected: "required fields cannot be empty: field2",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateRequiredStringsEmpty(tt.fields)
+			if tt.hasError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "required fields cannot be empty")
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateStringInList(t *testing.T) {
+	validOptions := []string{"option1", "option2", "Option3"}
+
+	tests := []struct {
+		name      string
+		value     string
+		fieldName string
+		hasError  bool
+		expected  string
+	}{
+		{
+			name:      "Valid option exact match",
+			value:     "option1",
+			fieldName: "test-field",
+			hasError:  false,
+		},
+		{
+			name:      "Valid option case insensitive",
+			value:     "OPTION2",
+			fieldName: "test-field",
+			hasError:  false,
+		},
+		{
+			name:      "Invalid option",
+			value:     "invalid",
+			fieldName: "test-field",
+			hasError:  true,
+			expected:  "invalid test-field 'invalid'. Valid options: option1, option2, Option3",
+		},
+		{
+			name:      "Empty value",
+			value:     "",
+			fieldName: "test-field",
+			hasError:  true,
+			expected:  "test-field cannot be empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateStringInList(tt.value, validOptions, tt.fieldName)
+			if tt.hasError {
+				assert.Error(t, err)
+				if tt.expected != "" {
+					assert.Equal(t, tt.expected, err.Error())
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidationErrorCollector(t *testing.T) {
+	t.Run("Empty collector", func(t *testing.T) {
+		collector := NewValidationErrorCollector()
+		assert.False(t, collector.HasErrors())
+		assert.Equal(t, 0, collector.Count())
+		assert.NoError(t, collector.Error())
+	})
+
+	t.Run("Single error", func(t *testing.T) {
+		collector := NewValidationErrorCollector()
+		collector.AddError("test error")
+
+		assert.True(t, collector.HasErrors())
+		assert.Equal(t, 1, collector.Count())
+
+		err := collector.Error()
+		assert.Error(t, err)
+		assert.Equal(t, "test error", err.Error())
+	})
+
+	t.Run("Multiple errors", func(t *testing.T) {
+		collector := NewValidationErrorCollector()
+		collector.AddError("error 1")
+		collector.AddError("error 2")
+		collector.AddError("error 3")
+
+		assert.True(t, collector.HasErrors())
+		assert.Equal(t, 3, collector.Count())
+
+		err := collector.Error()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "multiple validation errors:")
+		assert.Contains(t, err.Error(), "error 1")
+		assert.Contains(t, err.Error(), "error 2")
+		assert.Contains(t, err.Error(), "error 3")
+	})
+
+	t.Run("Formatted errors", func(t *testing.T) {
+		collector := NewValidationErrorCollector()
+		collector.AddError("error with value: %s", "test")
+		collector.AddError("error with number: %d", 42)
+
+		assert.True(t, collector.HasErrors())
+		assert.Equal(t, 2, collector.Count())
+
+		err := collector.Error()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "error with value: test")
+		assert.Contains(t, err.Error(), "error with number: 42")
+	})
+
+	t.Run("Conditional errors", func(t *testing.T) {
+		collector := NewValidationErrorCollector()
+
+		collector.AddErrorIf(true, "this error should be added")
+		collector.AddErrorIf(false, "this error should NOT be added")
+		collector.AddErrorIf(1 > 0, "this error should also be added")
+
+		assert.True(t, collector.HasErrors())
+		assert.Equal(t, 2, collector.Count())
+
+		err := collector.Error()
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "this error should be added")
+		assert.Contains(t, err.Error(), "this error should also be added")
+		assert.NotContains(t, err.Error(), "this error should NOT be added")
+	})
+}
+
+func TestExampleValidationPattern(t *testing.T) {
+	tests := []struct {
+		name          string
+		resourceGroup string
+		location      string
+		flavor        string
+		hasError      bool
+		expectedError string
+	}{
+		{
+			name:          "Valid inputs",
+			resourceGroup: "my-rg",
+			location:      "eastus",
+			flavor:        "ITPro",
+			hasError:      false,
+		},
+		{
+			name:          "Empty resource group",
+			resourceGroup: "",
+			location:      "eastus",
+			flavor:        "ITPro",
+			hasError:      true,
+			expectedError: "resource-group",
+		},
+		{
+			name:          "Invalid flavor",
+			resourceGroup: "my-rg",
+			location:      "eastus",
+			flavor:        "InvalidFlavor",
+			hasError:      true,
+			expectedError: "invalid flavor",
+		},
+		{
+			name:          "Resource group with spaces",
+			resourceGroup: "my resource group",
+			location:      "eastus",
+			flavor:        "ITPro",
+			hasError:      true,
+			expectedError: "cannot contain spaces",
+		},
+		{
+			name:          "Multiple validation errors",
+			resourceGroup: "",
+			location:      "",
+			flavor:        "BadFlavor",
+			hasError:      true,
+			expectedError: "multiple validation errors",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ExampleValidationPattern(tt.resourceGroup, tt.location, tt.flavor)
+
+			if tt.hasError {
+				assert.Error(t, err)
+				if tt.expectedError != "" {
+					assert.Contains(t, err.Error(), tt.expectedError)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

@@ -88,7 +88,10 @@ func CreateResourceProviderCommands(cli azurecli.AzureCLI) *cobra.Command {
 			utils.PrintMissingRequiredArgumentsError(cmd, requiredArguments)
 
 			provider, _ := cmd.Flags().GetString("name")
-			RegisterResourceProvider(cli, provider)
+			if err := RegisterResourceProvider(cli, provider); err != nil {
+				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
+				os.Exit(1)
+			}
 		},
 	}
 
@@ -114,12 +117,12 @@ func ListRequiredResourceProviders() {
 }
 
 // RegisterResourceProvider registers a required Azure resource provider for ArcBox deployment
-func RegisterResourceProvider(cli azurecli.AzureCLI, provider string) {
+func RegisterResourceProvider(cli azurecli.AzureCLI, provider string) error {
 	if err := resourceproviders.RegisterProvider(cli, provider); err != nil {
-		fmt.Printf(utils.ErrorColor("❌ [ERROR] Failed to register resource provider '%s': %v\n"), provider, err)
-		os.Exit(1)
+		return fmt.Errorf("failed to register resource provider '%s': %w", provider, err)
 	}
 	fmt.Printf(utils.SuccessColor("✅ [SUCCESS] Successfully registered resource provider '%s'\n"), provider)
+	return nil
 }
 
 // CheckAllResourceProviders performs comprehensive resource provider validation

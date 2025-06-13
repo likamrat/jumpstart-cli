@@ -128,6 +128,11 @@ func Fatal(msg string, args ...interface{}) {
 	os.Exit(1)
 }
 
+// FatalError creates a fatal error without exiting - returns error for testable code
+func FatalError(msg string, args ...interface{}) error {
+	return fmt.Errorf("[FATAL] "+msg, args...)
+}
+
 func Prompt(msg string, args ...interface{}) {
 	fmt.Println(PromptColor("[PROMPT]"), fmt.Sprintf(msg, args...))
 }
@@ -187,7 +192,8 @@ type flagInfo struct {
 }
 
 // PrintMissingRequiredFlagsError prints a dynamic error message listing all missing required flags for a command, Azure CLI style.
-func PrintMissingRequiredFlagsError(cmd *cobra.Command, requiredFlags []string) {
+// Returns false if validation failed (missing flags), true if validation passed
+func PrintMissingRequiredFlagsError(cmd *cobra.Command, requiredFlags []string) bool {
 	missing := []string{}
 	for _, name := range requiredFlags {
 		f := cmd.Flags().Lookup(name)
@@ -202,8 +208,9 @@ func PrintMissingRequiredFlagsError(cmd *cobra.Command, requiredFlags []string) 
 	if len(missing) > 0 {
 		fmt.Fprintf(os.Stderr, "%s\n\n", ErrorColor("the following arguments are required: "+strings.Join(missing, ", ")))
 		ShowHelpWithoutTypes(cmd)
-		os.Exit(1)
+		return false // Indicate validation failed
 	}
+	return true // Indicate validation passed
 }
 
 // isFlagMissing returns true if the required flag is missing (unset or empty string)
@@ -676,10 +683,12 @@ func NormalizeRegion(region string) string {
 	return strings.ToLower(strings.ReplaceAll(region, " ", ""))
 }
 
-// PrintMissingRequiredArgumentsError prints an error message for missing required arguments
-// This is an alias for PrintMissingRequiredFlagsError to maintain compatibility
+// PrintMissingRequiredArgumentsError prints an error message for missing required arguments and exits
+// This maintains the original behavior for CLI command handlers
 func PrintMissingRequiredArgumentsError(cmd *cobra.Command, requiredArgs []string) {
-	PrintMissingRequiredFlagsError(cmd, requiredArgs)
+	if !PrintMissingRequiredFlagsError(cmd, requiredArgs) {
+		os.Exit(1)
+	}
 }
 
 // SuggestSimilarCommand suggests similar commands based on edit distance
@@ -1298,4 +1307,123 @@ func PrintStructuredOutput(data interface{}) error {
 		return PrintJSON(data) // fallback to JSON for complex structures
 	}
 	return nil
+}
+
+// ValidateAndPrintFlagsError combines flag validation and error printing for CLI handlers
+// Returns false if validation fails, true if validation passes
+func ValidateAndPrintFlagsError(cmd *cobra.Command) bool {
+	if err := ValidateAllFlags(cmd); err != nil {
+		Error("Flag validation failed: %v", err)
+		ShowHelpWithoutTypes(cmd)
+		return false
+	}
+	return true
+}
+
+// ValidateRequiredStringsEmpty checks if any of the required strings are empty
+// Returns an error listing all empty fields, or nil if all are valid
+func ValidateRequiredStringsEmpty(fields map[string]string) error {
+	var emptyFields []string
+
+	for name, value := range fields {
+		if strings.TrimSpace(value) == "" {
+			emptyFields = append(emptyFields, name)
+		}
+	}
+
+	if len(emptyFields) > 0 {
+		return fmt.Errorf("required fields cannot be empty: %s", strings.Join(emptyFields, ", "))
+	}
+
+	return nil
+}
+
+// ValidateStringInList checks if a string value is in a list of valid options
+// Returns an error if the value is not in the list, nil if valid
+func ValidateStringInList(value string, validOptions []string, fieldName string) error {
+	if value == "" {
+		return fmt.Errorf("%s cannot be empty", fieldName)
+	}
+
+	for _, option := range validOptions {
+		if strings.EqualFold(value, option) {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("invalid %s '%s'. Valid options: %s", fieldName, value, strings.Join(validOptions, ", "))
+}
+
+// ValidationErrorCollector helps collect multiple validation errors
+type ValidationErrorCollector struct {
+	errors []string
+}
+
+// NewValidationErrorCollector creates a new error collector
+func NewValidationErrorCollector() *ValidationErrorCollector {
+	return &ValidationErrorCollector{
+		errors: make([]string, 0),
+	}
+}
+
+// AddError adds an error message to the collector
+func (v *ValidationErrorCollector) AddError(message string, args ...interface{}) {
+	v.errors = append(v.errors, fmt.Sprintf(message, args...))
+}
+
+// AddErrorIf adds an error message to the collector if the condition is true
+func (v *ValidationErrorCollector) AddErrorIf(condition bool, message string, args ...interface{}) {
+	if condition {
+		v.AddError(message, args...)
+	}
+}
+
+// HasErrors returns true if any errors have been collected
+func (v *ValidationErrorCollector) HasErrors() bool {
+	return len(v.errors) > 0
+}
+
+// Error returns a combined error with all collected messages, or nil if no errors
+func (v *ValidationErrorCollector) Error() error {
+	if len(v.errors) == 0 {
+		return nil
+	}
+	if len(v.errors) == 1 {
+		return fmt.Errorf("%s", v.errors[0])
+	}
+	return fmt.Errorf("multiple validation errors:\n  - %s", strings.Join(v.errors, "\n  - "))
+}
+
+// Count returns the number of errors collected
+func (v *ValidationErrorCollector) Count() int {
+	return len(v.errors)
+}
+
+// ExampleValidationPattern demonstrates how to use the new validation utilities
+// in CLI command handlers while maintaining proper error handling
+func ExampleValidationPattern(resourceGroup, location, flavor string) error {
+	collector := NewValidationErrorCollector()
+
+	// Validate required fields
+	requiredFields := map[string]string{
+		"resource-group": resourceGroup,
+		"location":       location,
+		"flavor":         flavor,
+	}
+	if err := ValidateRequiredStringsEmpty(requiredFields); err != nil {
+		collector.AddError("%s", err.Error())
+	}
+
+	// Validate flavor is in allowed list
+	validFlavors := []string{"ITPro", "DevOps", "DataOps"}
+	if err := ValidateStringInList(flavor, validFlavors, "flavor"); err != nil {
+		collector.AddError("%s", err.Error())
+	}
+
+	// Add conditional validations
+	collector.AddErrorIf(len(resourceGroup) > 90, "resource group name must be 90 characters or less")
+	collector.AddErrorIf(strings.Contains(resourceGroup, " "), "resource group name cannot contain spaces")
+
+	// Return all collected errors, or nil if validation passed
+	return collector.Error()
 }
