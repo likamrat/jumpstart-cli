@@ -858,4 +858,144 @@ This architecture ensures that adding localbox or any future CLI command require
 - Performance benchmarks for critical operations
 - Clear visual test output with pass/fail indicators
 
-Apply this methodology systematically to achieve 90%+ coverage with robust CLI testing.
+Apply this methodology systematically to achieve 98%+ coverage with robust CLI testing.
+
+---
+
+## 🎯 Strategic Starting Point Reference
+
+### **RECOMMENDED FIRST TARGET: `cmd/arcbox/arcbox.go`**
+
+**Current State Analysis (as of baseline assessment):**
+- **Coverage**: 17.7% (massive improvement opportunity)
+- **Priority**: Highest - core user-facing CLI functionality
+- **Test Infrastructure**: Existing (`arcbox_test.go` with 122 tests)
+- **Functions with 0% Coverage**: 15+ functions ready for immediate wins
+
+### **Specific Function Priority Queue:**
+
+#### **Session 1-2: `runArcBoxList` Function**
+```go
+// File: cmd/arcbox/arcbox.go:1058 (0% coverage → target 98%+)
+func runArcBoxList(allSubscriptions, currentSubscription bool, subscriptionID, outputFormat string) error
+```
+
+**Why Start Here:**
+- ✅ Zero coverage baseline - complete opportunity
+- ✅ Clear business logic with multiple code paths
+- ✅ Well-defined error scenarios (auth, subscription validation)
+- ✅ Output format branching (table/JSON) - good for branch coverage
+- ✅ Limited external dependencies - easier to mock
+
+**98% Coverage Test Plan:**
+```go
+func TestRunArcBoxList_Comprehensive(t *testing.T) {
+    tests := []struct {
+        name            string
+        allSubs         bool
+        currentSub      bool  
+        subscriptionID  string
+        outputFormat    string
+        mockSetup       func(*MockAzureCLI)
+        expectError     bool
+        expectOutput    string
+    }{
+        // HAPPY PATH (20% of tests)
+        {"all_subscriptions_table", true, false, "", "table", setupValidSubs, false, ""},
+        {"current_subscription_json", false, true, "", "json", setupCurrentSub, false, ""},
+        {"specific_subscription_table", false, false, "valid-sub-id", "table", setupSpecificSub, false, ""},
+        
+        // ERROR SCENARIOS (60% of tests) 
+        {"azure_cli_not_authenticated", true, false, "", "table", setupNoAuth, true, "not logged in"},
+        {"invalid_subscription_id", false, false, "invalid-sub", "table", setupInvalidSub, true, "Cannot access subscription"},
+        {"azure_cli_timeout", true, false, "", "table", setupTimeout, true, "timeout"},
+        {"malformed_subscription_response", true, false, "", "json", setupMalformedJSON, true, ""},
+        {"network_error", false, true, "", "table", setupNetworkError, true, "network"},
+        {"empty_subscription_list", true, false, "", "table", setupEmptySubs, false, "No ArcBox deployments"},
+        {"subscription_access_denied", false, false, "denied-sub", "table", setupAccessDenied, true, "access denied"},
+        
+        // EDGE CASES (20% of tests)
+        {"contradictory_flags_all_and_current", true, true, "", "table", nil, true, "Cannot use multiple"},
+        {"contradictory_flags_all_and_specific", true, false, "sub-id", "table", nil, true, "Cannot use multiple"},
+        {"empty_deployments_found", false, true, "", "json", setupNoDeployments, false, "No ArcBox deployments"},
+        {"very_large_deployment_list", true, false, "", "table", setupLargeDeploymentList, false, ""},
+        {"special_chars_subscription_name", false, false, "sub-with-chars-@#$", "json", setupSpecialCharsSub, false, ""},
+        {"invalid_output_format", false, true, "", "xml", setupCurrentSub, true, "Invalid output format"},
+        {"nil_subscription_response", true, false, "", "table", setupNilResponse, true, ""},
+        {"unicode_subscription_name", false, false, "测试-subscription", "table", setupUnicodeSub, false, ""},
+    }
+    
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            mockCLI := NewMockAzureCLI()
+            if tt.mockSetup != nil {
+                tt.mockSetup(mockCLI)
+            }
+            
+            err := runArcBoxList(tt.allSubs, tt.currentSub, tt.subscriptionID, tt.outputFormat)
+            
+            if (err != nil) != tt.expectError {
+                t.Errorf("expectError %v, got error: %v", tt.expectError, err)
+            }
+            
+            if tt.expectOutput != "" && err != nil {
+                if !strings.Contains(err.Error(), tt.expectOutput) {
+                    t.Errorf("expected error to contain %q, got %q", tt.expectOutput, err.Error())
+                }
+            }
+            
+            mockCLI.Reset()
+        })
+    }
+}
+```
+
+#### **Sessions 3-4: Zero Coverage Utility Functions**
+```go
+// All at 0% coverage - quick wins for 98% target
+func getAllSubscriptions(azCLI azurecli.AzureCLI) ([]AzureSubscription, error)  // Line 1122
+func getCurrentSubscription(azCLI azurecli.AzureCLI) (AzureSubscription, error) // Line 1140  
+func getSubscription(azCLI azurecli.AzureCLI, subscriptionID string) (AzureSubscription, error) // Line 1153
+func normalizeFlavorCase(flavor string) string // Line 1738
+func normalizeSqlServerEditionCase(edition string) string // Line 1754
+func normalizeBastionSkuCase(sku string) string // Line 1768
+```
+
+#### **Sessions 5-8: Complex Functions (Require More Comprehensive Testing)**
+```go
+func runQuotaChecksWithOutput(cli azurecli.AzureCLI, cmd *cobra.Command, location, flavor string) (bool, []map[string]interface{}) // Needs branch coverage
+func deployArcboxWithParamFile(cmd *cobra.Command, args []string, ...) // Complex deployment logic
+func outputArcBoxDeploymentsTable(deployments []ArcBoxDeployment) error // Output formatting
+func outputArcBoxDeploymentsJSON(deployments []ArcBoxDeployment) error // JSON serialization
+```
+
+### **Coverage Impact Projection:**
+
+| Session | Target Function(s) | Estimated Coverage Gain | Cumulative Coverage |
+|---------|-------------------|------------------------|-------------------|
+| 1-2 | `runArcBoxList` + utilities | +25% | ~43% |
+| 3-4 | Normalization functions | +15% | ~58% |
+| 5-6 | `runQuotaChecksWithOutput` | +20% | ~78% |
+| 7-8 | Output functions | +15% | ~93% |
+| 9-10 | `deployArcboxWithParamFile` | +10% | **98%+** |
+
+### **Why NOT Start Elsewhere:**
+
+❌ **`main.go`**: Already 94.8% coverage  
+❌ **`cmd/subscription`**: Already 95.9% coverage  
+❌ **`cmd/agora`, `cmd/localbox`**: Lower impact, smaller codebase  
+❌ **Internal packages**: Focus on user-facing commands first for maximum ROI
+
+### **Success Validation Commands:**
+
+```bash
+# Check function-specific coverage
+go test -coverprofile=coverage.out ./cmd/arcbox && go tool cover -func=coverage.out | grep "runArcBoxList"
+
+# Visual verification (should show no red lines)
+go tool cover -html=coverage.out -o coverage.html && open coverage.html
+
+# Overall package coverage target
+go tool cover -func=coverage.out | grep "cmd/arcbox" | tail -1
+# Target: "total: (statements) 98.0%"
+```
