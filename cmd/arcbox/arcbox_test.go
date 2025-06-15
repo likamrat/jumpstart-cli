@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"jumpstartcli/cmd/arcbox/services"
+	arcboxUtils "jumpstartcli/cmd/arcbox/utils"
 	"jumpstartcli/internal/azurecli"
 
 	"github.com/fatih/color"
@@ -1303,7 +1305,8 @@ func TestDetectArcBoxFlavor(t *testing.T) {
 			mockCLI := &azurecli.MockAzureCLI{}
 			tt.mockSetup(mockCLI)
 
-			flavor, name := detectArcBoxFlavor(mockCLI, tt.resourceGroup)
+			listingService := services.NewListingService(mockCLI)
+			flavor, name := listingService.DetectArcBoxFlavor(tt.resourceGroup)
 
 			printTestStatus(t, tt.name, flavor == tt.expectedFlavor,
 				fmt.Sprintf("Expected flavor '%s', got '%s'", tt.expectedFlavor, flavor))
@@ -1484,7 +1487,8 @@ func TestDetectArcBoxFlavorFallback(t *testing.T) {
 			mockCLI := &azurecli.MockAzureCLI{}
 			tt.mockSetup(mockCLI)
 
-			flavor, name := detectArcBoxFlavorFallback(mockCLI, tt.resourceGroup)
+			listingService := services.NewListingService(mockCLI)
+			flavor, name := listingService.DetectArcBoxFlavorFallback(tt.resourceGroup)
 
 			printTestStatus(t, tt.name, flavor == tt.expectedFlavor,
 				fmt.Sprintf("Expected flavor '%s', got '%s'", tt.expectedFlavor, flavor))
@@ -1683,13 +1687,13 @@ func TestNormalizeFlavorCase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := normalizeFlavorCase(tt.input)
+			result := arcboxUtils.NormalizeFlavorCase(tt.input)
 			success := result == tt.expected
 			message := fmt.Sprintf("Input: '%s', Expected: '%s', Got: '%s'", tt.input, tt.expected, result)
 			printTestStatus(t, tt.name, success, message)
 
 			if !success {
-				t.Errorf("normalizeFlavorCase(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("arcboxUtils.NormalizeFlavorCase(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}
@@ -1731,13 +1735,13 @@ func TestNormalizeSqlServerEditionCase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := normalizeSqlServerEditionCase(tt.input)
+			result := arcboxUtils.NormalizeSqlServerEditionCase(tt.input)
 			success := result == tt.expected
 			message := fmt.Sprintf("Input: '%s', Expected: '%s', Got: '%s'", tt.input, tt.expected, result)
 			printTestStatus(t, tt.name, success, message)
 
 			if !success {
-				t.Errorf("normalizeSqlServerEditionCase(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("arcboxUtils.NormalizeSqlServerEditionCase(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}
@@ -1779,13 +1783,13 @@ func TestNormalizeBastionSkuCase(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := normalizeBastionSkuCase(tt.input)
+			result := arcboxUtils.NormalizeBastionSkuCase(tt.input)
 			success := result == tt.expected
 			message := fmt.Sprintf("Input: '%s', Expected: '%s', Got: '%s'", tt.input, tt.expected, result)
 			printTestStatus(t, tt.name, success, message)
 
 			if !success {
-				t.Errorf("normalizeBastionSkuCase(%q) = %q, want %q", tt.input, result, tt.expected)
+				t.Errorf("arcboxUtils.NormalizeBastionSkuCase(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}
