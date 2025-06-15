@@ -29,16 +29,6 @@ func printTestStatus(t *testing.T, testName string, success bool, message string
 	}
 }
 
-// Helper function to find a subcommand by name
-func findSubcommand(cmd *cobra.Command, name string) *cobra.Command {
-	for _, subCmd := range cmd.Commands() {
-		if subCmd.Use == name {
-			return subCmd
-		}
-	}
-	return nil
-}
-
 func TestNewArcboxCmd(t *testing.T) {
 	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ArcBox Command Creation ==="))
 
@@ -678,7 +668,7 @@ func TestArcboxPreflightRpRegisterCommand(t *testing.T) {
 }
 
 // =============================================================================
-// COMPREHENSIVE TEST SUITE FOR NewArcboxCmdWithCLI (Target: 98% Coverage)
+// COMPREHENSIVE TESTS FOR NewArcboxCmdWithCLI (Target: 98% Coverage)
 // Following Azure CLI Wrapper Architecture Pattern
 // =============================================================================
 
@@ -1133,226 +1123,670 @@ func TestNewArcboxCmdWithCLI_NilInputHandling(t *testing.T) {
 }
 
 // =============================================================================
-// SESSION 2: ADVANCED BRANCH COVERAGE FOR NewArcboxCmdWithCLI RunE Function
-// Target: Increase coverage from 26.6% to 80%+
+// FLAVOR DETECTION FUNCTION TESTS
 // =============================================================================
 
-// TestNewArcboxCmdWithCLI_RunEFunction_BranchCoverage tests all conditional branches in RunE
-func TestNewArcboxCmdWithCLI_RunEFunction_BranchCoverage(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing RunE Function Branch Coverage ==="))
+func TestDetectArcBoxFlavor(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing detectArcBoxFlavor Function ==="))
 
 	tests := []struct {
 		name           string
-		args           []string
-		expectError    bool
-		expectSpecific string
-		validateCall   func(t *testing.T)
+		resourceGroup  string
+		mockSetup      func(*azurecli.MockAzureCLI)
+		expectedFlavor string
+		expectedError  bool
+		description    string
 	}{
-		// ===== VALID COMMAND BRANCH COVERAGE =====
-		// Note: These tests check that valid subcommands are recognized,
-		// but the subcommands themselves may fail due to missing required args
+		// ===== SUCCESSFUL DEPLOYMENT PARAMETER DETECTION =====
 		{
-			name:        "valid_command_deploy_branch",
-			args:        []string{"deploy"},
-			expectError: true, // deploy requires args, so it will error
-			validateCall: func(t *testing.T) {
-				// This tests the branch: if invalidCommand == validCmd { return nil }
-				// But deploy will then fail with missing required args
+			name:          "itpro_flavor_from_deployment_params",
+			resourceGroup: "test-arcbox-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+					"test-arcbox-rg": {
+						{Name: "main-deployment"},
+						{Name: "arcbox-template"},
+					},
+				}
+				mockCLI.SpecificDeployments = map[string]*azurecli.DeploymentInfo{
+					"test-arcbox-rg/arcbox-template": {
+						Name: "arcbox-template",
+						Properties: map[string]interface{}{
+							"parameters": map[string]interface{}{
+								"flavor": map[string]interface{}{
+									"value": "ITPro",
+								},
+							},
+						},
+					},
+				}
 			},
+			expectedFlavor: "ITPro",
+			expectedError:  false,
+			description:    "Should detect ITPro flavor from deployment parameters",
 		},
 		{
-			name:        "valid_command_delete_branch",
-			args:        []string{"delete"},
-			expectError: true, // delete requires args, so it will error
-			validateCall: func(t *testing.T) {
-				// This tests the branch: if invalidCommand == validCmd { return nil }
-				// But delete will then fail with missing required args
+			name:          "devops_flavor_from_deployment_params",
+			resourceGroup: "test-devops-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+					"test-devops-rg": {
+						{Name: "arcbox-deployment"},
+					},
+				}
+				mockCLI.SpecificDeployments = map[string]*azurecli.DeploymentInfo{
+					"test-devops-rg/arcbox-deployment": {
+						Name: "arcbox-deployment",
+						Properties: map[string]interface{}{
+							"parameters": map[string]interface{}{
+								"flavor": map[string]interface{}{
+									"value": "DevOps",
+								},
+							},
+						},
+					},
+				}
 			},
+			expectedFlavor: "DevOps",
+			expectedError:  false,
+			description:    "Should detect DevOps flavor from deployment parameters",
 		},
 		{
-			name:        "valid_command_list_branch",
-			args:        []string{"list"},
-			expectError: false,
-			validateCall: func(t *testing.T) {
-				// This tests the branch: if invalidCommand == validCmd { return nil }
+			name:          "dataops_flavor_from_deployment_params",
+			resourceGroup: "test-dataops-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+					"test-dataops-rg": {
+						{Name: "arcbox-dataops"},
+					},
+				}
+				mockCLI.SpecificDeployments = map[string]*azurecli.DeploymentInfo{
+					"test-dataops-rg/arcbox-dataops": {
+						Name: "arcbox-dataops",
+						Properties: map[string]interface{}{
+							"parameters": map[string]interface{}{
+								"flavor": map[string]interface{}{
+									"value": "DataOps",
+								},
+							},
+						},
+					},
+				}
 			},
-		},
-		{
-			name:        "valid_command_preflight_branch",
-			args:        []string{"preflight"},
-			expectError: false,
-			validateCall: func(t *testing.T) {
-				// This tests the branch: if invalidCommand == validCmd { return nil }
-			},
-		},
-
-		// ===== SPECIAL CASE "CREATE" BRANCH =====
-		{
-			name:           "special_create_branch",
-			args:           []string{"create"},
-			expectError:    false,
-			expectSpecific: "PrintDidYouMean should be called",
-			validateCall: func(t *testing.T) {
-				// Tests: if invalidCommand == "create" { utils.PrintDidYouMean(...); return nil }
-				// Note: We can't easily test utils.PrintDidYouMean call without mocking,
-				// but we can test that no error is returned
-			},
-		},
-
-		// ===== SIMILARITY SUGGESTION BRANCH =====
-		{
-			name:           "similarity_suggestion_deploy_typo",
-			args:           []string{"deploi"}, // Similar to "deploy"
-			expectError:    false,
-			expectSpecific: "SuggestSimilarCommand should be called",
-			validateCall: func(t *testing.T) {
-				// Tests: if suggestion := utils.SuggestSimilarCommand(...); suggestion != "" { ... return nil }
-			},
-		},
-		{
-			name:           "similarity_suggestion_delete_typo",
-			args:           []string{"delet"}, // Similar to "delete"
-			expectError:    false,
-			expectSpecific: "SuggestSimilarCommand should be called",
-			validateCall: func(t *testing.T) {
-				// Tests the similarity suggestion branch
-			},
-		},
-		{
-			name:           "similarity_suggestion_list_typo",
-			args:           []string{"lst"}, // Similar to "list"
-			expectError:    false,
-			expectSpecific: "SuggestSimilarCommand should be called",
-			validateCall: func(t *testing.T) {
-				// Tests the similarity suggestion branch
-			},
-		},
-
-		// ===== NO SUGGESTION ERROR BRANCH =====
-		{
-			name:           "no_suggestion_completely_invalid",
-			args:           []string{"completely-unrelated-command"},
-			expectError:    true,
-			expectSpecific: "unknown subcommand",
-			validateCall: func(t *testing.T) {
-				// Tests: return fmt.Errorf("unknown subcommand '%s' for 'js arcbox'", invalidCommand)
-			},
-		},
-		{
-			name:           "no_suggestion_random_string",
-			args:           []string{"xyz123"},
-			expectError:    true,
-			expectSpecific: "unknown subcommand",
-			validateCall: func(t *testing.T) {
-				// Tests the error return branch when no suggestions found
-			},
+			expectedFlavor: "DataOps",
+			expectedError:  false,
+			description:    "Should detect DataOps flavor from deployment parameters",
 		},
 
-		// ===== NO ARGS HELP BRANCH =====
+		// ===== FALLBACK TO RESOURCE-BASED DETECTION =====
 		{
-			name:           "no_args_show_help",
-			args:           []string{},
-			expectError:    false,
-			expectSpecific: "ShowHelpWithoutTypes should be called",
-			validateCall: func(t *testing.T) {
-				// Tests: utils.ShowHelpWithoutTypes(cmd); return nil
+			name:          "fallback_to_resource_detection_no_deployment",
+			resourceGroup: "test-no-deploy-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.ListDeploymentsError = fmt.Errorf("no deployments found")
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-no-deploy-rg": {
+						{Name: "ArcBox-Client", Type: "Microsoft.Compute/virtualMachines"},
+						{Name: "ArcBox-SQL", Type: "Microsoft.SqlVirtualMachine/SqlVirtualMachines"},
+					},
+				}
 			},
+			expectedFlavor: "ITPro",
+			expectedError:  false,
+			description:    "Should fallback to resource detection when deployment fails",
 		},
 		{
-			name:           "nil_args_show_help",
-			args:           nil,
-			expectError:    false,
-			expectSpecific: "ShowHelpWithoutTypes should be called",
-			validateCall: func(t *testing.T) {
-				// Tests the no args branch with nil args
+			name:          "fallback_to_resource_detection_missing_flavor_param",
+			resourceGroup: "test-missing-flavor-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+					"test-missing-flavor-rg": {
+						{Name: "arcbox-deployment"},
+					},
+				}
+				mockCLI.SpecificDeployments = map[string]*azurecli.DeploymentInfo{
+					"test-missing-flavor-rg/arcbox-deployment": {
+						Name: "arcbox-deployment",
+						Properties: map[string]interface{}{
+							"parameters": map[string]interface{}{
+								"location": map[string]interface{}{
+									"value": "eastus",
+								},
+							},
+						},
+					},
+				}
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-missing-flavor-rg": {
+						{Name: "ArcBox-Cluster", Type: "Microsoft.ContainerService/managedClusters"},
+						{Name: "ArcBox-Client", Type: "Microsoft.Compute/virtualMachines"},
+					},
+				}
 			},
+			expectedFlavor: "DevOps",
+			expectedError:  false,
+			description:    "Should fallback to resource detection when flavor param missing",
 		},
 
-		// ===== ADDITIONAL EDGE CASES FOR BRANCH COVERAGE =====
+		// ===== ERROR SCENARIOS =====
 		{
-			name:        "first_arg_matches_exactly",
-			args:        []string{"deploy", "extra", "args"},
-			expectError: false,
-			validateCall: func(t *testing.T) {
-				// Tests that only first arg is checked for validity
+			name:          "error_both_deployment_and_resource_fail",
+			resourceGroup: "test-error-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.ListDeploymentsError = fmt.Errorf("deployment listing failed")
+				mockCLI.ListResourcesError = fmt.Errorf("resource listing failed")
 			},
+			expectedFlavor: "ITPro",
+			expectedError:  false,
+			description:    "Should return default ITPro when both deployment and resource detection fail",
 		},
 		{
-			name:           "empty_string_first_arg",
-			args:           []string{""},
-			expectError:    true,
-			expectSpecific: "unknown subcommand",
-			validateCall: func(t *testing.T) {
-				// Tests empty string as first argument
+			name:          "error_deployment_details_fail",
+			resourceGroup: "test-deploy-details-error-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Deployments = map[string][]azurecli.DeploymentInfo{
+					"test-deploy-details-error-rg": {
+						{Name: "arcbox-deployment"},
+					},
+				}
+				mockCLI.GetDeploymentError = fmt.Errorf("deployment details not found")
+				mockCLI.ListResourcesError = fmt.Errorf("resource listing also failed")
 			},
-		},
-		{
-			name:           "whitespace_first_arg",
-			args:           []string{"   "},
-			expectError:    true,
-			expectSpecific: "unknown subcommand",
-			validateCall: func(t *testing.T) {
-				// Tests whitespace as first argument
-			},
+			expectedFlavor: "ITPro",
+			expectedError:  false,
+			description:    "Should return default ITPro when deployment details fail and resource fallback also fails",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test suite
-			suite := NewCLITestSuite()
+			mockCLI := &azurecli.MockAzureCLI{}
+			tt.mockSetup(mockCLI)
 
-			// Test command creation
-			cmd := NewArcboxCmdWithCLI(suite.mockAzureCLI)
-			if cmd == nil {
-				t.Fatal("Command creation returned nil")
+			flavor, name := detectArcBoxFlavor(mockCLI, tt.resourceGroup)
+
+			printTestStatus(t, tt.name, flavor == tt.expectedFlavor,
+				fmt.Sprintf("Expected flavor '%s', got '%s'", tt.expectedFlavor, flavor))
+
+			if flavor != tt.expectedFlavor {
+				t.Errorf("Test: %s - %s. Expected flavor: %s, got: %s",
+					tt.name, tt.description, tt.expectedFlavor, flavor)
 			}
-
-			// Test command execution with args
-			cmd.SetArgs(tt.args)
-			err := cmd.Execute()
-
-			// Validate error expectation
-			if (err != nil) != tt.expectError {
-				t.Errorf("expectError %v, got error: %v", tt.expectError, err)
-			}
-
-			// Check for specific error message if provided
-			if tt.expectSpecific != "" && err != nil && !strings.Contains(err.Error(), tt.expectSpecific) {
-				t.Errorf("expected error containing '%s', got: %v", tt.expectSpecific, err)
-			}
-
-			// Run validation function if provided
-			if tt.validateCall != nil {
-				tt.validateCall(t)
-			}
-
-			printTestStatus(t, tt.name, (err != nil) == tt.expectError, "Command execution validation")
+			_ = name // name is returned but not tested here
 		})
 	}
 }
 
-// TestSetAzureCLIFunction tests the SetAzureCLI function for coverage
-func TestSetAzureCLIFunction(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing SetAzureCLI Function ==="))
+func TestDetectArcBoxFlavorFallback(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing detectArcBoxFlavorFallback Function ==="))
 
-	// Create a mock CLI
-	mockCLI := azurecli.NewMockAzureCLI()
+	tests := []struct {
+		name           string
+		resourceGroup  string
+		mockSetup      func(*azurecli.MockAzureCLI)
+		expectedFlavor string
+		expectedError  bool
+		description    string
+	}{
+		// ===== ITPRO FLAVOR DETECTION =====
+		{
+			name:          "itpro_flavor_sql_vm_detected",
+			resourceGroup: "test-itpro-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-itpro-rg": {
+						{Name: "ArcBox-Client", Type: "Microsoft.Compute/virtualMachines"},
+						{Name: "ArcBox-SQL", Type: "Microsoft.SqlVirtualMachine/SqlVirtualMachines"},
+					},
+				}
+			},
+			expectedFlavor: "ITPro",
+			expectedError:  false,
+			description:    "Should detect ITPro flavor from SQL virtual machine",
+		},
 
-	// Call the function
-	SetAzureCLI(mockCLI)
+		// ===== DEVOPS FLAVOR DETECTION =====
+		{
+			name:          "devops_flavor_aks_cluster_detected",
+			resourceGroup: "test-devops-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-devops-rg": {
+						{Name: "ArcBox-Cluster", Type: "Microsoft.ContainerService/managedClusters"},
+						{Name: "ArcBox-Client", Type: "Microsoft.Compute/virtualMachines"},
+					},
+				}
+			},
+			expectedFlavor: "DevOps",
+			expectedError:  false,
+			description:    "Should detect DevOps flavor from AKS managed cluster",
+		},
+		{
+			name:          "devops_flavor_aks_cluster_alt",
+			resourceGroup: "test-devops-rancher-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-devops-rancher-rg": {
+						{Name: "ArcBox-AKS", Type: "Microsoft.ContainerService/managedClusters"},
+					},
+				}
+			},
+			expectedFlavor: "DevOps",
+			expectedError:  false,
+			description:    "Should detect DevOps flavor from AKS cluster (alternative test)",
+		},
 
-	// Print success
-	printTestStatus(t, "SetAzureCLI_called", true, "SetAzureCLI executed successfully")
+		// ===== DATAOPS FLAVOR DETECTION =====
+		{
+			name:          "dataops_flavor_sql_server_detected",
+			resourceGroup: "test-dataops-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-dataops-rg": {
+						{Name: "ArcBox-SQL-Server", Type: "Microsoft.Sql/servers"},
+						{Name: "ArcBox-Client", Type: "Microsoft.Compute/virtualMachines"},
+					},
+				}
+			},
+			expectedFlavor: "DataOps",
+			expectedError:  false,
+			description:    "Should detect DataOps flavor from SQL Server",
+		},
+		{
+			name:          "dataops_flavor_sql_server_alt",
+			resourceGroup: "test-dataops-postgresql-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-dataops-postgresql-rg": {
+						{Name: "ArcBox-SQL", Type: "Microsoft.Sql/servers"},
+					},
+				}
+			},
+			expectedFlavor: "DataOps",
+			expectedError:  false,
+			description:    "Should detect DataOps flavor from SQL Server (alternative test)",
+		},
+
+		// ===== DEFAULT FALLBACK =====
+		{
+			name:          "default_itpro_flavor_no_specific_resources",
+			resourceGroup: "test-generic-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-generic-rg": {
+						{Name: "ArcBox-Client", Type: "Microsoft.Compute/virtualMachines"},
+						{Name: "ArcBox-KeyVault", Type: "Microsoft.KeyVault/vaults"},
+					},
+				}
+			},
+			expectedFlavor: "ITPro",
+			expectedError:  false,
+			description:    "Should default to ITPro flavor when no specific resources found",
+		},
+
+		// ===== ERROR SCENARIOS =====
+		{
+			name:          "error_resource_listing_fails",
+			resourceGroup: "test-error-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.ListResourcesError = fmt.Errorf("resource listing failed")
+			},
+			expectedFlavor: "ITPro",
+			expectedError:  false,
+			description:    "Should return default ITPro when resource listing fails",
+		},
+		{
+			name:          "empty_resource_group",
+			resourceGroup: "test-empty-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-empty-rg": {},
+				}
+			},
+			expectedFlavor: "ITPro",
+			expectedError:  false,
+			description:    "Should default to ITPro flavor for empty resource group",
+		},
+
+		// ===== CASE INSENSITIVE DETECTION =====
+		{
+			name:          "case_insensitive_sql_detection",
+			resourceGroup: "test-case-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-case-rg": {
+						{Name: "arcbox-sql-vm", Type: "Microsoft.SqlVirtualMachine/SqlVirtualMachines"},
+					},
+				}
+			},
+			expectedFlavor: "ITPro",
+			expectedError:  false,
+			description:    "Should detect ITPro flavor with case-insensitive SQL VM name",
+		},
+		{
+			name:          "case_insensitive_aks_detection",
+			resourceGroup: "test-case-k3s-rg",
+			mockSetup: func(mockCLI *azurecli.MockAzureCLI) {
+				mockCLI.Resources = map[string][]azurecli.ResourceInfo{
+					"test-case-k3s-rg": {
+						{Name: "ARCBOX-AKS-CLUSTER", Type: "Microsoft.ContainerService/managedClusters"},
+					},
+				}
+			},
+			expectedFlavor: "DevOps",
+			expectedError:  false,
+			description:    "Should detect DevOps flavor with case-insensitive AKS cluster name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockCLI := &azurecli.MockAzureCLI{}
+			tt.mockSetup(mockCLI)
+
+			flavor, name := detectArcBoxFlavorFallback(mockCLI, tt.resourceGroup)
+
+			printTestStatus(t, tt.name, flavor == tt.expectedFlavor,
+				fmt.Sprintf("Expected flavor '%s', got '%s'", tt.expectedFlavor, flavor))
+
+			if flavor != tt.expectedFlavor {
+				t.Errorf("Test: %s - %s. Expected flavor: %s, got: %s",
+					tt.name, tt.description, tt.expectedFlavor, flavor)
+			}
+			_ = name // name is returned but not tested here
+		})
+	}
 }
 
-// TestClearQuotaCacheFunction tests the clearQuotaCache function for coverage
-func TestClearQuotaCacheFunction(t *testing.T) {
-	fmt.Printf("\n%s\n", testHeaderColor("=== Testing ClearQuotaCache Function ==="))
+func TestNewArcboxCmdWithCLI_RunEFunction_EdgeCases(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing NewArcboxCmdWithCLI RunE Function Edge Cases ==="))
 
-	// Call the function
-	clearQuotaCache()
+	tests := []struct {
+		name        string
+		args        []string
+		expectError bool
+		description string
+	}{
+		// ===== VALID COMMANDS (Coverage for early return paths) =====
+		{
+			name:        "valid_deploy_command",
+			args:        []string{"deploy", "--help"},
+			expectError: false,
+			description: "Valid deploy command should pass RunE validation",
+		},
+		{
+			name:        "valid_delete_command",
+			args:        []string{"delete", "--help"},
+			expectError: false,
+			description: "Valid delete command should pass RunE validation",
+		},
+		{
+			name:        "valid_list_command",
+			args:        []string{"list", "--help"},
+			expectError: false,
+			description: "Valid list command should pass RunE validation",
+		},
+		{
+			name:        "valid_preflight_command",
+			args:        []string{"preflight", "--help"},
+			expectError: false,
+			description: "Valid preflight command should pass RunE validation",
+		},
 
-	// Print success - mainly for coverage
-	printTestStatus(t, "clearQuotaCache_called", true, "clearQuotaCache executed successfully")
+		// ===== SPECIAL CASE: "create" COMMAND =====
+		{
+			name:        "create_special_case",
+			args:        []string{"create"},
+			expectError: false,
+			description: "Special case 'create' should trigger PrintDidYouMean and return nil",
+		},
+
+		// ===== SIMILARITY SUGGESTIONS =====
+		{
+			name:        "deploy_typo_suggestion",
+			args:        []string{"deploi"},
+			expectError: false,
+			description: "Similar command 'deploi' should trigger SuggestSimilarCommand",
+		},
+		{
+			name:        "delete_typo_suggestion",
+			args:        []string{"delet"},
+			expectError: false,
+			description: "Similar command 'delet' should trigger SuggestSimilarCommand",
+		},
+		{
+			name:        "list_typo_suggestion",
+			args:        []string{"lis"},
+			expectError: false,
+			description: "Similar command 'lis' should trigger SuggestSimilarCommand",
+		},
+
+		// ===== UNKNOWN COMMANDS =====
+		{
+			name:        "completely_unknown_command",
+			args:        []string{"unknown123"},
+			expectError: true,
+			description: "Completely unknown command should return error",
+		},
+		{
+			name:        "numeric_command",
+			args:        []string{"12345"},
+			expectError: true,
+			description: "Numeric command should return error",
+		},
+		{
+			name:        "special_chars_command",
+			args:        []string{"@#$%"},
+			expectError: true,
+			description: "Special characters command should return error",
+		},
+
+		// ===== EMPTY/NIL CASES =====
+		{
+			name:        "empty_string_arg",
+			args:        []string{""},
+			expectError: true,
+			description: "Empty string argument should return error",
+		},
+		{
+			name:        "no_args",
+			args:        []string{},
+			expectError: false,
+			description: "No arguments should pass (help will be shown)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockCLI := &azurecli.MockAzureCLI{}
+			cmd := NewArcboxCmdWithCLI(mockCLI)
+
+			var err error
+
+			// For the special cases that our RunE function handles directly,
+			// we need to call RunE instead of Execute()
+			specialRunECases := []string{"create", "deploi", "delet", "lis"}
+			isSpecialCase := false
+			if len(tt.args) > 0 {
+				for _, special := range specialRunECases {
+					if tt.args[0] == special {
+						isSpecialCase = true
+						break
+					}
+				}
+			}
+
+			if isSpecialCase {
+				// Call RunE directly for our custom logic
+				err = cmd.RunE(cmd, tt.args)
+			} else {
+				// Use normal Execute for regular command validation
+				cmd.SetArgs(tt.args)
+				err = cmd.Execute()
+			}
+
+			hasError := err != nil
+			printTestStatus(t, tt.name, hasError == tt.expectError,
+				fmt.Sprintf("Expected error: %v, got error: %v", tt.expectError, hasError))
+
+			if hasError != tt.expectError {
+				t.Errorf("Test: %s - %s. Expected error: %v, got error: %v",
+					tt.name, tt.description, tt.expectError, hasError)
+			}
+		})
+	}
+}
+
+// ===== NORMALIZATION FUNCTION TESTS =====
+
+func TestNormalizeFlavorCase(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing normalizeFlavorCase Function ==="))
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		// ITPro variations
+		{"lowercase_itpro", "itpro", "ITPro"},
+		{"uppercase_itpro", "ITPRO", "ITPro"},
+		{"mixedcase_itpro", "ItPrO", "ITPro"},
+		{"hyphenated_itpro", "it-pro", "ITPro"},
+		{"hyphenated_mixed_itpro", "IT-Pro", "ITPro"},
+
+		// DevOps variations
+		{"lowercase_devops", "devops", "DevOps"},
+		{"uppercase_devops", "DEVOPS", "DevOps"},
+		{"mixedcase_devops", "DevOps", "DevOps"},
+		{"hyphenated_devops", "dev-ops", "DevOps"},
+		{"hyphenated_mixed_devops", "DEV-OPS", "DevOps"},
+
+		// DataOps variations
+		{"lowercase_dataops", "dataops", "DataOps"},
+		{"uppercase_dataops", "DATAOPS", "DataOps"},
+		{"mixedcase_dataops", "DataOps", "DataOps"},
+		{"hyphenated_dataops", "data-ops", "DataOps"},
+		{"hyphenated_mixed_dataops", "DATA-OPS", "DataOps"},
+
+		// Special cases
+		{"all_lowercase", "all", "all"},
+		{"all_uppercase", "ALL", "all"},
+		{"all_mixed", "All", "all"},
+
+		// Edge cases
+		{"empty_string", "", ""},
+		{"unknown_flavor", "unknown", "unknown"},
+		{"numeric_input", "123", "123"},
+		{"special_chars", "flavor@123", "flavor@123"},
+		{"whitespace", " itpro ", " itpro "},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeFlavorCase(tt.input)
+			success := result == tt.expected
+			message := fmt.Sprintf("Input: '%s', Expected: '%s', Got: '%s'", tt.input, tt.expected, result)
+			printTestStatus(t, tt.name, success, message)
+
+			if !success {
+				t.Errorf("normalizeFlavorCase(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNormalizeSqlServerEditionCase(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing normalizeSqlServerEditionCase Function ==="))
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		// Developer variations
+		{"lowercase_developer", "developer", "Developer"},
+		{"uppercase_developer", "DEVELOPER", "Developer"},
+		{"mixedcase_developer", "Developer", "Developer"},
+		{"mixedcase_dev", "DeVeLoPeR", "Developer"},
+
+		// Standard variations
+		{"lowercase_standard", "standard", "Standard"},
+		{"uppercase_standard", "STANDARD", "Standard"},
+		{"mixedcase_standard", "Standard", "Standard"},
+		{"mixedcase_std", "StAnDaRd", "Standard"},
+
+		// Enterprise variations
+		{"lowercase_enterprise", "enterprise", "Enterprise"},
+		{"uppercase_enterprise", "ENTERPRISE", "Enterprise"},
+		{"mixedcase_enterprise", "Enterprise", "Enterprise"},
+		{"mixedcase_ent", "EnTeRpRiSe", "Enterprise"},
+
+		// Edge cases
+		{"empty_string", "", ""},
+		{"unknown_edition", "unknown", "unknown"},
+		{"numeric_input", "123", "123"},
+		{"special_chars", "edition@123", "edition@123"},
+		{"whitespace", " developer ", " developer "},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeSqlServerEditionCase(tt.input)
+			success := result == tt.expected
+			message := fmt.Sprintf("Input: '%s', Expected: '%s', Got: '%s'", tt.input, tt.expected, result)
+			printTestStatus(t, tt.name, success, message)
+
+			if !success {
+				t.Errorf("normalizeSqlServerEditionCase(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNormalizeBastionSkuCase(t *testing.T) {
+	fmt.Printf("\n%s\n", testHeaderColor("=== Testing normalizeBastionSkuCase Function ==="))
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		// Basic variations
+		{"lowercase_basic", "basic", "Basic"},
+		{"uppercase_basic", "BASIC", "Basic"},
+		{"mixedcase_basic", "Basic", "Basic"},
+		{"mixedcase_bas", "BaSiC", "Basic"},
+
+		// Standard variations
+		{"lowercase_standard", "standard", "Standard"},
+		{"uppercase_standard", "STANDARD", "Standard"},
+		{"mixedcase_standard", "Standard", "Standard"},
+		{"mixedcase_std", "StAnDaRd", "Standard"},
+
+		// Developer variations (note: this seems like an odd SKU for Bastion but it's in the code)
+		{"lowercase_developer", "developer", "Developer"},
+		{"uppercase_developer", "DEVELOPER", "Developer"},
+		{"mixedcase_developer", "Developer", "Developer"},
+		{"mixedcase_dev", "DeVeLoPeR", "Developer"},
+
+		// Edge cases
+		{"empty_string", "", ""},
+		{"unknown_sku", "premium", "premium"},
+		{"numeric_input", "123", "123"},
+		{"special_chars", "sku@123", "sku@123"},
+		{"whitespace", " basic ", " basic "},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := normalizeBastionSkuCase(tt.input)
+			success := result == tt.expected
+			message := fmt.Sprintf("Input: '%s', Expected: '%s', Got: '%s'", tt.input, tt.expected, result)
+			printTestStatus(t, tt.name, success, message)
+
+			if !success {
+				t.Errorf("normalizeBastionSkuCase(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
 }

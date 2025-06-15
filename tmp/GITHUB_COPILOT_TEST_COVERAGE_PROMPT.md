@@ -50,7 +50,7 @@ The refactoring has established new testing patterns that should be used going f
 
 **GO CLI TEST COVERAGE IMPROVEMENT**
 
-**TARGET**: [Replace with specific function/file: `cmd/arcbox/arcbox.go`, `internal/utils/utils.go`, single test file]
+**TARGET**: `cmd/arcbox/arcbox.go`
 
 **CONTEXT**: Improve Go CLI test coverage using proven methodology. **WORK IN SMALL INCREMENTS** - focus on 1-2 functions or single test file at a time for best results.
 

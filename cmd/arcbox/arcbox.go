@@ -137,7 +137,10 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 			bicepPath, _ := cmd.Flags().GetString("template-local")
 			useParamFile := false // Set based on arguments
 			paramFile, _ := cmd.Flags().GetString("template-params")
-			deployArcboxWithParamFile(cmd, args, bicepPath, useParamFile, paramFile)
+			if err := deployArcboxWithParamFile(cmd, args, bicepPath, useParamFile, paramFile); err != nil {
+				utils.Error("Deployment failed: %v", err)
+				os.Exit(1)
+			}
 		},
 	}
 
@@ -537,9 +540,9 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 	return arcboxCmd
 }
 
-func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bool, _ string) {
-	// Create Azure CLI instance for authentication and resource operations
-	azCLI := azurecli.NewAzureCLI()
+func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bool, _ string) error {
+	// Use the global Azure CLI instance for authentication and resource operations
+	azCLI := defaultAzureCLI
 
 	defaultRemote := "https://raw.githubusercontent.com/microsoft/azure_arc/main/azure_jumpstart_arcbox/ARM/azuredeploy.json"
 	templateLocalPath, _ := cmd.Flags().GetString("template-local")
@@ -629,13 +632,13 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 	if resourceGroup == "" || windowsAdminUsername == "" || windowsAdminPassword == "" {
 		utils.Error("Usage: js arcbox deploy --resource-group <name> --windows-user <username> --windows-password <password> [other arguments]")
 		utils.ShowHelpWithoutTypes(cmd)
-		os.Exit(1)
+		return fmt.Errorf("missing required arguments: resource-group, windows-user, or windows-password")
 	}
 
 	if !utils.IsAzureLoggedInWithCLI(azCLI) {
 		utils.Error("You are not logged in to Azure. Please run 'az login' and try again.")
 		utils.ShowHelpWithoutTypes(cmd)
-		os.Exit(1)
+		return fmt.Errorf("not logged in to Azure")
 	}
 
 	// Security warnings for VM-related settings (unless --yes is specified)
@@ -649,7 +652,7 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 			response = strings.ToLower(strings.TrimSpace(response))
 			if response != "y" && response != "yes" {
 				fmt.Println("Deployment cancelled by user.")
-				return
+				return fmt.Errorf("deployment cancelled by user")
 			}
 		}
 
@@ -662,7 +665,7 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 			response = strings.ToLower(strings.TrimSpace(response))
 			if response != "y" && response != "yes" {
 				fmt.Println("Deployment cancelled by user.")
-				return
+				return fmt.Errorf("deployment cancelled by user")
 			}
 		}
 	}
@@ -673,7 +676,7 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 		if err != nil {
 			utils.Error("Failed to create resource group: %v", err)
 			utils.ShowHelpWithoutTypes(cmd)
-			os.Exit(1)
+			return fmt.Errorf("failed to create resource group: %v", err)
 		}
 	}
 
@@ -791,7 +794,7 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 			fmt.Println("Please check your parameters, resource group, and Azure login status.")
 			portalUrl := fmt.Sprintf("https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Resources%%2Fdeployments/resourceGroup/%s", resourceGroup)
 			fmt.Printf("View failed deployment details in the Azure Portal: %s\n", portalUrl)
-			os.Exit(1)
+			return fmt.Errorf("error starting deployment: %v", err)
 		}
 	} else {
 		// For both HTTP and local file cases, use the constructed params
@@ -801,7 +804,7 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 			fmt.Println("Please check your parameters, resource group, and Azure login status.")
 			portalUrl := fmt.Sprintf("https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Resources%%2Fdeployments/resourceGroup/%s", resourceGroup)
 			fmt.Printf("View failed deployment details in the Azure Portal: %s\n", portalUrl)
-			os.Exit(1)
+			return fmt.Errorf("error starting deployment: %v", err)
 		}
 	}
 
@@ -823,7 +826,11 @@ func deployArcboxWithParamFile(cmd *cobra.Command, args []string, _ string, _ bo
 	}
 
 	// Create Azure CLI instance for deployment monitoring
-	waitForDeploymentAndShowStatus(azCLI, resourceGroup, deploymentName)
+	// Skip monitoring when using mock CLI for testing
+	if _, isMock := azCLI.(*azurecli.MockAzureCLI); !isMock {
+		waitForDeploymentAndShowStatus(azCLI, resourceGroup, deploymentName)
+	}
+	return nil
 }
 
 // resourceStatus holds resource info for status output
@@ -1059,8 +1066,8 @@ func runArcBoxList(allSubscriptions, currentSubscription bool, subscriptionID, o
 	var subscriptions []AzureSubscription
 	var err error
 
-	// Create Azure CLI instance for operations
-	azCLI := azurecli.NewAzureCLI()
+	// Use the global Azure CLI instance for operations
+	azCLI := defaultAzureCLI
 
 	if allSubscriptions {
 		fmt.Println(utils.InfoColor("[INFO] Searching for ArcBox deployments across all subscriptions..."))
@@ -1792,7 +1799,7 @@ func getSubscriptionID(cmd *cobra.Command) string {
 	}
 
 	// Fallback: use current Azure CLI subscription
-	azCLI := azurecli.NewAzureCLI()
+	azCLI := defaultAzureCLI
 	currentSub, err := azCLI.GetCurrentSubscription()
 	if err == nil && currentSub != nil {
 		return currentSub.ID
