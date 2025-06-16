@@ -13,7 +13,7 @@ import (
 )
 
 // createDeployCommand creates the deploy command with the provided deployment service
-func createDeployCommand(deployService *services.DeploymentService, cli interface{}) *cobra.Command {
+func createDeployCommand(deployService *services.DeploymentService, validationService *services.ValidationService, cli interface{}) *cobra.Command {
 	var arcboxDeployCmd = &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy a new Jumpstart ArcBox deployment",

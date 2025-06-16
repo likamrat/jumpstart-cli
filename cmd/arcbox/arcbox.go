@@ -33,6 +33,7 @@ func NewArcboxCmdWithCLI(cli azurecli.AzureCLI) *cobra.Command {
 	deletionService := services.NewDeletionService(cli)
 	listingService := services.NewListingService(cli)
 	quotaService := services.NewQuotaService(cli)
+	validationService := services.NewValidationService(cli)
 
 	// Create main command
 	arcboxCmd := &cobra.Command{
@@ -86,10 +87,10 @@ Use 'js arcbox <subcommand> --help' for more details.`,
 	}
 
 	// Add subcommands using extracted functions
-	arcboxCmd.AddCommand(createDeployCommand(deploymentService, cli))
+	arcboxCmd.AddCommand(createDeployCommand(deploymentService, validationService, cli))
 	arcboxCmd.AddCommand(createDeleteCommand(deletionService, cli))
 	arcboxCmd.AddCommand(createListCommand(listingService, cli))
-	arcboxCmd.AddCommand(createPreflightCommand(quotaService, cli))
+	arcboxCmd.AddCommand(createPreflightCommand(quotaService, validationService, cli))
 
 	return arcboxCmd
 }

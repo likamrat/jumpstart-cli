@@ -13,7 +13,7 @@ import (
 )
 
 // createPreflightCommand creates the preflight command with all its subcommands
-func createPreflightCommand(quotaService *services.QuotaService, cli azurecli.AzureCLI) *cobra.Command {
+func createPreflightCommand(quotaService *services.QuotaService, validationService *services.ValidationService, cli azurecli.AzureCLI) *cobra.Command {
 	var arcboxPreflightCmd = &cobra.Command{
 		Use:   "preflight",
 		Short: "Run preflight checks for ArcBox deployment",
