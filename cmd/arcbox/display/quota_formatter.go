@@ -89,6 +89,63 @@ func (qd *QuotaDisplay) RunQuotaChecksWithTable(cli azurecli.AzureCLI, cmd *cobr
 	return allPassed
 }
 
+// RunQuotaChecksWithSubscription performs detailed quota checking and returns results using a direct subscription ID
+// Returns (allPassed bool, results []map[string]interface{})
+func (qd *QuotaDisplay) RunQuotaChecksWithSubscription(cli azurecli.AzureCLI, location, flavor string, subscriptionID string) (bool, []map[string]interface{}) {
+	// Normalize flavor and validate
+	flavor = arcboxUtils.NormalizeFlavorCase(flavor)
+
+	if subscriptionID == "" {
+		if utils.OutputFormat == "table" {
+			fmt.Println(utils.ErrorColor("❌ [ERROR] Unable to get subscription ID. Please ensure Azure CLI is authenticated."))
+		}
+		return false, nil
+	}
+
+	if utils.OutputFormat == "table" {
+		fmt.Printf(utils.InfoColor("🔍 Checking vCPU quota and SKU availability for %s flavor...\n"), flavor)
+	}
+
+	// Use the new preflight quota checking functionality
+	quotaResults, err := arcbox.RunQuotaChecks(cli, location, flavor, subscriptionID)
+	if err != nil {
+		if utils.OutputFormat == "table" {
+			fmt.Printf(utils.ErrorColor("❌ [ERROR] Failed to check quota: %v\n"), err)
+		}
+		return false, nil
+	}
+
+	// Convert to map format for flexible output
+	var results []map[string]interface{}
+	allPassed := true
+
+	for _, result := range quotaResults {
+		// Set deployment status
+		if !result.CanDeploy {
+			allPassed = false
+		}
+
+		resultMap := map[string]interface{}{
+			"Flavor":    flavor,
+			"Location":  utils.GetRegionDisplayName(location),
+			"SKU":       result.SKU,
+			"Available": result.Available,
+			"Limit":     result.Limit,
+			"Required":  result.Required,
+			"CanDeploy": result.CanDeploy,
+			"Details":   result.Details,
+		}
+		results = append(results, resultMap)
+	}
+
+	// For table format, print the table immediately
+	if utils.OutputFormat == "table" {
+		qd.printQuotaTable(quotaResults, flavor, location, allPassed)
+	}
+
+	return allPassed, results
+}
+
 // printQuotaTable prints the quota results in table format
 func (qd *QuotaDisplay) printQuotaTable(quotaResults []arcbox.QuotaCheckResult, flavor, location string, allPassed bool) {
 	headers := []string{"ArcBox Flavor", "Location", "SKU", "vCPU Quota (Available/Limit)", "Required vCPU", "Can Deploy ArcBox?", "Details"}

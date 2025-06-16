@@ -2,6 +2,8 @@ package arcbox
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"jumpstartcli/cmd/arcbox/services"
 	"jumpstartcli/internal/azurecli"
@@ -59,7 +61,20 @@ func createPreflightCommand(quotaService *services.QuotaService, validationServi
 ` + examples.GetExamples("arcbox.preflight.quota").FormatExamples(),
 		Run: func(cmd *cobra.Command, args []string) {
 			// Use the quota service to run the command
-			quotaService.RunQuotaCheckCommand(cmd, args)
+			if err := quotaService.RunQuotaCheckCommand(cmd, args); err != nil {
+				// Handle specific error types with appropriate help text
+				errorMessage := err.Error()
+				if strings.Contains(errorMessage, "missing required argument") ||
+					strings.Contains(errorMessage, "must specify either") ||
+					strings.Contains(errorMessage, "cannot specify both") ||
+					strings.Contains(errorMessage, "location validation failed") {
+					fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n\n"), err)
+					utils.ShowHelpWithoutTypes(cmd)
+				} else {
+					fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
+				}
+				os.Exit(1)
+			}
 		},
 	}
 	arcboxPreflightQuotaCmd.Flags().StringP("flavor", "f", "", "ArcBox flavor to check (ITPro, DevOps, DataOps, all)")

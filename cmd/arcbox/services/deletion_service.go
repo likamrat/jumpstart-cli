@@ -26,15 +26,11 @@ func (d *DeletionService) DeleteDeployment(resourceGroupName, subscription strin
 	// Check if resource group exists
 	rgExists, err := arcboxUtils.CheckResourceGroupExists(d.cli, resourceGroupName, subscription)
 	if err != nil {
-		utils.Error("Unable to check resource group '%s': %v", resourceGroupName, err)
-		utils.Error("Please verify Azure CLI authentication and subscription access.")
-		return fmt.Errorf("failed to check resource group existence: %w", err)
+		return fmt.Errorf("resource group existence check failed for '%s': please verify Azure CLI authentication and subscription access: %w", resourceGroupName, err)
 	}
 
 	if !rgExists {
-		utils.Error("Resource group '%s' does not exist or you don't have access to it.", resourceGroupName)
-		utils.Error("Please check the resource group name and your Azure permissions.")
-		return fmt.Errorf("resource group '%s' does not exist", resourceGroupName)
+		return fmt.Errorf("resource group '%s' does not exist or is not accessible: please check the resource group name and your Azure permissions", resourceGroupName)
 	}
 
 	// Confirmation prompt (unless --yes is specified)
@@ -56,9 +52,7 @@ func (d *DeletionService) DeleteDeployment(resourceGroupName, subscription strin
 	// Use Azure CLI wrapper to delete the resource group
 	err = d.cli.DeleteResourceGroup(resourceGroupName, true)
 	if err != nil {
-		utils.Error("Failed to delete resource group '%s': %v", resourceGroupName, err)
-		utils.Error("Please check the Azure Portal for more details.")
-		return fmt.Errorf("failed to delete resource group: %w", err)
+		return fmt.Errorf("resource group deletion failed for '%s': check the Azure Portal for more details: %w", resourceGroupName, err)
 	}
 
 	fmt.Printf(utils.SuccessColor("✅ Successfully initiated deletion of resource group '%s'.\n"), resourceGroupName)

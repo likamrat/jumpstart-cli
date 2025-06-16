@@ -3,10 +3,10 @@ package arcbox
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"jumpstartcli/cmd/arcbox/services"
 	"jumpstartcli/internal/examples"
-	"jumpstartcli/internal/preflight/arcbox"
 	"jumpstartcli/internal/utils"
 
 	"github.com/spf13/cobra"
@@ -14,6 +14,9 @@ import (
 
 // createDeployCommand creates the deploy command with the provided deployment service
 func createDeployCommand(deployService *services.DeploymentService, validationService *services.ValidationService, cli interface{}) *cobra.Command {
+	// Create the deploy validation service
+	deployValidationService := services.NewDeployValidationService()
+
 	var arcboxDeployCmd = &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy a new Jumpstart ArcBox deployment",
@@ -25,31 +28,16 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 
 ` + examples.GetExamples("arcbox.deploy").FormatExamples(),
 		Run: func(cmd *cobra.Command, args []string) {
-			// Validate ALL flags first (before any other operations)
-			if err := utils.ValidateAllFlags(cmd); err != nil {
-				os.Exit(1)
-			}
-
-			requiredArguments := []string{"location", "resource-group", "windows-user", "flavor"}
-			utils.PrintMissingRequiredArgumentsError(cmd, requiredArguments)
-
-			// Validate conditional requirements (before preflight checks)
-			if !arcbox.ValidateConditionalRequirements(cmd) {
-				os.Exit(1)
-			}
-
-			// Check if preflight checks should be skipped
-			skipPreflight := utils.GetBooleanFlagValue(cmd, "skip-pre-flight")
-			if skipPreflight {
-				fmt.Println(utils.WarnColor("⚠️  [WARNING] Preflight checks have been skipped. Deployment may fail if prerequisites are not met."))
-			} else {
-				// Run comprehensive preflight checks including parameter validation
-				if !arcbox.RunArcBoxPreflightChecks(cmd) {
-					fmt.Println(utils.ErrorColor("❌ [ERROR] Preflight checks failed. Please resolve the issues above before proceeding."))
-					fmt.Println(utils.InfoColor("💡 [TIP] You can use --skip-preflight to bypass these checks (not recommended)."))
-					os.Exit(1)
+			// Run all validation checks using the service layer
+			if result := deployValidationService.ValidateAllDeployRequirements(cmd); !result.IsValid {
+				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), result.Error)
+				errorMessage := result.Error.Error()
+				if strings.Contains(errorMessage, "preflight checks failed") {
+					fmt.Println(utils.ErrorColor("💡 [TIP] You can use --skip-preflight to bypass these checks (not recommended)."))
+				} else if strings.Contains(errorMessage, "missing required arguments") {
+					fmt.Println(utils.InfoColor("💡 [TIP] Use 'js arcbox deploy --help' to see all required arguments."))
 				}
-				// Success message is already printed by PrintResults() in the validation engine
+				os.Exit(1)
 			}
 
 			bicepPath, _ := cmd.Flags().GetString("template-local")
@@ -58,7 +46,7 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 
 			// Use the provided deployment service
 			if err := deployService.Deploy(cmd, args, bicepPath, useParamFile, paramFile); err != nil {
-				utils.Error("Deployment failed: %v", err)
+				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
 				os.Exit(1)
 			}
 		},

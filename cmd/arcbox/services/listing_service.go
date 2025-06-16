@@ -85,7 +85,7 @@ func (s *ListingService) ListDeployments(allSubscriptions, currentSubscription b
 func (s *ListingService) getAllSubscriptions() ([]models.AzureSubscription, error) {
 	subs, err := s.cli.ListSubscriptions()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list subscriptions: %v", err)
+		return nil, fmt.Errorf("subscription listing failed: %w", err)
 	}
 
 	// Convert Azure CLI subscriptions to our model
@@ -103,7 +103,7 @@ func (s *ListingService) getAllSubscriptions() ([]models.AzureSubscription, erro
 func (s *ListingService) getCurrentSubscription() (models.AzureSubscription, error) {
 	sub, err := s.cli.GetCurrentSubscription()
 	if err != nil {
-		return models.AzureSubscription{}, fmt.Errorf("failed to get current subscription: %v", err)
+		return models.AzureSubscription{}, fmt.Errorf("current subscription lookup failed: %w", err)
 	}
 
 	return models.AzureSubscription{ID: sub.ID, Name: sub.Name}, nil
@@ -113,7 +113,7 @@ func (s *ListingService) getCurrentSubscription() (models.AzureSubscription, err
 func (s *ListingService) GetSubscription(subscriptionID string) (models.AzureSubscription, error) {
 	sub, err := s.cli.GetSubscription(subscriptionID)
 	if err != nil {
-		return models.AzureSubscription{}, fmt.Errorf("failed to get subscription %s: %v", subscriptionID, err)
+		return models.AzureSubscription{}, fmt.Errorf("subscription lookup failed for %s: %w", subscriptionID, err)
 	}
 
 	return models.AzureSubscription{ID: sub.ID, Name: sub.Name}, nil
@@ -123,13 +123,13 @@ func (s *ListingService) GetSubscription(subscriptionID string) (models.AzureSub
 func (s *ListingService) discoverArcBoxDeployments(azCLI azurecli.AzureCLI, subscriptionID, subscriptionName string) ([]models.ArcBoxDeployment, error) {
 	// Set subscription context
 	if err := arcboxUtils.SetAzureSubscription(azCLI, subscriptionID); err != nil {
-		return nil, fmt.Errorf("failed to set subscription context: %v", err)
+		return nil, fmt.Errorf("subscription context setup failed for %s: %w", subscriptionID, err)
 	}
 
 	// Get all resource groups using Azure CLI wrapper
 	resourceGroups, err := azCLI.ListResourceGroups()
 	if err != nil {
-		return nil, fmt.Errorf("failed to list resource groups: %v", err)
+		return nil, fmt.Errorf("resource group listing failed for subscription %s: %w", subscriptionID, err)
 	}
 
 	// Pre-filter resource groups to exclude obvious non-ArcBox ones

@@ -117,15 +117,11 @@ func (s *DeploymentService) Deploy(cmd *cobra.Command, args []string, templateSp
 	}
 
 	if resourceGroup == "" || windowsAdminUsername == "" || windowsAdminPassword == "" {
-		utils.Error("Usage: js arcbox deploy --resource-group <n> --windows-user <username> --windows-password <password> [other arguments]")
-		utils.ShowHelpWithoutTypes(cmd)
-		return fmt.Errorf("missing required arguments: resource-group, windows-user, or windows-password")
+		return fmt.Errorf("deployment requires resource-group, windows-user, and windows-password arguments")
 	}
 
 	if !utils.IsAzureLoggedInWithCLI(s.azureCLI) {
-		utils.Error("You are not logged in to Azure. Please run 'az login' and try again.")
-		utils.ShowHelpWithoutTypes(cmd)
-		return fmt.Errorf("not logged in to Azure")
+		return fmt.Errorf("azure authentication required: not logged in (please run 'az login' and try again)")
 	}
 
 	// Security warnings for VM-related settings (unless --yes is specified)
@@ -139,7 +135,7 @@ func (s *DeploymentService) Deploy(cmd *cobra.Command, args []string, templateSp
 			response = strings.ToLower(strings.TrimSpace(response))
 			if response != "y" && response != "yes" {
 				fmt.Println("Deployment cancelled by user.")
-				return fmt.Errorf("deployment cancelled by user")
+				return fmt.Errorf("deployment cancelled: user declined VM autologon warning")
 			}
 		}
 
@@ -152,7 +148,7 @@ func (s *DeploymentService) Deploy(cmd *cobra.Command, args []string, templateSp
 			response = strings.ToLower(strings.TrimSpace(response))
 			if response != "y" && response != "yes" {
 				fmt.Println("Deployment cancelled by user.")
-				return fmt.Errorf("deployment cancelled by user")
+				return fmt.Errorf("deployment cancelled: user declined auto-shutdown warning")
 			}
 		}
 	}
@@ -161,9 +157,7 @@ func (s *DeploymentService) Deploy(cmd *cobra.Command, args []string, templateSp
 		utils.Info("Resource group '%s' does not exist. Creating it...", resourceGroup)
 		err := utils.CreateResourceGroupWithCLI(s.azureCLI, resourceGroup, location)
 		if err != nil {
-			utils.Error("Failed to create resource group: %v", err)
-			utils.ShowHelpWithoutTypes(cmd)
-			return fmt.Errorf("failed to create resource group: %v", err)
+			return fmt.Errorf("resource group creation failed for %s: %w", resourceGroup, err)
 		}
 	}
 
@@ -277,21 +271,15 @@ func (s *DeploymentService) Deploy(cmd *cobra.Command, args []string, templateSp
 		// but params will be empty since they're in the file
 		err := s.azureCLI.CreateDeployment(resourceGroup, deploymentName, bicepPath, []string{"@" + paramFile}, true)
 		if err != nil {
-			utils.Error("Error starting az deployment: %v", err)
-			fmt.Println("Please check your parameters, resource group, and Azure login status.")
 			portalUrl := fmt.Sprintf("https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Resources%%2Fdeployments/resourceGroup/%s", resourceGroup)
-			fmt.Printf("View failed deployment details in the Azure Portal: %s\n", portalUrl)
-			return fmt.Errorf("error starting deployment: %v", err)
+			return fmt.Errorf("deployment creation failed for resource group %s: check parameters, resource group, and Azure login status (view details: %s): %w", resourceGroup, portalUrl, err)
 		}
 	} else {
 		// For both HTTP and local file cases, use the constructed params
 		err := s.azureCLI.CreateDeployment(resourceGroup, deploymentName, bicepPath, params, true) // noWait = true
 		if err != nil {
-			utils.Error("Error starting az deployment: %v", err)
-			fmt.Println("Please check your parameters, resource group, and Azure login status.")
 			portalUrl := fmt.Sprintf("https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Resources%%2Fdeployments/resourceGroup/%s", resourceGroup)
-			fmt.Printf("View failed deployment details in the Azure Portal: %s\n", portalUrl)
-			return fmt.Errorf("error starting deployment: %v", err)
+			return fmt.Errorf("deployment creation failed for resource group %s: check parameters, resource group, and Azure login status (view details: %s): %w", resourceGroup, portalUrl, err)
 		}
 	}
 

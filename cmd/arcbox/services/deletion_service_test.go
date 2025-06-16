@@ -62,7 +62,7 @@ func TestDeletionService_DeleteDeployment(t *testing.T) {
 			rgExistsError:        fmt.Errorf("authentication error"),
 			deleteError:          nil,
 			expectedError:        true,
-			expectedErrorMessage: "failed to check resource group existence",
+			expectedErrorMessage: "resource group existence check failed",
 		},
 		{
 			name:                 "deletion_fails",
@@ -73,7 +73,7 @@ func TestDeletionService_DeleteDeployment(t *testing.T) {
 			rgExistsError:        nil,
 			deleteError:          fmt.Errorf("deletion failed"),
 			expectedError:        true,
-			expectedErrorMessage: "failed to delete resource group",
+			expectedErrorMessage: "resource group deletion failed",
 		},
 	}
 
@@ -183,7 +183,7 @@ func TestDeletionService_ErrorHandling(t *testing.T) {
 				mockCli.CheckResourceGroupExistsError = fmt.Errorf("az command not found")
 			},
 			expectError:  true,
-			errorPattern: "failed to check resource group existence",
+			errorPattern: "resource group existence check failed",
 		},
 		{
 			name: "invalid_subscription",
@@ -191,7 +191,7 @@ func TestDeletionService_ErrorHandling(t *testing.T) {
 				mockCli.CheckResourceGroupExistsError = fmt.Errorf("subscription not found")
 			},
 			expectError:  true,
-			errorPattern: "failed to check resource group existence",
+			errorPattern: "resource group existence check failed",
 		},
 	}
 

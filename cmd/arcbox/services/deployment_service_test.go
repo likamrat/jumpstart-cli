@@ -306,7 +306,7 @@ func TestDeploymentService_ErrorHandling(t *testing.T) {
 			flags: map[string]string{
 				"location": "eastus",
 			},
-			expectedError: "missing required arguments",
+			expectedError: "deployment requires resource-group, windows-user, and windows-password",
 		},
 	}
 

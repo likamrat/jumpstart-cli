@@ -28,61 +28,25 @@ Requires explicit subscription selection: --current-subscription, --all-subscrip
 
 ` + examples.GetExamples("arcbox.list").FormatExamples(),
 		Run: func(cmd *cobra.Command, args []string) {
-			// Validate Azure CLI is logged in
-			if !utils.IsAzureLoggedInWithCLI(cli) {
-				utils.Error("You are not logged in to Azure. Please run 'az login' and try again.")
+			// Create validation service
+			validationService := services.NewListValidationService(cli)
+
+			// Run all validations
+			result := validationService.ValidateAllListRequirements(cmd, listingService)
+			if !result.IsValid {
+				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), result.Error)
 				utils.ShowHelpWithoutTypes(cmd)
 				os.Exit(1)
 			}
 
+			// Extract command flags
 			allSubscriptions, _ := cmd.Flags().GetBool("all-subscriptions")
 			currentSubscription, _ := cmd.Flags().GetBool("current-subscription")
 			subscription, _ := cmd.Flags().GetString("subscription")
 
-			// Check if any subscription selection flag is provided
-			flagCount := 0
-			if allSubscriptions {
-				flagCount++
-			}
-			if currentSubscription {
-				flagCount++
-			}
-			if subscription != "" {
-				flagCount++
-			}
-
-			// If no subscription selection flag is provided, show help (like arcbox deploy does for required args)
-			if flagCount == 0 {
-				fmt.Fprintf(os.Stderr, "%s\n\n", utils.ErrorColor("please specify a subscription selection flag: --current-subscription, --all-subscriptions, or --subscription <id>"))
-				utils.ShowHelpWithoutTypes(cmd)
-				os.Exit(1)
-			}
-
-			// Validate flag combinations - prevent contradictory flags
-			if flagCount > 1 {
-				utils.Error("Cannot use multiple subscription selection flags together. Choose one of: --all-subscriptions, --current-subscription, or --subscription")
-				utils.ShowHelpWithoutTypes(cmd)
-				os.Exit(1)
-			}
-
-			// Validate output format
-			if !utils.ValidateOutputFormat(utils.OutputFormat) {
-				utils.Error("Invalid output format '%s'. Valid formats are: table, json, yaml, tsv", utils.OutputFormat)
-				utils.ShowHelpWithoutTypes(cmd)
-				os.Exit(1)
-			}
-
-			// Validate subscription access if specific subscription is provided
-			if subscription != "" {
-				if _, err := listingService.GetSubscription(subscription); err != nil {
-					utils.Error("Cannot access subscription '%s'. Please verify the subscription ID and your permissions.", subscription)
-					os.Exit(1)
-				}
-			}
-
 			// Use the listing service to handle the list operation
 			if err := listingService.ListDeployments(allSubscriptions, currentSubscription, subscription, utils.OutputFormat); err != nil {
-				utils.Error("Failed to list ArcBox deployments: %v", err)
+				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
 				os.Exit(1)
 			}
 		},

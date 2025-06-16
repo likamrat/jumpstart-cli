@@ -3,7 +3,6 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"jumpstartcli/cmd/arcbox/display"
@@ -48,31 +47,21 @@ func (q *QuotaService) GetFlavorSKUs(flavor string) []string {
 	}
 }
 
-// RunQuotaCheckCommand runs the quota check command logic
-func (q *QuotaService) RunQuotaCheckCommand(cmd *cobra.Command, args []string) {
-	// Get flag values
-	locationFlag, _ := cmd.Flags().GetString("location")
-	allLocations, _ := cmd.Flags().GetBool("all-locations")
-	selectedFlavor, _ := cmd.Flags().GetString("flavor")
+// CheckQuota performs quota validation and returns structured results and errors
+func (q *QuotaService) CheckQuota(locationFlag string, allLocations bool, selectedFlavor string, subscriptionID string) ([]map[string]interface{}, error) {
 	selectedFlavor = strings.TrimSpace(selectedFlavor)
 
 	// Validate required arguments - either location or all-locations must be specified
 	if selectedFlavor == "" {
-		fmt.Print(utils.ErrorColor("❌ [ERROR] Missing required argument: --flavor/-f\n\n"))
-		utils.ShowHelpWithoutTypes(cmd)
-		os.Exit(1)
+		return nil, fmt.Errorf("required argument missing: --flavor flag must specify an ArcBox flavor")
 	}
 
 	if locationFlag == "" && !allLocations {
-		fmt.Print(utils.ErrorColor("❌ [ERROR] Must specify either --location/-l or --all-locations\n\n"))
-		utils.ShowHelpWithoutTypes(cmd)
-		os.Exit(1)
+		return nil, fmt.Errorf("location specification required: specify either --location or --all-locations")
 	}
 
 	if locationFlag != "" && allLocations {
-		fmt.Print(utils.ErrorColor("❌ [ERROR] Cannot specify both --location and --all-locations\n\n"))
-		utils.ShowHelpWithoutTypes(cmd)
-		os.Exit(1)
+		return nil, fmt.Errorf("conflicting location flags: cannot specify both --location and --all-locations")
 	}
 
 	// Get and validate locations early
@@ -81,8 +70,7 @@ func (q *QuotaService) RunQuotaCheckCommand(cmd *cobra.Command, args []string) {
 		// Load all supported ArcBox regions
 		var supportedRegions []string
 		if err := json.Unmarshal(regions.ArcboxSupportedRegionsData, &supportedRegions); err != nil {
-			fmt.Printf(utils.ErrorColor("❌ [ERROR] Failed to load supported regions: %v\n"), err)
-			os.Exit(1)
+			return nil, fmt.Errorf("supported regions loading failed for quota check: unable to access ArcBox region configuration: %w", err)
 		}
 
 		// Convert display names to normalized names
@@ -102,9 +90,7 @@ func (q *QuotaService) RunQuotaCheckCommand(cmd *cobra.Command, args []string) {
 
 	// Validate locations immediately
 	if err := arcboxUtils.ValidateLocations(locations); err != nil {
-		fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
-		utils.ShowHelpWithoutTypes(cmd)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to validate locations for flavor '%s': %w", selectedFlavor, err)
 	}
 
 	// Run quota checks for each location with configurable output format
@@ -120,22 +106,34 @@ func (q *QuotaService) RunQuotaCheckCommand(cmd *cobra.Command, args []string) {
 		// Create quota display
 		quotaDisplay := display.NewQuotaDisplay()
 
-		if len(locations) > 1 && utils.OutputFormat == "table" {
-			fmt.Printf(utils.InfoColor("\n📍 Checking location %d/%d: %s (%s)\n"), i+1, len(locations), location, utils.GetRegionDisplayName(location))
-		}
-
-		// Use the new quota checking with Azure CLI wrapper
-		locationPassed, results := quotaDisplay.RunQuotaChecksWithOutput(q.cli, cmd, location, selectedFlavor, arcboxUtils.GetSubscriptionID)
+		// Use the new quota checking with Azure CLI wrapper, passing subscription ID directly
+		locationPassed, results := quotaDisplay.RunQuotaChecksWithSubscription(q.cli, location, selectedFlavor, subscriptionID)
 		allResults = append(allResults, results...)
 
 		if !locationPassed {
 			allPassed = false
-			if len(locations) > 1 && utils.OutputFormat == "table" {
-				fmt.Printf(utils.ErrorColor("❌ Location %s failed quota validation\n"), location)
-			}
-		} else if len(locations) > 1 && utils.OutputFormat == "table" {
-			fmt.Printf(utils.SuccessColor("✅ Location %s passed quota validation\n"), location)
 		}
+	}
+
+	if !allPassed {
+		return allResults, fmt.Errorf("quota validation failed for flavor '%s': insufficient vCPU quota in one or more locations", selectedFlavor)
+	}
+
+	return allResults, nil
+}
+
+// RunQuotaCheckCommand runs the quota check command logic
+func (q *QuotaService) RunQuotaCheckCommand(cmd *cobra.Command, args []string) error {
+	// Get flag values
+	locationFlag, _ := cmd.Flags().GetString("location")
+	allLocations, _ := cmd.Flags().GetBool("all-locations")
+	selectedFlavor, _ := cmd.Flags().GetString("flavor")
+	subscriptionID := arcboxUtils.GetSubscriptionID(cmd, q.cli)
+
+	// Run quota checks using the service method
+	allResults, err := q.CheckQuota(locationFlag, allLocations, selectedFlavor, subscriptionID)
+	if err != nil {
+		return fmt.Errorf("quota check failed: %w", err)
 	}
 
 	// Handle non-table output formats
@@ -164,22 +162,13 @@ func (q *QuotaService) RunQuotaCheckCommand(cmd *cobra.Command, args []string) {
 		}
 
 		if err := utils.PrintOutput(allResults, headers, rows); err != nil {
-			fmt.Printf(utils.ErrorColor("❌ [ERROR] Failed to format output: %v\n"), err)
-			os.Exit(1)
+			return fmt.Errorf("output formatting failed: %w", err)
 		}
-	}
-
-	if !allPassed && utils.OutputFormat == "table" {
-		fmt.Println(utils.ErrorColor("\n❌ [ERROR] Quota validation failed for one or more locations. Please resolve the issues above."))
-		os.Exit(1)
 	}
 
 	if utils.OutputFormat == "table" {
 		fmt.Println(utils.SuccessColor("✅ [SUCCESS] All quota checks passed!"))
 	}
 
-	// For non-table formats, exit with error code if any checks failed
-	if !allPassed {
-		os.Exit(1)
-	}
+	return nil
 }

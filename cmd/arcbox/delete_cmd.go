@@ -1,10 +1,10 @@
 package arcbox
 
 import (
+	"fmt"
 	"os"
 
 	"jumpstartcli/cmd/arcbox/services"
-	arcboxUtils "jumpstartcli/cmd/arcbox/utils"
 	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/utils"
@@ -25,31 +25,23 @@ This operation is irreversible and will permanently remove all ArcBox resources.
 
 ` + examples.GetExamples("arcbox.delete").FormatExamples(),
 		Run: func(cmd *cobra.Command, args []string) {
-			requiredArguments := []string{"name"}
-			utils.PrintMissingRequiredArgumentsError(cmd, requiredArguments)
-
-			resourceGroupName, _ := cmd.Flags().GetString("name")
-			skipConfirmation, _ := cmd.Flags().GetBool("yes")
 			subscription, _ := cmd.Flags().GetString("subscription")
+			skipConfirmation, _ := cmd.Flags().GetBool("yes")
+			resourceGroupName, _ := cmd.Flags().GetString("name")
 
-			// Validate Azure CLI is logged in
-			if !utils.IsAzureLoggedInWithCLI(cli) {
-				utils.Error("You are not logged in to Azure. Please run 'az login' and try again.")
+			// Create validation service
+			validationService := services.NewDeleteValidationService(cli)
+
+			// Perform all validation
+			if validationResult := validationService.ValidateAllDeleteRequirements(cmd, subscription); !validationResult.IsValid {
+				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), validationResult.Error)
 				utils.ShowHelpWithoutTypes(cmd)
 				os.Exit(1)
 			}
 
-			// Set Azure subscription if provided
-			if subscription != "" {
-				if err := arcboxUtils.SetAzureSubscription(cli, subscription); err != nil {
-					utils.Error("Failed to set subscription: %v", err)
-					os.Exit(1)
-				}
-			}
-
 			// Use the deletion service to handle the deletion process
 			if err := deletionService.DeleteDeployment(resourceGroupName, subscription, skipConfirmation); err != nil {
-				utils.Error("Deletion failed: %v", err)
+				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
 				os.Exit(1)
 			}
 		},
