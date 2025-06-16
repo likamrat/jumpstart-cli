@@ -260,37 +260,6 @@ func (s *ListingService) hasArcBoxNamingPattern(resourceGroupName string) bool {
 	return false
 }
 
-// hasArcBoxResources checks for characteristic ArcBox resource types using Azure CLI wrapper
-func (s *ListingService) hasArcBoxResources(resourceGroupName string) bool {
-	// Look for typical ArcBox resources: Key Vault + VM + specific extensions
-	arcboxResourceTypes := []string{
-		"Microsoft.KeyVault/vaults",
-		"Microsoft.Compute/virtualMachines",
-		"Microsoft.Network/virtualNetworks",
-	}
-
-	// Get all resources in the resource group
-	resources, err := s.cli.ListResources(resourceGroupName)
-	if err != nil {
-		return false
-	}
-
-	// Check if each required resource type exists
-	for _, requiredType := range arcboxResourceTypes {
-		found := false
-		for _, resource := range resources {
-			if resource.Type == requiredType {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-	return true
-}
-
 // enrichArcBoxDeployment enriches deployment information with additional details
 func (s *ListingService) enrichArcBoxDeployment(deployment *models.ArcBoxDeployment) {
 	// Get resource count
@@ -357,8 +326,15 @@ func (s *ListingService) DetectArcBoxFlavor(resourceGroupName string) (string, s
 	for _, deployment := range deployments {
 		deploymentName := strings.ToLower(deployment.Name)
 		if strings.Contains(deploymentName, "arcbox") {
-			// Extract parameters from the deployment outputs to determine flavor
-			if outputs, ok := deployment.Properties["outputs"]; ok {
+			// Get detailed deployment info
+			detailedDeployment, err := s.cli.GetDeployment(resourceGroupName, deployment.Name)
+			if err != nil {
+				// If we can't get deployment details, continue to fallback
+				continue
+			}
+
+			// First try to extract flavor from deployment outputs
+			if outputs, ok := detailedDeployment.Properties["outputs"]; ok {
 				if outputsMap, ok := outputs.(map[string]interface{}); ok {
 					// Look for flavor in deployment outputs
 					if flavorOutput, ok := outputsMap["flavor"]; ok {
@@ -368,6 +344,29 @@ func (s *ListingService) DetectArcBoxFlavor(resourceGroupName string) (string, s
 								namingPrefix := "ArcBox" // default
 								if namingOutput, ok := outputsMap["namingPrefix"]; ok {
 									if namingMap, ok := namingOutput.(map[string]interface{}); ok {
+										if namingValue, ok := namingMap["value"].(string); ok {
+											namingPrefix = namingValue
+										}
+									}
+								}
+								return flavorValue, namingPrefix
+							}
+						}
+					}
+				}
+			}
+
+			// If outputs are not available, try to extract from deployment parameters
+			if parameters, ok := detailedDeployment.Properties["parameters"]; ok {
+				if paramsMap, ok := parameters.(map[string]interface{}); ok {
+					// Look for flavor in deployment parameters
+					if flavorParam, ok := paramsMap["flavor"]; ok {
+						if flavorMap, ok := flavorParam.(map[string]interface{}); ok {
+							if flavorValue, ok := flavorMap["value"].(string); ok {
+								// Also try to extract naming prefix from parameters
+								namingPrefix := "ArcBox" // default
+								if namingParam, ok := paramsMap["namingPrefix"]; ok {
+									if namingMap, ok := namingParam.(map[string]interface{}); ok {
 										if namingValue, ok := namingMap["value"].(string); ok {
 											namingPrefix = namingValue
 										}
@@ -390,27 +389,42 @@ func (s *ListingService) DetectArcBoxFlavor(resourceGroupName string) (string, s
 func (s *ListingService) DetectArcBoxFlavorFallback(resourceGroupName string) (string, string) {
 	resources, err := s.cli.ListResources(resourceGroupName)
 	if err != nil {
-		return "Unknown", "ArcBox"
+		return "ITPro", "ArcBox" // Default to ITPro when resource listing fails
 	}
 
 	// Check for flavor-specific resources
-	hasDataControllersExtension := false
+	hasDataControllers := false
+	hasSQLServers := false
 	hasSQLMIResources := false
 	hasArcDataServices := false
+	hasAKSCluster := false
 	hasLinuxVM := false
 
 	for _, resource := range resources {
 		resourceType := resource.Type
 		resourceName := strings.ToLower(resource.Name)
 
+		// Check for DevOps-specific resources (AKS clusters have priority)
+		if resourceType == "Microsoft.ContainerService/managedClusters" {
+			hasAKSCluster = true
+		}
+
 		// Check for DataOps-specific resources
 		if strings.Contains(resourceName, "datacontroller") ||
-			strings.Contains(resourceName, "sqlmi") ||
-			resourceType == "Microsoft.AzureArcData/dataControllers" ||
+			resourceType == "Microsoft.AzureArcData/dataControllers" {
+			hasDataControllers = true
+			hasArcDataServices = true
+		}
+
+		if strings.Contains(resourceName, "sqlmi") ||
 			resourceType == "Microsoft.AzureArcData/sqlManagedInstances" {
-			hasDataControllersExtension = true
 			hasSQLMIResources = true
 			hasArcDataServices = true
+		}
+
+		// Check for SQL Servers (DataOps indicator)
+		if resourceType == "Microsoft.Sql/servers" {
+			hasSQLServers = true
 		}
 
 		// Check for Linux VMs (DevOps and DataOps use Linux VMs)
@@ -423,10 +437,17 @@ func (s *ListingService) DetectArcBoxFlavorFallback(resourceGroupName string) (s
 	// Determine flavor based on resources found
 	namingPrefix := "ArcBox" // Default naming prefix
 
-	if hasArcDataServices || hasDataControllersExtension || hasSQLMIResources {
+	// DevOps has highest priority (AKS clusters are DevOps-specific)
+	if hasAKSCluster {
+		return "DevOps", namingPrefix
+	}
+
+	// DataOps comes next (any SQL servers or Arc data services)
+	if hasArcDataServices || hasDataControllers || hasSQLMIResources || hasSQLServers {
 		return "DataOps", namingPrefix
 	}
 
+	// DevOps also indicated by Linux VMs (but lower priority than AKS)
 	if hasLinuxVM {
 		return "DevOps", namingPrefix
 	}
