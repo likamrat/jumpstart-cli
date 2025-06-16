@@ -1,53 +1,39 @@
-# ArcBox Test Coverage Optimization - GitHub Copilot Prompt
+# ArcBox Comprehensive Test Coverage Optimization Plan
 
 ## Executive Summary
 
-This prompt guides an **incremental, modular approach** to optimizing test coverage for the ArcBox CLI by splitting the monolithic 1,842-line test file into focused, maintainable components. Each command test file can be implemented **independently**, allowing for parallel development and easier review.
+**Current State**: 62.1% overall coverage across ArcBox CLI with significant gaps in critical business logic
+**Target**: 95%+ comprehensive coverage with focused, maintainable test suites  
+**Approach**: Incremental, high-impact phases targeting the largest coverage gaps first
 
-### Quick Start Options
+### Current Coverage Status (Function-Level Analysis)
 
-**Option A: Full Implementation** - Complete all phases for comprehensive coverage optimization  
-**Option B: Single Command Focus** - Pick one command (deploy, delete, list, or preflight) and optimize only that component  
-**Option C: Incremental Approach** - Implement one command at a time over multiple iterations
+- **Overall Coverage**: 62.1% (from detailed function analysis)
+- **Services Layer**: 64.7% coverage (✅ All tests passing)
+- **Display Layer**: Major gaps - several 0% coverage functions
+- **Utils Layer**: 96.8% coverage (✅ Excellent coverage)
+- **Command Handlers**: 29-68% coverage (significant gaps)
 
-### Key Benefits
+### Target Coverage Goals
 
-- 🎯 **Focused Development**: Each command test file is self-contained (200-400 lines vs 1,842 lines)
-- 🔄 **Incremental Progress**: Coverage improves with each completed command  
-- 👥 **Team Collaboration**: Multiple developers can work on different commands simultaneously
-- 🚀 **Faster Feedback**: Smaller chunks enable quicker code reviews and testing
-- 📊 **Measurable Progress**: Clear coverage metrics for each component
+- **Overall Target**: 95%+ comprehensive coverage
+- **High-Impact Focus**: Target 0% coverage functions first (highest risk)
+- **Small, focused phases**: Each phase targets specific functions/modules
+- **Measurable progress**: Function-level coverage tracking
 
-### Command-Specific Jump Points
+### Architecture Post-Refactoring
 
-Each command test optimization is **independent** and can be tackled separately:
+✅ **Clean separation achieved:**
 
-| Command | Complexity | Time Estimate | Coverage Gain | Jump To |
-|---------|------------|---------------|---------------|---------|
-| **Delete** | Low | 1-2 days | 15-20% | [Phase 3.1.2](#phase-312-delete-command-tests-delete_cmd_testgo) |
-| **List** | Medium | 2-3 days | 20-25% | [Phase 3.1.3](#phase-313-list-command-tests-list_cmd_testgo) |
-| **Deploy** | High | 2-3 days | 25-30% | [Phase 3.1.1](#phase-311-deploy-command-tests-deploy_cmd_testgo) |
-| **Preflight** | High | 3-4 days | 30-35% | [Phase 3.1.4](#phase-314-preflight-command-tests-preflight_cmd_testgo) |
-
-**Pick any command above and jump directly to its section for immediate implementation.**
+- **Services**: Return errors, no os.Exit calls (fully testable)
+- **CLI Commands**: Handle errors consistently, controlled exits
+- **Display**: Pure presentation logic (fully testable)
+- **Models**: Data structures only (fully testable)
+- **Utils**: Helper functions (already well tested)
 
 ---
 
-## Context and Background
-
-The ArcBox CLI has undergone a successful modular refactoring from a single 2164-line file into focused, testable components organized across services, display, and utility modules. The current test coverage shows excellent progress:
-
-- **Main package**: 48.8% coverage (1842-line `arcbox_test.go`)
-- **Services**: 59.0% coverage (individual test files)
-- **Display**: 43.3% coverage (individual test files)  
-- **Utils**: 96.8% coverage (individual test files)
-
-### Current Test Structure Status
-
-**Existing Modular Tests** (Already Implemented):
-- ✅ `cmd/arcbox/services/`: 6 service files with dedicated test files
-- ✅ `cmd/arcbox/display/`: 4 display files with dedicated test files
-- ✅ `cmd/arcbox/utils/`: 4 utility files with dedicated test files
+## Comprehensive Phase Plan
 
 **Coverage Optimization Target** (This Effort):
 - 🎯 Split the monolithic `cmd/arcbox/arcbox_test.go` (1842 lines, 19 test functions)
