@@ -110,12 +110,20 @@ Use --yes/-y to execute the installation operation.
 
 			preRelease, _ := cmd.Flags().GetBool("pre-release")
 			force, _ := cmd.Flags().GetBool("force")
+			cleanupDays, _ := cmd.Flags().GetInt("cleanup-days")
+
+			// Log cleanup days for future implementation
+			if cleanupDays > 0 {
+				fmt.Printf("Cleanup configured for %d days (feature coming soon)\n", cleanupDays)
+			}
+
 			return performUpgrade(false, preRelease, force) // checkOnly=false
 		},
 	}
 	upgradeInstallCmd.Flags().BoolP("yes", "y", false, "Execute the installation operation")
 	upgradeInstallCmd.Flags().BoolP("pre-release", "p", false, "Include pre-release versions")
 	upgradeInstallCmd.Flags().BoolP("force", "f", false, "Force upgrade even if already latest version")
+	upgradeInstallCmd.Flags().Int("cleanup-days", 7, "Days to keep old versions for rollback")
 
 	// upgrade rollback (placeholder for future implementation)
 	var upgradeRollbackCmd = &cobra.Command{
@@ -138,8 +146,8 @@ Use --yes/-y to execute the rollback operation.
 				return nil
 			}
 
-			fmt.Println(utils.WarnColor("🚧 Rollback functionality is not yet implemented"))
-			fmt.Println("This feature will allow rolling back to previous versions.")
+			fmt.Fprintln(cmd.OutOrStdout(), utils.WarnColor("🚧 Rollback functionality is not yet implemented"))
+			fmt.Fprintln(cmd.OutOrStdout(), "This feature will allow rolling back to previous versions.")
 			return nil
 		},
 	}
@@ -167,8 +175,8 @@ Use --yes/-y to execute the list operation.
 				return nil
 			}
 
-			fmt.Println(utils.WarnColor("🚧 List backups functionality is not yet implemented"))
-			fmt.Println("This feature will show available backup versions.")
+			fmt.Fprintln(cmd.OutOrStdout(), utils.WarnColor("🚧 List backups functionality is not yet implemented"))
+			fmt.Fprintln(cmd.OutOrStdout(), "This feature will show available backup versions.")
 			return nil
 		},
 	}
