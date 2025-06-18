@@ -1795,48 +1795,52 @@ func TestNormalizeBastionSkuCase(t *testing.T) {
 	}
 }
 
-/*
-PHASE 6.4: UPDATE COMMAND TESTS - IMPLEMENTATION SUMMARY
+// TestSetAzureCLI tests the SetAzureCLI function for dependency injection
+func TestSetAzureCLI(t *testing.T) {
+	// Save the original CLI to restore after test
+	originalCLI := defaultAzureCLI
+	defer func() {
+		defaultAzureCLI = originalCLI
+	}()
 
-This implementation successfully updates the ArcBox command tests to work with the new refactored structure.
+	// Create a mock CLI
+	mockCLI := azurecli.NewMockAzureCLI()
 
-NEW TESTS ADDED:
-1. TestCommandServiceIntegration - Tests service-backed command creation with dependency injection
-2. TestCreateDeployCommand - Tests the createDeployCommand function and its flag structure
-3. TestCreateDeleteCommand - Tests the createDeleteCommand function and its flags
-4. TestCreateListCommand - Tests the createListCommand function
-5. TestCreatePreflightCommand - Tests the createPreflightCommand function and subcommands
-6. TestServiceCreation - Tests individual service creation and dependency injection
-7. TestCommandFlagDefaults - Tests flag defaults and types for critical functionality
-8. TestCommandStructureIntegrity - Tests main command structure and subcommand presence
-9. TestExternalInterfacePreservation - Tests backward compatibility of critical external interfaces
+	// Test SetAzureCLI function
+	SetAzureCLI(mockCLI)
 
-FEATURES TESTED:
-✅ Command creation with mock service dependencies
-✅ Service dependency injection patterns
-✅ Individual command creation functions (createXxxCommand)
-✅ Flag definitions, defaults, and types
-✅ Command structure relationships
-✅ External interface preservation (NewArcboxCmd, NewArcboxCmdWithCLI, SetAzureCLI)
-✅ Subcommand integrity and presence
-✅ Mock CLI integration for testing
+	// Verify that the default CLI was changed
+	if defaultAzureCLI != mockCLI {
+		t.Error("SetAzureCLI should update the defaultAzureCLI variable")
+	}
 
-BACKWARD COMPATIBILITY:
-✅ All critical external interfaces preserved
-✅ NewArcboxCmd() and NewArcboxCmdWithCLI() functions work as expected
-✅ SetAzureCLI() function works without panicking
-✅ Command structure consistency maintained
+	// Test that NewArcboxCmd uses the new CLI
+	cmd := NewArcboxCmd()
+	if cmd == nil {
+		t.Error("NewArcboxCmd should return a valid command")
+	}
 
-TEST RESULTS:
-- All new tests pass (9 test functions, multiple subtests)
-- Tests verify the refactored command structure works correctly
-- Service injection and mock dependencies function properly
-- Flag validation ensures proper defaults and types
-- External interfaces remain intact for backward compatibility
+	// Verify command structure
+	if cmd.Use != "arcbox" {
+		t.Errorf("Expected command use to be 'arcbox', got %s", cmd.Use)
+	}
 
-NOTES:
-- Some existing tests may fail due to functions being moved during refactoring
-- New tests focus on the refactored structure with service-based architecture
-- Tests use proper mock CLI integration following established patterns
-- Helper functions added for test utilities and command finding
-*/
+	// Verify subcommands were added
+	subcommands := cmd.Commands()
+	if len(subcommands) == 0 {
+		t.Error("Expected arcbox command to have subcommands")
+	}
+
+	// Look for expected subcommands
+	expectedSubcommands := []string{"deploy", "list", "delete", "preflight"}
+	foundSubcommands := make(map[string]bool)
+	for _, subcmd := range subcommands {
+		foundSubcommands[subcmd.Use] = true
+	}
+
+	for _, expected := range expectedSubcommands {
+		if !foundSubcommands[expected] {
+			t.Errorf("Expected to find subcommand %s", expected)
+		}
+	}
+}

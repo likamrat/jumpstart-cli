@@ -2,7 +2,6 @@ package arcbox
 
 import (
 	"fmt"
-	"os"
 
 	"jumpstartcli/cmd/arcbox/services"
 	"jumpstartcli/internal/azurecli"
@@ -24,7 +23,7 @@ Use --name to specify the resource group containing your ArcBox deployment.
 This operation is irreversible and will permanently remove all ArcBox resources.
 
 ` + examples.GetExamples("arcbox.delete").FormatExamples(),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			subscription, _ := cmd.Flags().GetString("subscription")
 			skipConfirmation, _ := cmd.Flags().GetBool("yes")
 			resourceGroupName, _ := cmd.Flags().GetString("name")
@@ -36,14 +35,15 @@ This operation is irreversible and will permanently remove all ArcBox resources.
 			if validationResult := validationService.ValidateAllDeleteRequirements(cmd, subscription); !validationResult.IsValid {
 				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), validationResult.Error)
 				utils.ShowHelpWithoutTypes(cmd)
-				os.Exit(1)
+				return validationResult.Error
 			}
 
 			// Use the deletion service to handle the deletion process
 			if err := deletionService.DeleteDeployment(resourceGroupName, subscription, skipConfirmation); err != nil {
 				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
-				os.Exit(1)
+				return err
 			}
+			return nil
 		},
 	}
 

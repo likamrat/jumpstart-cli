@@ -2,7 +2,6 @@ package arcbox
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"jumpstartcli/cmd/arcbox/services"
@@ -27,7 +26,7 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 - Local template files with --template-local and --template-params (for local Bicep/ARM templates)
 
 ` + examples.GetExamples("arcbox.deploy").FormatExamples(),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			// Run all validation checks using the service layer
 			if result := deployValidationService.ValidateAllDeployRequirements(cmd); !result.IsValid {
 				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), result.Error)
@@ -37,7 +36,7 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 				} else if strings.Contains(errorMessage, "missing required arguments") {
 					fmt.Println(utils.InfoColor("💡 [TIP] Use 'js arcbox deploy --help' to see all required arguments."))
 				}
-				os.Exit(1)
+				return result.Error
 			}
 
 			bicepPath, _ := cmd.Flags().GetString("template-local")
@@ -47,8 +46,9 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 			// Use the provided deployment service
 			if err := deployService.Deploy(cmd, args, bicepPath, useParamFile, paramFile); err != nil {
 				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
-				os.Exit(1)
+				return err
 			}
+			return nil
 		},
 	}
 

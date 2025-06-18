@@ -2,7 +2,6 @@ package arcbox
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"jumpstartcli/cmd/arcbox/services"
@@ -59,22 +58,8 @@ func createPreflightCommand(quotaService *services.QuotaService, validationServi
 		Long: `Check if your Azure subscription and region have sufficient vCPU quota for ArcBox ITPro, DevOps, and DataOps flavors.
 
 ` + examples.GetExamples("arcbox.preflight.quota").FormatExamples(),
-		Run: func(cmd *cobra.Command, args []string) {
-			// Use the quota service to run the command
-			if err := quotaService.RunQuotaCheckCommand(cmd, args); err != nil {
-				// Handle specific error types with appropriate help text
-				errorMessage := err.Error()
-				if strings.Contains(errorMessage, "missing required argument") ||
-					strings.Contains(errorMessage, "must specify either") ||
-					strings.Contains(errorMessage, "cannot specify both") ||
-					strings.Contains(errorMessage, "location validation failed") {
-					fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n\n"), err)
-					utils.ShowHelpWithoutTypes(cmd)
-				} else {
-					fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
-				}
-				os.Exit(1)
-			}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return executePreflightQuotaCommandWithError(quotaService, cmd, args)
 		},
 	}
 	arcboxPreflightQuotaCmd.Flags().StringP("flavor", "f", "", "ArcBox flavor to check (ITPro, DevOps, DataOps, all)")
@@ -93,4 +78,25 @@ func createPreflightCommand(quotaService *services.QuotaService, validationServi
 	arcboxPreflightCmd.AddCommand(arcboxPreflightStatusCmd)
 
 	return arcboxPreflightCmd
+}
+
+// executePreflightQuotaCommandWithError executes the quota subcommand and returns error instead of exiting
+// This version is used for testing to avoid os.Exit calls
+func executePreflightQuotaCommandWithError(quotaService *services.QuotaService, cmd *cobra.Command, args []string) error {
+	// Use the quota service to run the command
+	if err := quotaService.RunQuotaCheckCommand(cmd, args); err != nil {
+		// Handle specific error types with appropriate help text
+		errorMessage := err.Error()
+		if strings.Contains(errorMessage, "missing required argument") ||
+			strings.Contains(errorMessage, "must specify either") ||
+			strings.Contains(errorMessage, "cannot specify both") ||
+			strings.Contains(errorMessage, "location validation failed") {
+			fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n\n"), err)
+			utils.ShowHelpWithoutTypes(cmd)
+		} else {
+			fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
+		}
+		return err
+	}
+	return nil
 }

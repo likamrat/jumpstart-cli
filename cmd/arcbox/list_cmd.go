@@ -12,6 +12,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// executeListCommand contains the core list command logic, extracted for testability
+func executeListCommand(cmd *cobra.Command, listingService *services.ListingService, cli azurecli.AzureCLI) error {
+	// Create validation service
+	validationService := services.NewListValidationService(cli)
+
+	// Run all validations
+	result := validationService.ValidateAllListRequirements(cmd, listingService)
+	if !result.IsValid {
+		return result.Error
+	}
+
+	// Extract command flags
+	allSubscriptions, _ := cmd.Flags().GetBool("all-subscriptions")
+	currentSubscription, _ := cmd.Flags().GetBool("current-subscription")
+	subscription, _ := cmd.Flags().GetString("subscription")
+
+	// Use the listing service to handle the list operation
+	if err := listingService.ListDeployments(allSubscriptions, currentSubscription, subscription, utils.OutputFormat); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// handleListCommandError handles errors from executeListCommand, including display and exit
+func handleListCommandError(err error, cmd *cobra.Command, listingService *services.ListingService, cli azurecli.AzureCLI) {
+	fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
+	if result := services.NewListValidationService(cli).ValidateAllListRequirements(cmd, listingService); !result.IsValid {
+		utils.ShowHelpWithoutTypes(cmd)
+	}
+	os.Exit(1)
+}
+
 // createListCommand creates the list command with the provided listing service
 func createListCommand(listingService *services.ListingService, cli azurecli.AzureCLI) *cobra.Command {
 	var arcboxListCmd = &cobra.Command{
@@ -26,28 +59,11 @@ Discovers ArcBox deployments by identifying resource groups containing resources
 
 Requires explicit subscription selection: --current-subscription, --all-subscriptions, or --subscription <id>.
 
-` + examples.GetExamples("arcbox.list").FormatExamples(),
+` + examples.GetExamples("js.arcbox.list").FormatExamples(),
 		Run: func(cmd *cobra.Command, args []string) {
-			// Create validation service
-			validationService := services.NewListValidationService(cli)
-
-			// Run all validations
-			result := validationService.ValidateAllListRequirements(cmd, listingService)
-			if !result.IsValid {
-				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), result.Error)
-				utils.ShowHelpWithoutTypes(cmd)
-				os.Exit(1)
-			}
-
-			// Extract command flags
-			allSubscriptions, _ := cmd.Flags().GetBool("all-subscriptions")
-			currentSubscription, _ := cmd.Flags().GetBool("current-subscription")
-			subscription, _ := cmd.Flags().GetString("subscription")
-
-			// Use the listing service to handle the list operation
-			if err := listingService.ListDeployments(allSubscriptions, currentSubscription, subscription, utils.OutputFormat); err != nil {
-				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
-				os.Exit(1)
+			// Execute the core command logic
+			if err := executeListCommand(cmd, listingService, cli); err != nil {
+				handleListCommandError(err, cmd, listingService, cli)
 			}
 		},
 	}
