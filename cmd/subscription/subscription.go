@@ -181,6 +181,7 @@ Use different output formats to integrate with scripts or automation tools.`,
 	var subscriptionListCmd = &cobra.Command{
 		Use:   "list",
 		Short: "List all available Azure subscriptions",
+		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			if utils.DebugMode {
 				utils.Debug("Current output format: '%s'", utils.OutputFormat)

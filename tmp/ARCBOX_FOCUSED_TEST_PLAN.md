@@ -944,3 +944,31 @@ This plan provides:
 - **Daily measurable progress** with specific coverage targets
 - **High ROI focus** on critical 0% coverage business logic
 - **Practical implementation** with concrete code examples
+
+---
+
+## ✅ COMPLETED: Remaining Commands Refactoring Prompt
+
+**Status**: COMPLETE - New GitHub Copilot prompt created for repo, subscription, upgrade, and version commands
+
+**Created**: `tmp/GITHUB_COPILOT_REMAINING_COMMANDS_REFACTORING_PROMPT.md`
+
+**Summary**: 
+- Comprehensive prompt document for testing and refactoring the remaining CLI commands
+- Based on the successful os.Exit refactoring template but focused on testing enhancement
+- Includes detailed phases for analysis, fixing upgrade command test failures, and achieving 95%+ coverage
+- Priority focus on upgrade command (has test failures) and coverage improvement for repo/subscription commands
+- Complete with progress tracking, success criteria, and implementation guidelines
+
+**Key Features**:
+- **Phase 0**: Current state analysis and testing strategy design
+- **Phase 1**: Priority fix for upgrade command test failures  
+- **Phase 2**: Repo command testing enhancement to 95%+ coverage
+- **Phase 3**: Subscription command testing enhancement with Azure CLI mocking
+- **Phase 4**: Version command verification and edge case testing
+- **Phase 5**: Integration and performance testing across commands
+- **Phase 6**: Final validation and documentation
+
+**Next Steps**: Ready for use with GitHub Copilot to systematically improve testing coverage and fix issues in the remaining commands.
+
+---

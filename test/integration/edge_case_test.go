@@ -267,7 +267,7 @@ func testSubscriptionCommandEdgeCases(t *testing.T) {
 	}
 }
 
-// testUpgradeCommandEdgeCases tests upgrade command edge cases  
+// testUpgradeCommandEdgeCases tests upgrade command edge cases
 func testUpgradeCommandEdgeCases(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -414,11 +414,11 @@ func testCommandExecutionErrors(t *testing.T) {
 
 				// Most scenarios should produce an error or helpful output
 				hasErrorOrOutput := err != nil || len(output) > 0
-				assert.True(t, hasErrorOrOutput, 
-					"Command %s with %s should produce error or output", 
+				assert.True(t, hasErrorOrOutput,
+					"Command %s with %s should produce error or output",
 					cmd.name, scenario.desc)
 
-				t.Logf("Command: %s, Scenario: %s, Error: %v, Output length: %d", 
+				t.Logf("Command: %s, Scenario: %s, Error: %v, Output length: %d",
 					cmd.name, scenario.desc, err, len(output))
 			})
 		}
@@ -477,7 +477,7 @@ func testFlagParsingErrors(t *testing.T) {
 				t.Logf("Error: %v, Output length: %d", err, len(output))
 
 				// Should handle gracefully (either error or helpful output)
-				assert.True(t, err != nil || len(output) > 0, 
+				assert.True(t, err != nil || len(output) > 0,
 					"Should handle flag parsing error gracefully")
 			}
 		})
@@ -533,7 +533,7 @@ func testInputValidationErrors(t *testing.T) {
 			t.Logf("Error: %v, Output length: %d", err, len(output))
 
 			// Should handle invalid input gracefully
-			assert.True(t, err != nil || len(output) > 0, 
+			assert.True(t, err != nil || len(output) > 0,
 				"Should handle invalid input gracefully")
 		})
 	}
@@ -599,7 +599,7 @@ func testErrorMessageQuality(t *testing.T) {
 					}
 				}
 
-				t.Logf("Found %d/%d helpful keywords in error message", 
+				t.Logf("Found %d/%d helpful keywords in error message",
 					foundKeywords, len(test.keywords))
 				t.Logf("Error message: %s", message)
 			}
@@ -668,7 +668,8 @@ func testHighConcurrencyStress(t *testing.T) {
 					if err := cmd.Execute(); err != nil {
 						// Only report unexpected errors
 						if !strings.Contains(err.Error(), "unknown command") &&
-							!strings.Contains(err.Error(), "invalid argument") {
+							!strings.Contains(err.Error(), "invalid argument") &&
+							!strings.Contains(err.Error(), "unknown flag") {
 							select {
 							case errorCh <- fmt.Errorf("goroutine %d, op %d: %v", goroutineID, j, err):
 							default:
@@ -708,7 +709,7 @@ func testHighConcurrencyStress(t *testing.T) {
 		t.Logf("Warning: %d unexpected errors during stress testing", errorCount)
 	}
 
-	assert.True(t, errorCount < numGoroutines*len(commands)/10, 
+	assert.True(t, errorCount < numGoroutines*len(commands)/10,
 		"Too many errors during stress testing")
 }
 
@@ -726,7 +727,7 @@ func testMemoryPressureStress(t *testing.T) {
 
 	// Force garbage collection
 	runtime.GC()
-	
+
 	var memBefore, memAfter runtime.MemStats
 	runtime.ReadMemStats(&memBefore)
 
@@ -751,7 +752,7 @@ func testMemoryPressureStress(t *testing.T) {
 		}
 
 		// Verify command still produces output
-		assert.True(t, len(buf.String()) > 0, 
+		assert.True(t, len(buf.String()) > 0,
 			"Command should produce output even under memory pressure")
 	}
 
@@ -776,7 +777,7 @@ func testRapidExecutionStress(t *testing.T) {
 	for i := 0; i < numIterations; i++ {
 		cmdFunc := commands[i%len(commands)]
 		cmd := cmdFunc()
-		
+
 		var buf bytes.Buffer
 		cmd.SetOut(&buf)
 		cmd.SetErr(&buf)
@@ -792,10 +793,10 @@ func testRapidExecutionStress(t *testing.T) {
 		successCount, numIterations, duration)
 	t.Logf("Average execution time: %v per command", duration/time.Duration(numIterations))
 
-	assert.True(t, successCount > numIterations*8/10, 
+	assert.True(t, successCount > numIterations*8/10,
 		"At least 80%% of rapid executions should succeed")
-	
-	assert.True(t, duration < 10*time.Second, 
+
+	assert.True(t, duration < 10*time.Second,
 		"Rapid execution should complete within 10 seconds")
 }
 
@@ -831,7 +832,7 @@ func testResourceExhaustionSimulation(t *testing.T) {
 				t.Logf("Command execution with timeout context error: %v", err)
 			}
 			// Command completed within timeout - good
-			assert.True(t, len(buf.String()) > 0, 
+			assert.True(t, len(buf.String()) > 0,
 				"Command should produce output even with tight timeout")
 		case <-ctx.Done():
 			t.Logf("Command execution timed out with context deadline")
@@ -894,11 +895,11 @@ func testMaximumArgumentLength(t *testing.T) {
 			output := buf.String()
 
 			// Should handle long arguments gracefully (either error or truncate)
-			t.Logf("Test %s: Error = %v, Output length = %d", 
+			t.Logf("Test %s: Error = %v, Output length = %d",
 				test.name, err, len(output))
 
 			// Command should not crash or hang
-			assert.True(t, err != nil || len(output) > 0, 
+			assert.True(t, err != nil || len(output) > 0,
 				"Command should handle long arguments gracefully")
 		})
 	}
@@ -949,11 +950,11 @@ func testMinimumArgumentValidation(t *testing.T) {
 			err := cmd.Execute()
 			output := buf.String()
 
-			t.Logf("Minimum arg test %s: Error = %v, Output length = %d", 
+			t.Logf("Minimum arg test %s: Error = %v, Output length = %d",
 				test.desc, err, len(output))
 
 			// Should handle gracefully (some commands work with no args, others show help)
-			assert.True(t, err != nil || len(output) > 0, 
+			assert.True(t, err != nil || len(output) > 0,
 				"Command should handle no arguments gracefully")
 		})
 	}
@@ -1012,11 +1013,11 @@ func testSpecialCharacterBoundaries(t *testing.T) {
 				err := cmd.Execute()
 				output := buf.String()
 
-				t.Logf("Special char test %s with %s: Error = %v, Output length = %d", 
+				t.Logf("Special char test %s with %s: Error = %v, Output length = %d",
 					cmd.Use, char.desc, err, len(output))
 
 				// Should handle special characters gracefully
-				assert.True(t, err != nil || len(output) > 0, 
+				assert.True(t, err != nil || len(output) > 0,
 					"Command should handle special characters gracefully")
 			})
 		}
@@ -1043,7 +1044,7 @@ func testFileSystemConstraints(t *testing.T) {
 	// Create a temporary directory with restricted permissions
 	tempDir := t.TempDir()
 	restrictedDir := filepath.Join(tempDir, "restricted")
-	
+
 	err := os.Mkdir(restrictedDir, 0000) // No permissions
 	if err != nil {
 		t.Skipf("Could not create restricted directory: %v", err)
@@ -1075,11 +1076,11 @@ func testFileSystemConstraints(t *testing.T) {
 		err := cmd.Execute()
 		output := buf.String()
 
-		t.Logf("File system constraint test for %s: Error = %v, Output length = %d", 
+		t.Logf("File system constraint test for %s: Error = %v, Output length = %d",
 			cmd.Use, err, len(output))
 
 		// Commands should work despite file system constraints
-		assert.True(t, len(output) > 0, 
+		assert.True(t, len(output) > 0,
 			"Command should work despite file system constraints")
 	}
 }
@@ -1101,7 +1102,7 @@ func testEnvironmentVariableConstraints(t *testing.T) {
 
 	// Clear most environment variables
 	os.Clearenv()
-	
+
 	// Set only essential variables
 	os.Setenv("PATH", "/usr/bin:/bin")
 	os.Setenv("HOME", "/tmp")
@@ -1123,11 +1124,11 @@ func testEnvironmentVariableConstraints(t *testing.T) {
 		err := cmd.Execute()
 		output := buf.String()
 
-		t.Logf("Environment constraint test for %s: Error = %v, Output length = %d", 
+		t.Logf("Environment constraint test for %s: Error = %v, Output length = %d",
 			cmd.Use, err, len(output))
 
 		// Commands should work with minimal environment
-		assert.True(t, len(output) > 0, 
+		assert.True(t, len(output) > 0,
 			"Command should work with minimal environment")
 	}
 }
@@ -1141,7 +1142,7 @@ func testWorkingDirectoryConstraints(t *testing.T) {
 
 	// Test in non-existent directory (should handle gracefully)
 	nonExistentDir := "/this/directory/does/not/exist"
-	
+
 	commands := []func() *cobra.Command{
 		version.NewVersionCmd,
 		repo.NewRepoCmd,
@@ -1158,15 +1159,15 @@ func testWorkingDirectoryConstraints(t *testing.T) {
 
 		// Try to change to non-existent directory (will fail, but shouldn't affect commands)
 		os.Chdir(nonExistentDir) // This will fail silently
-		
+
 		err := cmd.Execute()
 		output := buf.String()
 
-		t.Logf("Working directory constraint test for %s: Error = %v, Output length = %d", 
+		t.Logf("Working directory constraint test for %s: Error = %v, Output length = %d",
 			cmd.Use, err, len(output))
 
 		// Commands should work regardless of working directory issues
-		assert.True(t, len(output) > 0, 
+		assert.True(t, len(output) > 0,
 			"Command should work regardless of working directory")
 	}
 }

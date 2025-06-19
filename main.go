@@ -53,6 +53,17 @@ func createRootCommand() *cobra.Command {
 		},
 	}
 
+	// Add persistent pre-run validation for output format
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		// Validate output format if it was explicitly set
+		if cmd.Flags().Changed("output") {
+			if !utils.ValidateOutputFormat(utils.OutputFormat) {
+				return fmt.Errorf("invalid output format '%s'. Supported formats: table, json, yaml, tsv", utils.OutputFormat)
+			}
+		}
+		return nil
+	}
+
 	// Add persistent arguments (will show as "Global Arguments" in help)
 	rootCmd.PersistentFlags().BoolVar(&utils.DebugMode, "debug", false, "Enable debug output. Show detailed information for troubleshooting")
 	rootCmd.PersistentFlags().BoolVar(&utils.VerboseMode, "verbose", false, "Enable verbose output. Show detailed information about operations")
