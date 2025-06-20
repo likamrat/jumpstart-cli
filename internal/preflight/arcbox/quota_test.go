@@ -106,7 +106,16 @@ func TestCheckQuotaForSKU(t *testing.T) {
 			mock := azurecli.NewMockAzureCLI()
 			tt.mockSetup(mock)
 
-			result := CheckQuotaForSKU(mock, tt.sku, tt.required, tt.region, tt.flavor)
+			// Get usage data from mock (simulating fresh Azure CLI call)
+			usages, err := mock.ListVMUsage(tt.region)
+			if err != nil {
+				if !tt.expectError {
+					t.Errorf("Unexpected error getting usage data: %v", err)
+				}
+				return
+			}
+
+			result := CheckQuotaForSKU(mock, tt.sku, tt.required, tt.region, tt.flavor, usages)
 
 			if tt.expectError && result.Details == "" {
 				t.Errorf("Expected error, got nil")
@@ -437,7 +446,14 @@ func TestQuotaEdgeCases(t *testing.T) {
 			mock := azurecli.NewMockAzureCLI()
 			tt.mockSetup(mock)
 
-			result := CheckQuotaForSKU(mock, tt.sku, tt.required, tt.region, tt.flavor)
+			// Get usage data from mock (simulating fresh Azure CLI call)
+			usages, err := mock.ListVMUsage(tt.region)
+			if err != nil {
+				t.Errorf("Unexpected error getting usage data: %v", err)
+				return
+			}
+
+			result := CheckQuotaForSKU(mock, tt.sku, tt.required, tt.region, tt.flavor, usages)
 
 			// Just ensure it doesn't panic and returns a result
 			if result.SKU != tt.sku {

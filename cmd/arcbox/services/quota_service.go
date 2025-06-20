@@ -95,8 +95,8 @@ func (q *QuotaService) CheckQuota(locationFlag string, allLocations bool, select
 	// Show time warning before starting checks (only for table output)
 	if utils.OutputFormat == "table" {
 		duration := q.GetExpectedDuration(selectedFlavor)
-		fmt.Printf("⏱️  %s Note: Quota checks for %s flavor may take %s\n\n",
-			utils.InfoColor(""), selectedFlavor, duration)
+		fmt.Printf("⚠️ %s: Quota checks for %s flavor may take %s\n\n",
+			utils.WarnColor("Warning"), selectedFlavor, duration)
 	}
 
 	for _, location := range locations {

@@ -3,6 +3,7 @@ package display
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	arcboxUtils "jumpstartcli/cmd/arcbox/utils"
@@ -44,8 +45,8 @@ func (qd *QuotaDisplay) RunQuotaChecksWithOutput(cli azurecli.AzureCLI, cmd *cob
 
 		// Show time warning for multi-SKU flavors
 		if flavor == "DevOps" || flavor == "DataOps" {
-			fmt.Printf("⏱️  %s Note: This may take 3-5 minutes (checking 5 SKUs)...\n\n",
-				utils.InfoColor(""))
+			fmt.Printf("⚠️ %s: This may take 3-5 minutes (checking 5 SKUs)\n\n",
+				utils.WarnColor("Warning"))
 		}
 	}
 
@@ -220,28 +221,32 @@ func (qd *QuotaDisplay) RunQuotaCheckWithSpinner(checkFunc func() ([]map[string]
 	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	frameIdx := 0
 
-	// Show initial message
-	fmt.Printf("🔍 Checking vCPU quota for %s...", locationDesc)
-
 	// Hide cursor before starting animation
 	fmt.Print("\033[?25l")
 
 	// Start spinner animation in goroutine
 	go func() {
+		defer close(spinnerDone)
+
+		// Write the initial message once
+		baseMessage := fmt.Sprintf("🔍 Checking vCPU quota for %s... ", locationDesc)
+		fmt.Print(baseMessage)
+
 		for {
 			select {
 			case <-stopSpinner:
 				// Clear the spinner line completely
-				fmt.Printf("\r\033[2K")
+				fmt.Print("\r")
+				fmt.Print(strings.Repeat(" ", len(baseMessage)+2)) // Clear with spaces
+				fmt.Print("\r")
 				// Restore cursor when animation stops
 				fmt.Print("\033[?25h")
-				close(spinnerDone)
 				return
 			default:
-				// Update spinner frame
-				fmt.Printf("\r🔍 Checking vCPU quota for %s... %s", locationDesc, frames[frameIdx])
+				// Only update the spinner character to reduce flicker
+				fmt.Printf("\b%s", frames[frameIdx]) // Backspace and replace spinner
 				frameIdx = (frameIdx + 1) % len(frames)
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(150 * time.Millisecond) // Slightly slower to reduce flicker
 			}
 		}
 	}()

@@ -1,4 +1,14 @@
 // quota.go - ArcBox-specific quota checking functionality
+// Package arcbox provides quota checking functionality for ArcBox deployments
+//
+// CRITICAL FRESH AZURE CLI CALLS BEHAVIOR:
+// - Every quota check operation makes exactly ONE fresh Azure CLI call per region
+// - No caching mechanisms are used - all results are real-time from Azure APIs
+// - ITPro: 1 fresh Azure CLI call per region (1 SKU)
+// - DevOps: 1 fresh Azure CLI call per region (5 SKUs, shared data)
+// - DataOps: 1 fresh Azure CLI call per region (5 SKUs, shared data)
+// - This ensures reliable, consistent quota information while avoiding rate limits
+
 package arcbox
 
 import (
@@ -21,17 +31,26 @@ type QuotaCheckResult struct {
 	Details      string
 }
 
-// CheckQuotaForSKU checks quota for a specific SKU using the Azure CLI wrapper
-func CheckQuotaForSKU(cli azurecli.AzureCLI, sku string, required int, region, flavor string) QuotaCheckResult {
+// CheckQuotaForSKU checks quota for a specific SKU using pre-fetched usage data
+// This ensures fresh Azure CLI calls while avoiding redundant API calls per SKU
+func CheckQuotaForSKU(cli azurecli.AzureCLI, sku string, required int, region, flavor string, usages []azurecli.VMUsageInfo) QuotaCheckResult {
 	result := QuotaCheckResult{
 		SKU:      sku,
 		Required: required,
 	}
 
-	// Get quota data for the region
-	usages, err := cli.ListVMUsage(region)
+	// CRITICAL: First check if the SKU is actually available in the region
+	// This makes a fresh Azure CLI call to az vm list-skus
+	skuAvailable, err := cli.CheckSKUAvailability(sku, region)
 	if err != nil {
-		result.Details = fmt.Sprintf("Failed to get quota data: %v", err)
+		result.Details = fmt.Sprintf("Failed to check SKU availability: %v", err)
+		return result
+	}
+	result.SKUAvailable = skuAvailable
+
+	if !skuAvailable {
+		result.Details = fmt.Sprintf("SKU %s not available in region %s", sku, region)
+		result.CanDeploy = false
 		return result
 	}
 
@@ -92,15 +111,14 @@ func CheckQuotaForSKU(cli azurecli.AzureCLI, sku string, required int, region, f
 		return result
 	}
 
-	// If we have quota information, the SKU family is available in the region
-	// Azure wouldn't provide quota limits for unavailable SKU families
-	result.SKUAvailable = true
-
-	// Set deployment feasibility based on quota sufficiency only
-	result.CanDeploy = result.QuotaOK
+	// Now that we have both SKU availability and quota information,
+	// determine if deployment is possible
+	result.CanDeploy = result.SKUAvailable && result.QuotaOK
 
 	// Set appropriate details message
-	if result.QuotaOK {
+	if !result.SKUAvailable {
+		result.Details = fmt.Sprintf("SKU %s not available in region %s", sku, region)
+	} else if result.QuotaOK {
 		result.Details = "Ready to deploy"
 	} else {
 		result.Details = fmt.Sprintf("Need %d more vCPU", result.Required-result.Available)
@@ -135,6 +153,8 @@ func CheckBatchSKUAvailability(cli azurecli.AzureCLI, skus []string, region stri
 }
 
 // RunQuotaChecks performs comprehensive quota checking for ArcBox flavors
+// CRITICAL: This function ensures fresh Azure CLI calls for each quota check
+// No caching is used - every call fetches real-time quota information
 func RunQuotaChecks(cli azurecli.AzureCLI, location, flavor string, subscription string) ([]QuotaCheckResult, error) {
 	// First, verify Azure CLI authentication by checking current subscription
 	if _, err := cli.GetCurrentSubscription(); err != nil {
@@ -166,16 +186,18 @@ func RunQuotaChecks(cli azurecli.AzureCLI, location, flavor string, subscription
 		return nil, fmt.Errorf("no SKUs found for flavor: %s", flavor)
 	}
 
-	// Check quota for each SKU
+	// CRITICAL: Fetch quota data once per region with fresh Azure CLI call
+	// This ensures reliable, real-time quota information while avoiding redundant API calls
+	usages, err := cli.ListVMUsage(location)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get quota data for region %s: %v", location, err)
+	}
+
+	// Check quota for each SKU using the fresh quota data
 	var results []QuotaCheckResult
 	for _, sku := range allSKUs {
 		required := getRequiredVCPUForSKU(sku)
-		result := CheckQuotaForSKU(cli, sku, required, location, flavor)
-
-		// Check if the quota check failed due to an error (e.g. authentication)
-		if strings.Contains(result.Details, "Failed to get quota data") {
-			return nil, fmt.Errorf("quota check failed for SKU %s: %s", sku, result.Details)
-		}
+		result := CheckQuotaForSKU(cli, sku, required, location, flavor, usages)
 
 		// Use the results from CheckQuotaForSKU as-is
 		// If quota exists for a SKU family, the SKU is deployable

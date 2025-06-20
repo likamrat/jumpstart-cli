@@ -254,6 +254,8 @@ func (r *RealAzureCLI) ListLocations() ([]string, error) {
 }
 
 // ListVMUsage retrieves VM quota/usage information for a specific region
+// CRITICAL: This function makes a fresh Azure CLI call every time - no caching
+// Each call provides real-time quota information directly from Azure APIs
 func (r *RealAzureCLI) ListVMUsage(region string) ([]VMUsageInfo, error) {
 	if region == "" {
 		return nil, fmt.Errorf("region cannot be empty")
@@ -264,6 +266,7 @@ func (r *RealAzureCLI) ListVMUsage(region string) ([]VMUsageInfo, error) {
 
 	cmd := exec.CommandContext(ctx, "az", "vm", "list-usage", "--location", region, "-o", "json")
 	output, err := cmd.Output()
+
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, fmt.Errorf("timeout while retrieving VM usage for region %s", region)
