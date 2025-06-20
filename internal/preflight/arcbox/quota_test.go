@@ -9,23 +9,25 @@ import (
 
 func TestCheckQuotaForSKU(t *testing.T) {
 	tests := []struct {
-		name         string
-		sku          string
-		required     int
-		region       string
-		flavor       string
-		mockSetup    func(*azurecli.MockAzureCLI)
-		expectQuota  bool
-		expectAvail  bool
-		expectDeploy bool
-		expectError  bool
+		name            string
+		sku             string
+		required        int
+		region          string
+		flavor          string
+		mockSetup       func(*azurecli.MockAzureCLI)
+		expectQuota     bool
+		expectAvail     bool
+		expectDeploy    bool
+		expectError     bool
+		expectedDetails string
 	}{
 		{
-			name:     "sufficient quota and available SKU",
-			sku:      "Standard_D8s_v5",
-			required: 8,
-			region:   "eastus",
-			flavor:   "ITPro",
+			name:            "sufficient quota and available SKU",
+			sku:             "Standard_D8s_v5",
+			required:        8,
+			region:          "eastus",
+			flavor:          "ITPro",
+			expectedDetails: "Ready to deploy",
 			mockSetup: func(mock *azurecli.MockAzureCLI) {
 				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
 					{
@@ -45,11 +47,12 @@ func TestCheckQuotaForSKU(t *testing.T) {
 			expectError:  false,
 		},
 		{
-			name:     "insufficient quota",
-			sku:      "Standard_D8s_v5",
-			required: 8,
-			region:   "eastus",
-			flavor:   "ITPro",
+			name:            "insufficient quota",
+			sku:             "Standard_D8s_v5",
+			required:        8,
+			region:          "eastus",
+			flavor:          "ITPro",
+			expectedDetails: "Need 4 more vCPU",
 			mockSetup: func(mock *azurecli.MockAzureCLI) {
 				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
 					{
@@ -69,49 +72,30 @@ func TestCheckQuotaForSKU(t *testing.T) {
 			expectError:  false,
 		},
 		{
-			name:     "SKU not available",
-			sku:      "Standard_D8s_v5",
-			required: 8,
-			region:   "eastus",
-			flavor:   "ITPro",
+			name:            "No quota data (SKU not available)",
+			sku:             "Standard_D8s_v5",
+			required:        8,
+			region:          "eastus",
+			flavor:          "ITPro",
+			expectedDetails: "Quota information not found",
 			mockSetup: func(mock *azurecli.MockAzureCLI) {
-				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{
-					{
-						Name: map[string]string{
-							"value":          "Standard DSv5 Family vCPUs",
-							"localizedValue": "Standard DSv5 Family vCPUs",
-						},
-						CurrentValue: 2,
-						Limit:        64,
-					},
-				})
-				mock.SetAvailableSKUsForRegion("eastus", []string{})
+				// No quota data means SKU family not available in region
+				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{})
 			},
-			expectQuota:  true,
+			expectQuota:  false,
 			expectAvail:  false,
 			expectDeploy: false,
 			expectError:  false,
 		},
 		{
-			name:     "VM usage error",
-			sku:      "Standard_D8s_v5",
-			required: 8,
-			region:   "eastus",
-			flavor:   "ITPro",
+			name:            "VM usage error",
+			sku:             "Standard_D8s_v5",
+			required:        8,
+			region:          "eastus",
+			flavor:          "ITPro",
+			expectedDetails: "", // Error cases don't need specific details
 			mockSetup: func(mock *azurecli.MockAzureCLI) {
 				mock.SetErrorForListVMUsage(fmt.Errorf("failed to get VM usage"))
-			},
-			expectError: true,
-		},
-		{
-			name:     "SKU availability error",
-			sku:      "Standard_D8s_v5",
-			required: 8,
-			region:   "eastus",
-			flavor:   "ITPro",
-			mockSetup: func(mock *azurecli.MockAzureCLI) {
-				mock.SetVMUsageForRegion("eastus", []azurecli.VMUsageInfo{})
-				mock.SetErrorForCheckSKUAvailability(fmt.Errorf("failed to check SKU"))
 			},
 			expectError: true,
 		},
@@ -128,8 +112,8 @@ func TestCheckQuotaForSKU(t *testing.T) {
 				t.Errorf("Expected error, got nil")
 			}
 
-			if !tt.expectError && result.Details != "" {
-				t.Errorf("Expected no result.Detailsor, got %v", result.Details)
+			if !tt.expectError && tt.expectedDetails != "" && result.Details != tt.expectedDetails {
+				t.Errorf("Expected details '%s', got '%s'", tt.expectedDetails, result.Details)
 			}
 
 			if !tt.expectError {

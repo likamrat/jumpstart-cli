@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"jumpstartcli/internal/auth"
 	"jumpstartcli/internal/azurecli"
 
 	"github.com/spf13/cobra"
@@ -15,6 +16,11 @@ import (
 
 // GetSubscriptionID gets the subscription ID from command flags or default using Azure CLI wrapper
 func GetSubscriptionID(cmd *cobra.Command, azCLI azurecli.AzureCLI) string {
+	// Check Azure CLI authentication first
+	if err := auth.CheckAzureAuthentication(azCLI); err != nil {
+		return ""
+	}
+
 	// Try to get from command flag first
 	subscription, _ := cmd.Flags().GetString("subscription")
 	if subscription != "" {
@@ -37,6 +43,11 @@ func GetSubscriptionID(cmd *cobra.Command, azCLI azurecli.AzureCLI) string {
 
 // SetAzureSubscription sets the Azure subscription using Azure CLI wrapper
 func SetAzureSubscription(azCLI azurecli.AzureCLI, subscriptionID string) error {
+	// Check Azure CLI authentication first
+	if err := auth.CheckAzureAuthentication(azCLI); err != nil {
+		return err
+	}
+
 	if subscriptionID == "" {
 		return fmt.Errorf("subscription ID is empty")
 	}
@@ -45,6 +56,11 @@ func SetAzureSubscription(azCLI azurecli.AzureCLI, subscriptionID string) error 
 
 // CheckResourceGroupExists checks if a resource group exists using Azure CLI wrapper
 func CheckResourceGroupExists(azCLI azurecli.AzureCLI, resourceGroupName, subscriptionID string) (bool, error) {
+	// Check Azure CLI authentication first
+	if err := auth.CheckAzureAuthentication(azCLI); err != nil {
+		return false, err
+	}
+
 	if subscriptionID != "" {
 		if err := SetAzureSubscription(azCLI, subscriptionID); err != nil {
 			return false, fmt.Errorf("failed to set subscription context: %v", err)

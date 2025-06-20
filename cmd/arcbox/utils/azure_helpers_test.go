@@ -85,6 +85,7 @@ func TestGetSubscriptionID(t *testing.T) {
 			// Create mock Azure CLI
 			mockCLI := &azurecli.MockAzureCLI{
 				GetCurrentSubscriptionError: tt.currentSubErr,
+				IsLoggedInResult:            true, // Set to logged in for successful scenarios
 			}
 			if tt.currentSubID != "" {
 				mockCLI.CurrentSubscription = &azurecli.SubscriptionInfo{
@@ -470,5 +471,138 @@ func BenchmarkGetRequiredVCPUForSKU(b *testing.B) {
 func BenchmarkMapSKUToFamilyQuotaName(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		MapSKUToFamilyQuotaName("Standard_D8s_v5")
+	}
+}
+
+// Authentication Integration Tests for Azure Helper Functions
+
+func TestGetSubscriptionID_AuthenticationCheck_Success(t *testing.T) {
+	// Setup mock CLI
+	mockCLI := azurecli.NewMockAzureCLI()
+	mockCLI.IsLoggedInResult = true
+	mockCLI.CurrentSubscription = &azurecli.SubscriptionInfo{
+		ID:   "test-sub-id",
+		Name: "Test Subscription",
+	}
+
+	// Create command with flags
+	cmd := &cobra.Command{}
+	cmd.Flags().String("subscription", "", "Azure subscription ID")
+
+	result := GetSubscriptionID(cmd, mockCLI)
+
+	// Should succeed and return subscription ID
+	if result != "test-sub-id" {
+		t.Errorf("Expected 'test-sub-id', got '%s'", result)
+	}
+	if !mockCLI.IsLoggedInCalled {
+		t.Error("Authentication check should be called")
+	}
+}
+
+func TestGetSubscriptionID_AuthenticationCheck_NotLoggedIn(t *testing.T) {
+	// Setup mock CLI - not logged in
+	mockCLI := azurecli.NewMockAzureCLI()
+	mockCLI.IsLoggedInResult = false
+
+	// Create command with flags
+	cmd := &cobra.Command{}
+	cmd.Flags().String("subscription", "", "Azure subscription ID")
+
+	result := GetSubscriptionID(cmd, mockCLI)
+
+	// Should return empty string when not authenticated
+	if result != "" {
+		t.Errorf("Expected empty string when not authenticated, got '%s'", result)
+	}
+	if !mockCLI.IsLoggedInCalled {
+		t.Error("Authentication check should be called")
+	}
+}
+
+func TestSetAzureSubscription_AuthenticationCheck_Success(t *testing.T) {
+	// Setup mock CLI
+	mockCLI := azurecli.NewMockAzureCLI()
+	mockCLI.IsLoggedInResult = true
+	// Add the subscription to the list so SetSubscription can find it
+	mockCLI.Subscriptions = []azurecli.SubscriptionInfo{
+		{ID: "test-sub-id", Name: "Test Subscription", IsDefault: false},
+	}
+
+	err := SetAzureSubscription(mockCLI, "test-sub-id")
+
+	// Should succeed
+	if err != nil {
+		t.Errorf("Expected no error when authenticated, got: %v", err)
+	}
+	if !mockCLI.IsLoggedInCalled {
+		t.Error("Authentication check should be called")
+	}
+	if !mockCLI.SetSubscriptionCalled {
+		t.Error("SetSubscription should be called after authentication")
+	}
+}
+
+func TestSetAzureSubscription_AuthenticationCheck_NotLoggedIn(t *testing.T) {
+	// Setup mock CLI - not logged in
+	mockCLI := azurecli.NewMockAzureCLI()
+	mockCLI.IsLoggedInResult = false
+
+	err := SetAzureSubscription(mockCLI, "test-sub-id")
+
+	// Should fail with authentication error
+	if err == nil {
+		t.Error("Expected authentication error when not logged in")
+	}
+	if err != nil && err.Error() != "Azure CLI authentication required. Please run 'az login' to setup your account" {
+		t.Errorf("Expected authentication error message, got: %v", err)
+	}
+	if !mockCLI.IsLoggedInCalled {
+		t.Error("Authentication check should be called")
+	}
+	if mockCLI.SetSubscriptionCalled {
+		t.Error("SetSubscription should NOT be called when authentication fails")
+	}
+}
+
+func TestCheckResourceGroupExists_AuthenticationCheck_Success(t *testing.T) {
+	// Setup mock CLI
+	mockCLI := azurecli.NewMockAzureCLI()
+	mockCLI.IsLoggedInResult = true
+	mockCLI.ResourceGroupExists = map[string]bool{"test-rg": true}
+
+	exists, err := CheckResourceGroupExists(mockCLI, "test-rg", "")
+
+	// Should succeed
+	if err != nil {
+		t.Errorf("Expected no error when authenticated, got: %v", err)
+	}
+	if !exists {
+		t.Error("Expected resource group to exist")
+	}
+	if !mockCLI.IsLoggedInCalled {
+		t.Error("Authentication check should be called")
+	}
+}
+
+func TestCheckResourceGroupExists_AuthenticationCheck_NotLoggedIn(t *testing.T) {
+	// Setup mock CLI - not logged in
+	mockCLI := azurecli.NewMockAzureCLI()
+	mockCLI.IsLoggedInResult = false
+
+	exists, err := CheckResourceGroupExists(mockCLI, "test-rg", "")
+
+	// Should fail with authentication error
+	if err == nil {
+		t.Error("Expected authentication error when not logged in")
+	}
+	if exists {
+		t.Error("Expected false result when authentication fails")
+	}
+	if err != nil && err.Error() != "Azure CLI authentication required. Please run 'az login' to setup your account" {
+		t.Errorf("Expected authentication error message, got: %v", err)
+	}
+	if !mockCLI.IsLoggedInCalled {
+		t.Error("Authentication check should be called")
 	}
 }

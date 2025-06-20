@@ -13,7 +13,7 @@ import (
 )
 
 // Azure CLI instance for dependency injection
-var defaultAzureCLI azurecli.AzureCLI = &azurecli.RealAzureCLI{}
+var defaultAzureCLI azurecli.AzureCLI = azurecli.NewAzureCLI()
 
 // SetAzureCLI allows overriding the Azure CLI implementation for testing
 func SetAzureCLI(cli azurecli.AzureCLI) {

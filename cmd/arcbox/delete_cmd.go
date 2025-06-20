@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"jumpstartcli/cmd/arcbox/services"
+	"jumpstartcli/internal/auth"
 	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/utils"
@@ -24,6 +25,11 @@ This operation is irreversible and will permanently remove all ArcBox resources.
 
 ` + examples.GetExamples("arcbox.delete").FormatExamples(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check Azure CLI authentication first
+			if err := auth.CheckAzureAuthentication(cli); err != nil {
+				return err
+			}
+
 			subscription, _ := cmd.Flags().GetString("subscription")
 			skipConfirmation, _ := cmd.Flags().GetBool("yes")
 			resourceGroupName, _ := cmd.Flags().GetString("name")

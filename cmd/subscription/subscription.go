@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"jumpstartcli/internal/auth"
 	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/table"
 	"jumpstartcli/internal/utils"
@@ -73,6 +74,12 @@ Use 'js subscription <subcommand> --help' for more details.`,
 The command displays the subscription that is currently set as the default for Azure CLI operations.
 Use different output formats to integrate with scripts or automation tools.`,
 		Run: func(cmd *cobra.Command, args []string) {
+			// Check Azure CLI authentication first
+			if err := auth.CheckAzureAuthentication(azCLI); err != nil {
+				utils.Error(err.Error())
+				return
+			}
+
 			idOnly, _ := cmd.Flags().GetBool("id")
 			nameOnly, _ := cmd.Flags().GetBool("name")
 
@@ -183,6 +190,12 @@ Use different output formats to integrate with scripts or automation tools.`,
 		Short: "List all available Azure subscriptions",
 		Args:  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
+			// Check Azure CLI authentication first
+			if err := auth.CheckAzureAuthentication(azCLI); err != nil {
+				utils.Error(err.Error())
+				return
+			}
+
 			if utils.DebugMode {
 				utils.Debug("Current output format: '%s'", utils.OutputFormat)
 			}
@@ -249,6 +262,12 @@ You can specify the subscription using either:
 
 The subscription will be set as the default for all subsequent Azure CLI commands.`,
 		Run: func(cmd *cobra.Command, args []string) {
+			// Check Azure CLI authentication first
+			if err := auth.CheckAzureAuthentication(azCLI); err != nil {
+				utils.Error(err.Error())
+				return
+			}
+
 			subscriptionID, _ := cmd.Flags().GetString("subscription")
 			subscriptionName, _ := cmd.Flags().GetString("name")
 

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"jumpstartcli/cmd/arcbox/services"
+	"jumpstartcli/internal/auth"
 	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/utils"
@@ -14,6 +15,11 @@ import (
 
 // executeListCommand contains the core list command logic, extracted for testability
 func executeListCommand(cmd *cobra.Command, listingService *services.ListingService, cli azurecli.AzureCLI) error {
+	// Check Azure CLI authentication first
+	if err := auth.CheckAzureAuthentication(cli); err != nil {
+		return err
+	}
+
 	// Create validation service
 	validationService := services.NewListValidationService(cli)
 

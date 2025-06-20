@@ -99,3 +99,5 @@ yarn-error.log*
 # Local scripts that shouldn't be committed
 local-*
 *.local.*
+
+.specstory/

@@ -4,6 +4,7 @@ package arcbox
 import (
 	"fmt"
 
+	arcboxUtils "jumpstartcli/cmd/arcbox/utils"
 	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/preflight/validator"
 	"jumpstartcli/internal/utils"
@@ -98,6 +99,8 @@ func RunArcBoxQuotaChecks(cmd *cobra.Command) bool {
 // ValidateConditionalRequirements checks flavor-specific requirements and prints errors
 func ValidateConditionalRequirements(cmd *cobra.Command) bool {
 	flavor, _ := cmd.Flags().GetString("flavor")
+	// Normalize flavor for consistent display
+	flavor = arcboxUtils.NormalizeFlavorCase(flavor)
 	sshKey, _ := cmd.Flags().GetString("ssh-rsa-public-key")
 	githubUser, _ := cmd.Flags().GetString("github-user")
 
@@ -138,7 +141,7 @@ func buildArcBoxValidationContext(cmd *cobra.Command) *validator.ValidationConte
 
 	// Extract all flag values
 	if flavor, _ := cmd.Flags().GetString("flavor"); flavor != "" {
-		ctx.Flavor = flavor
+		ctx.Flavor = arcboxUtils.NormalizeFlavorCase(flavor)
 	}
 
 	if location, _ := cmd.Flags().GetString("location"); location != "" {
@@ -194,6 +197,8 @@ func GetFlavorSpecificChecks(flavor string) []string {
 
 // PrintFlavorRequirements prints a summary of flavor-specific requirements
 func PrintFlavorRequirements(flavor string) {
+	// Normalize flavor for consistent display
+	flavor = arcboxUtils.NormalizeFlavorCase(flavor)
 	fmt.Printf("%s ArcBox %s flavor requirements:\n", utils.InfoColor("📋"), flavor)
 
 	switch flavor {

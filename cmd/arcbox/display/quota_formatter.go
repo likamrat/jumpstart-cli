@@ -3,6 +3,7 @@ package display
 
 import (
 	"fmt"
+	"time"
 
 	arcboxUtils "jumpstartcli/cmd/arcbox/utils"
 	"jumpstartcli/internal/azurecli"
@@ -40,6 +41,12 @@ func (qd *QuotaDisplay) RunQuotaChecksWithOutput(cli azurecli.AzureCLI, cmd *cob
 
 	if utils.OutputFormat == "table" {
 		fmt.Printf(utils.InfoColor("🔍 Checking vCPU quota and SKU availability for %s flavor...\n"), flavor)
+
+		// Show time warning for multi-SKU flavors
+		if flavor == "DevOps" || flavor == "DataOps" {
+			fmt.Printf("⏱️  %s Note: This may take 3-5 minutes (checking 5 SKUs)...\n\n",
+				utils.InfoColor(""))
+		}
 	}
 
 	// Use the new preflight quota checking functionality
@@ -92,24 +99,35 @@ func (qd *QuotaDisplay) RunQuotaChecksWithTable(cli azurecli.AzureCLI, cmd *cobr
 // RunQuotaChecksWithSubscription performs detailed quota checking and returns results using a direct subscription ID
 // Returns (allPassed bool, results []map[string]interface{})
 func (qd *QuotaDisplay) RunQuotaChecksWithSubscription(cli azurecli.AzureCLI, location, flavor string, subscriptionID string) (bool, []map[string]interface{}) {
+	return qd.runQuotaChecksWithSubscriptionInternal(cli, location, flavor, subscriptionID, true)
+}
+
+// RunQuotaChecksWithSubscriptionSilent performs detailed quota checking without printing status messages
+// Returns (allPassed bool, results []map[string]interface{})
+func (qd *QuotaDisplay) RunQuotaChecksWithSubscriptionSilent(cli azurecli.AzureCLI, location, flavor string, subscriptionID string) (bool, []map[string]interface{}) {
+	return qd.runQuotaChecksWithSubscriptionInternal(cli, location, flavor, subscriptionID, false)
+}
+
+// runQuotaChecksWithSubscriptionInternal is the internal implementation
+func (qd *QuotaDisplay) runQuotaChecksWithSubscriptionInternal(cli azurecli.AzureCLI, location, flavor string, subscriptionID string, printStatus bool) (bool, []map[string]interface{}) {
 	// Normalize flavor and validate
 	flavor = arcboxUtils.NormalizeFlavorCase(flavor)
 
 	if subscriptionID == "" {
-		if utils.OutputFormat == "table" {
+		if utils.OutputFormat == "table" && printStatus {
 			fmt.Println(utils.ErrorColor("❌ [ERROR] Unable to get subscription ID. Please ensure Azure CLI is authenticated."))
 		}
 		return false, nil
 	}
 
-	if utils.OutputFormat == "table" {
+	if utils.OutputFormat == "table" && printStatus {
 		fmt.Printf(utils.InfoColor("🔍 Checking vCPU quota and SKU availability for %s flavor...\n"), flavor)
 	}
 
 	// Use the new preflight quota checking functionality
 	quotaResults, err := arcbox.RunQuotaChecks(cli, location, flavor, subscriptionID)
 	if err != nil {
-		if utils.OutputFormat == "table" {
+		if utils.OutputFormat == "table" && printStatus {
 			fmt.Printf(utils.ErrorColor("❌ [ERROR] Failed to check quota: %v\n"), err)
 		}
 		return false, nil
@@ -190,4 +208,57 @@ func (qd *QuotaDisplay) printQuotaTable(quotaResults []arcbox.QuotaCheckResult, 
 			flavor, utils.GetRegionDisplayName(location))
 		fmt.Println(utils.InfoColor("💡 Consider requesting quota increases or choosing a different region"))
 	}
+}
+
+// RunQuotaCheckWithSpinner performs quota checking with spinner animation
+func (qd *QuotaDisplay) RunQuotaCheckWithSpinner(checkFunc func() ([]map[string]interface{}, error), locationDesc string) ([]map[string]interface{}, error) {
+	// Set up spinner for quota checking
+	stopSpinner := make(chan struct{})
+	spinnerDone := make(chan struct{})
+
+	// Animation frames: Unicode spinner for smooth animation (consistent with other commands)
+	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	frameIdx := 0
+
+	// Show initial message
+	fmt.Printf("🔍 Checking vCPU quota for %s...", locationDesc)
+
+	// Hide cursor before starting animation
+	fmt.Print("\033[?25l")
+
+	// Start spinner animation in goroutine
+	go func() {
+		for {
+			select {
+			case <-stopSpinner:
+				// Clear the spinner line completely
+				fmt.Printf("\r\033[2K")
+				// Restore cursor when animation stops
+				fmt.Print("\033[?25h")
+				close(spinnerDone)
+				return
+			default:
+				// Update spinner frame
+				fmt.Printf("\r🔍 Checking vCPU quota for %s... %s", locationDesc, frames[frameIdx])
+				frameIdx = (frameIdx + 1) % len(frames)
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+	}()
+
+	// Perform the actual quota checking
+	results, err := checkFunc()
+
+	// Stop spinner and wait for cleanup
+	close(stopSpinner)
+	<-spinnerDone
+
+	if err != nil {
+		fmt.Printf("🔍 Checking vCPU quota for %s... %s\n", locationDesc, utils.ErrorColor("❌"))
+		return results, err
+	}
+
+	// Show final result with success indicator
+	fmt.Printf("🔍 Checking vCPU quota for %s... %s\n", locationDesc, utils.SuccessColor("✅"))
+	return results, nil
 }

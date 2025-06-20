@@ -8,6 +8,7 @@ import (
 	"jumpstartcli/internal/azurecli"
 
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 )
 
 // TestDeployCommand_BasicStructure migrates and enhances the existing TestArcboxDeployCommand
@@ -855,7 +856,116 @@ func TestDeployCommand_ValidationErrorScenarios(t *testing.T) {
 	})
 }
 
-// Helper function to get deploy command from root command
+// Authentication Integration Tests - Added for Phase 4
+
+// TestDeployCommand_AuthenticationCheck_Success tests that deploy command succeeds when authenticated
+func TestDeployCommand_AuthenticationCheck_Success(t *testing.T) {
+	mockCLI := azurecli.NewMockAzureCLI()
+	mockCLI.IsLoggedInResult = true
+
+	cmd := NewArcboxCmdWithCLI(mockCLI)
+
+	// Find the deploy subcommand
+	var deployCmd *cobra.Command
+	for _, subCmd := range cmd.Commands() {
+		if subCmd.Use == "deploy" {
+			deployCmd = subCmd
+			break
+		}
+	}
+	if deployCmd == nil {
+		t.Fatal("Deploy subcommand not found")
+	}
+
+	// Set up minimal valid flags to avoid other validation errors
+	deployCmd.Flags().Set("location", "eastus")
+	deployCmd.Flags().Set("resource-group", "test-rg")
+	deployCmd.Flags().Set("flavor", "ITPro")
+	deployCmd.Flags().Set("windows-user", "testuser")
+	deployCmd.Flags().Set("windows-password", "TestPassword123!")
+	deployCmd.Flags().Set("skip-preflight", "yes")
+
+	// Execute the command
+	err := deployCmd.RunE(deployCmd, []string{})
+
+	// Should succeed without authentication error
+	assert.True(t, mockCLI.IsLoggedInCalled, "Authentication check should be called")
+	if err != nil {
+		// If there's an error, it should not be about authentication
+		assert.NotContains(t, err.Error(), "Azure CLI authentication required")
+		assert.NotContains(t, err.Error(), "az login")
+	}
+}
+
+// TestDeployCommand_AuthenticationCheck_NotLoggedIn tests that deploy command fails when not authenticated
+func TestDeployCommand_AuthenticationCheck_NotLoggedIn(t *testing.T) {
+	mockCLI := azurecli.NewMockAzureCLI()
+	mockCLI.IsLoggedInResult = false // User is not logged in
+
+	cmd := NewArcboxCmdWithCLI(mockCLI)
+
+	// Find the deploy subcommand
+	var deployCmd *cobra.Command
+	for _, subCmd := range cmd.Commands() {
+		if subCmd.Use == "deploy" {
+			deployCmd = subCmd
+			break
+		}
+	}
+	if deployCmd == nil {
+		t.Fatal("Deploy subcommand not found")
+	}
+
+	// Set up minimal valid flags
+	deployCmd.Flags().Set("location", "eastus")
+	deployCmd.Flags().Set("resource-group", "test-rg")
+	deployCmd.Flags().Set("flavor", "ITPro")
+
+	// Execute the command
+	err := deployCmd.RunE(deployCmd, []string{})
+
+	// Should fail with authentication error
+	assert.Error(t, err)
+	assert.True(t, mockCLI.IsLoggedInCalled, "Authentication check should be called")
+	assert.Contains(t, err.Error(), "Azure CLI authentication required")
+	assert.Contains(t, err.Error(), "az login")
+}
+
+// TestDeployCommand_AuthenticationCheck_CalledFirst tests that authentication check is called before other operations
+func TestDeployCommand_AuthenticationCheck_CalledFirst(t *testing.T) {
+	mockCLI := azurecli.NewMockAzureCLI()
+	mockCLI.IsLoggedInResult = false // This will cause early return
+
+	cmd := NewArcboxCmdWithCLI(mockCLI)
+
+	// Find the deploy subcommand
+	var deployCmd *cobra.Command
+	for _, subCmd := range cmd.Commands() {
+		if subCmd.Use == "deploy" {
+			deployCmd = subCmd
+			break
+		}
+	}
+	if deployCmd == nil {
+		t.Fatal("Deploy subcommand not found")
+	}
+
+	// Don't set any flags - this would normally cause validation errors
+	// But authentication check should happen first
+
+	// Execute the command
+	err := deployCmd.RunE(deployCmd, []string{})
+
+	// Should fail with authentication error, not validation error
+	assert.Error(t, err)
+	assert.True(t, mockCLI.IsLoggedInCalled, "Authentication check should be called")
+	assert.Contains(t, err.Error(), "Azure CLI authentication required")
+	// Should not contain validation errors since auth check happens first
+	assert.NotContains(t, err.Error(), "missing required")
+	assert.NotContains(t, err.Error(), "validation failed")
+}
+
+// Helper function to get deploy command for testing
 func getDeployCommand(t *testing.T, cmd *cobra.Command) *cobra.Command {
 	for _, subCmd := range cmd.Commands() {
 		if subCmd.Use == "deploy" {

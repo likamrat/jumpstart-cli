@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"jumpstartcli/internal/auth"
 	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/resourceproviders"
 	"jumpstartcli/internal/utils"
@@ -914,10 +915,7 @@ func ValidateEmail(email string) bool {
 // --- Helper functions for infrastructure validation ---
 
 func checkAzureCLIHealth(azCLI azurecli.AzureCLI) error {
-	if !azCLI.IsLoggedIn() {
-		return fmt.Errorf("not logged in to Azure CLI")
-	}
-	return nil
+	return auth.CheckAzureAuthentication(azCLI)
 }
 
 func getSubscriptionFromContext(ctx *ValidationContext) string {

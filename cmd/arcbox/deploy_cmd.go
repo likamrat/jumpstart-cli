@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"jumpstartcli/cmd/arcbox/services"
+	"jumpstartcli/internal/auth"
+	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/utils"
 
@@ -27,6 +29,13 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 
 ` + examples.GetExamples("arcbox.deploy").FormatExamples(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check Azure CLI authentication first
+			if azCLI, ok := cli.(azurecli.AzureCLI); ok {
+				if err := auth.CheckAzureAuthentication(azCLI); err != nil {
+					return err
+				}
+			}
+
 			// Run all validation checks using the service layer
 			if result := deployValidationService.ValidateAllDeployRequirements(cmd); !result.IsValid {
 				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), result.Error)

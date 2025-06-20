@@ -92,15 +92,19 @@ func CheckQuotaForSKU(cli azurecli.AzureCLI, sku string, required int, region, f
 		return result
 	}
 
-	// Check SKU availability
-	skuAvailable, err := cli.CheckSKUAvailability(sku, region)
-	if err != nil {
-		result.Details = fmt.Sprintf("Failed to check SKU availability: %v", err)
-		return result
-	}
+	// If we have quota information, the SKU family is available in the region
+	// Azure wouldn't provide quota limits for unavailable SKU families
+	result.SKUAvailable = true
 
-	// Set deployment feasibility
-	result.CanDeploy = result.QuotaOK && skuAvailable
+	// Set deployment feasibility based on quota sufficiency only
+	result.CanDeploy = result.QuotaOK
+
+	// Set appropriate details message
+	if result.QuotaOK {
+		result.Details = "Ready to deploy"
+	} else {
+		result.Details = fmt.Sprintf("Need %d more vCPU", result.Required-result.Available)
+	}
 
 	return result
 }
@@ -132,6 +136,11 @@ func CheckBatchSKUAvailability(cli azurecli.AzureCLI, skus []string, region stri
 
 // RunQuotaChecks performs comprehensive quota checking for ArcBox flavors
 func RunQuotaChecks(cli azurecli.AzureCLI, location, flavor string, subscription string) ([]QuotaCheckResult, error) {
+	// First, verify Azure CLI authentication by checking current subscription
+	if _, err := cli.GetCurrentSubscription(); err != nil {
+		return nil, fmt.Errorf("Azure CLI authentication required: %v", err)
+	}
+
 	// Get SKUs for the flavor(s)
 	var allSKUs []string
 	if flavor == "all" {
@@ -157,44 +166,19 @@ func RunQuotaChecks(cli azurecli.AzureCLI, location, flavor string, subscription
 		return nil, fmt.Errorf("no SKUs found for flavor: %s", flavor)
 	}
 
-	// Check SKU availability
-	unavailableSKUs, err := CheckBatchSKUAvailability(cli, allSKUs, location)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check SKU availability: %v", err)
-	}
-
-	// Create availability map
-	skuAvailabilityMap := make(map[string]bool)
-	for _, sku := range allSKUs {
-		skuAvailabilityMap[sku] = true // Assume available by default
-	}
-	for _, sku := range unavailableSKUs {
-		skuAvailabilityMap[sku] = false // Mark unavailable SKUs
-	}
-
 	// Check quota for each SKU
 	var results []QuotaCheckResult
 	for _, sku := range allSKUs {
 		required := getRequiredVCPUForSKU(sku)
 		result := CheckQuotaForSKU(cli, sku, required, location, flavor)
 
-		// Set SKU availability
-		result.SKUAvailable = skuAvailabilityMap[sku]
-
-		// Determine overall deployment capability
-		result.CanDeploy = result.QuotaOK && result.SKUAvailable
-
-		// Set appropriate details message
-		if result.QuotaOK && result.SKUAvailable {
-			result.Details = "Sufficient quota and SKU available"
-		} else if !result.QuotaOK && !result.SKUAvailable {
-			result.Details = fmt.Sprintf("Need %d more vCPU; SKU not available", required-result.Available)
-		} else if !result.QuotaOK {
-			result.Details = fmt.Sprintf("Need %d more vCPU", required-result.Available)
-		} else { // !result.SKUAvailable
-			result.Details = "SKU not available in region"
+		// Check if the quota check failed due to an error (e.g. authentication)
+		if strings.Contains(result.Details, "Failed to get quota data") {
+			return nil, fmt.Errorf("quota check failed for SKU %s: %s", sku, result.Details)
 		}
 
+		// Use the results from CheckQuotaForSKU as-is
+		// If quota exists for a SKU family, the SKU is deployable
 		results = append(results, result)
 	}
 

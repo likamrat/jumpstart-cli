@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"jumpstartcli/cmd/arcbox/services"
+	"jumpstartcli/internal/auth"
 	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/preflight/arcbox"
@@ -59,6 +60,11 @@ func createPreflightCommand(quotaService *services.QuotaService, validationServi
 
 ` + examples.GetExamples("arcbox.preflight.quota").FormatExamples(),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Check Azure CLI authentication first
+			if err := auth.CheckAzureAuthentication(cli); err != nil {
+				return err
+			}
+
 			return executePreflightQuotaCommandWithError(quotaService, cmd, args)
 		},
 	}
@@ -96,7 +102,7 @@ func executePreflightQuotaCommandWithError(quotaService *services.QuotaService, 
 		} else {
 			fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
 		}
-		return err
+		return nil // Don't return the error to prevent duplicate printing by Cobra
 	}
 	return nil
 }

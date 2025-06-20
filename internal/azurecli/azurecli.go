@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -28,6 +29,40 @@ type VMUsageInfo struct {
 	CurrentValue int               `json:"currentValue"`
 	Limit        int               `json:"limit"`
 	Unit         string            `json:"unit"`
+}
+
+// UnmarshalJSON custom unmarshaler to handle string to int conversion for Azure CLI output
+func (v *VMUsageInfo) UnmarshalJSON(data []byte) error {
+	// Define a temporary struct with string fields
+	var temp struct {
+		Name         map[string]string `json:"name"`
+		CurrentValue string            `json:"currentValue"`
+		Limit        string            `json:"limit"`
+		Unit         string            `json:"unit"`
+	}
+
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	// Convert strings to integers
+	currentValue, err := strconv.Atoi(temp.CurrentValue)
+	if err != nil {
+		return fmt.Errorf("failed to convert currentValue '%s' to int: %v", temp.CurrentValue, err)
+	}
+
+	limit, err := strconv.Atoi(temp.Limit)
+	if err != nil {
+		return fmt.Errorf("failed to convert limit '%s' to int: %v", temp.Limit, err)
+	}
+
+	// Set the converted values
+	v.Name = temp.Name
+	v.CurrentValue = currentValue
+	v.Limit = limit
+	v.Unit = temp.Unit
+
+	return nil
 }
 
 // SKUInfo represents Azure VM SKU information
@@ -279,12 +314,12 @@ func (r *RealAzureCLI) CheckSKUAvailability(sku, region string) (bool, error) {
 		return false, fmt.Errorf("region cannot be empty")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	// Use a targeted query to check for the specific SKU
-	query := fmt.Sprintf("[?name=='%s'].name", sku)
-	cmd := exec.CommandContext(ctx, "az", "vm", "list-skus", "--resource-type", "virtualMachines", "--location", region, "--query", query, "-o", "tsv")
+	// Get detailed SKU information including restrictions
+	query := fmt.Sprintf("[?name=='%s']", sku)
+	cmd := exec.CommandContext(ctx, "az", "vm", "list-skus", "--resource-type", "virtualMachines", "--location", region, "--query", query, "-o", "json")
 	output, err := cmd.Output()
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
@@ -293,8 +328,36 @@ func (r *RealAzureCLI) CheckSKUAvailability(sku, region string) (bool, error) {
 		return false, fmt.Errorf("failed to check SKU %s availability in region %s: %v", sku, region, err)
 	}
 
-	result := strings.TrimSpace(string(output))
-	return result == sku, nil
+	var skus []map[string]interface{}
+	if err := json.Unmarshal(output, &skus); err != nil {
+		return false, fmt.Errorf("failed to parse SKU availability data: %v", err)
+	}
+
+	if len(skus) == 0 {
+		return false, nil // SKU not found
+	}
+
+	// Check if the SKU has restrictions that make it unavailable
+	skuInfo := skus[0]
+	if restrictions, ok := skuInfo["restrictions"].([]interface{}); ok && len(restrictions) > 0 {
+		// If there are restrictions, check if any make it unavailable for subscription
+		for _, restriction := range restrictions {
+			if restrictionMap, ok := restriction.(map[string]interface{}); ok {
+				if reasonCode, ok := restrictionMap["reasonCode"].(string); ok {
+					if restrictionType, ok := restrictionMap["type"].(string); ok {
+						// Only block if it's a location-level restriction
+						// Zone-level restrictions don't prevent deployment, just limit zone choices
+						if reasonCode == "NotAvailableForSubscription" && restrictionType == "Location" {
+							return false, nil // SKU truly unavailable for this subscription at location level
+						}
+						// Zone restrictions are acceptable - SKU is still deployable
+					}
+				}
+			}
+		}
+	}
+
+	return true, nil // SKU exists and is available
 }
 
 // CheckProviderRegistration checks if a resource provider is registered
