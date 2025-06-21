@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"os"
 
 	arcboxUtils "jumpstartcli/cmd/arcbox/utils"
 	"jumpstartcli/internal/azurecli"
@@ -24,19 +25,13 @@ func NewDeleteValidationService(cli azurecli.AzureCLI) *DeleteValidationService 
 
 // ValidateRequiredArguments validates that all required arguments are provided
 func (dvs *DeleteValidationService) ValidateRequiredArguments(cmd *cobra.Command) ValidationResult {
-	if err := utils.ValidateAllFlags(cmd); err != nil {
-		return ValidationResult{
-			IsValid: false,
-			Error:   fmt.Errorf("failed to validate command flags: %w", err),
-		}
-	}
-
-	// Use standard missing required flags validation
+	// Use standard missing required flags validation - this prints the error message
 	requiredFlags := []string{"name"}
 	if !utils.PrintMissingRequiredFlagsError(cmd, requiredFlags) {
+		// PrintMissingRequiredFlagsError already printed the error message using centralized handling
 		return ValidationResult{
 			IsValid: false,
-			Error:   fmt.Errorf("validation_failed_with_output_already_shown"),
+			Error:   fmt.Errorf("missing required arguments"),
 		}
 	}
 
@@ -46,9 +41,10 @@ func (dvs *DeleteValidationService) ValidateRequiredArguments(cmd *cobra.Command
 // ValidateAzureLogin validates that the user is logged in to Azure CLI
 func (dvs *DeleteValidationService) ValidateAzureLogin() ValidationResult {
 	if !utils.IsAzureLoggedInWithCLI(dvs.cli) {
+		utils.PrintAuthenticationError()
 		return ValidationResult{
 			IsValid: false,
-			Error:   fmt.Errorf("azure authentication required: please run 'az login' and try again"),
+			Error:   fmt.Errorf("authentication required"),
 		}
 	}
 	return ValidationResult{IsValid: true}
@@ -61,9 +57,10 @@ func (dvs *DeleteValidationService) ValidateAndSetSubscription(subscription stri
 	}
 
 	if err := arcboxUtils.SetAzureSubscription(dvs.cli, subscription); err != nil {
+		fmt.Fprintf(os.Stderr, "The subscription '%s' doesn't exist or you don't have access.\n", subscription)
 		return ValidationResult{
 			IsValid: false,
-			Error:   fmt.Errorf("subscription context setup failed for '%s': verify subscription ID and access permissions: %w", subscription, err),
+			Error:   fmt.Errorf("subscription validation failed"),
 		}
 	}
 	return ValidationResult{IsValid: true}

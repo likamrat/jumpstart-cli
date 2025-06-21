@@ -3,7 +3,6 @@ package arcbox
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"jumpstartcli/cmd/arcbox/services"
 	"jumpstartcli/internal/auth"
@@ -27,15 +26,9 @@ func executeListCommand(cmd *cobra.Command, listingService *services.ListingServ
 	// Run all validations
 	result := validationService.ValidateAllListRequirements(cmd, listingService)
 	if !result.IsValid {
-		errorMessage := result.Error.Error()
-
-		// Special case: if validation failed but output was already shown, exit silently
-		if errorMessage == "validation_failed_with_output_already_shown" {
-			utils.PrintMissingRequiredArgumentsTip(cmd)
-			os.Exit(1)
-		}
-
-		return result.Error
+		// For validation errors, the validation service already showed
+		// the clean Azure CLI-style error message, so we just exit
+		os.Exit(1)
 	}
 
 	// Extract command flags
@@ -53,19 +46,8 @@ func executeListCommand(cmd *cobra.Command, listingService *services.ListingServ
 
 // handleListCommandError handles errors from executeListCommand, including display and exit
 func handleListCommandError(err error, cmd *cobra.Command, listingService *services.ListingService, cli azurecli.AzureCLI) {
-	// For subscription selection errors, don't add ERROR prefix - keep it clean
-	errorMessage := err.Error()
-	if strings.Contains(errorMessage, "subscription selection required") || strings.Contains(errorMessage, "conflicting subscription flags") {
-		fmt.Fprintln(cmd.ErrOrStderr(), errorMessage)
-		utils.ShowHelpWithoutTypes(cmd)
-		fmt.Fprintln(cmd.ErrOrStderr(), utils.InfoColor("💡 [TIP] Use 'js arcbox list --help' to see all required arguments."))
-	} else {
-		// For other errors, use the standard error format
-		fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
-		if result := services.NewListValidationService(cli).ValidateAllListRequirements(cmd, listingService); !result.IsValid {
-			utils.ShowHelpWithoutTypes(cmd)
-		}
-	}
+	// Use standard error format without ERROR prefix for consistency
+	fmt.Fprintf(cmd.ErrOrStderr(), "%v\n", err)
 	os.Exit(1)
 }
 

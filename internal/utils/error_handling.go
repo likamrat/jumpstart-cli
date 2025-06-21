@@ -63,3 +63,9 @@ func HandleSubscriptionSelectionError(cmd *cobra.Command, errorMessage string) {
 	// Azure CLI style: Error message in RED color with single newline, no prefixes
 	fmt.Fprintf(os.Stderr, "%s\n", ErrorColor(errorMessage))
 }
+
+// PrintAuthenticationError prints a minimal authentication error message
+// This matches Azure CLI's authentication error style
+func PrintAuthenticationError() {
+	fmt.Fprintf(os.Stderr, "Please run 'az login' to setup account.\n")
+}

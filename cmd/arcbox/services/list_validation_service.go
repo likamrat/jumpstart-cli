@@ -26,9 +26,10 @@ func NewListValidationService(cli azurecli.AzureCLI) *ListValidationService {
 // ValidateAzureLogin validates that the user is logged in to Azure CLI
 func (lvs *ListValidationService) ValidateAzureLogin() ValidationResult {
 	if !utils.IsAzureLoggedInWithCLI(lvs.cli) {
+		utils.PrintAuthenticationError()
 		return ValidationResult{
 			IsValid: false,
-			Error:   fmt.Errorf("azure authentication required: please run 'az login' and try again"),
+			Error:   fmt.Errorf("authentication required"),
 		}
 	}
 	return ValidationResult{IsValid: true}
@@ -54,20 +55,20 @@ func (lvs *ListValidationService) ValidateSubscriptionSelection(cmd *cobra.Comma
 
 	// If no subscription selection flag is provided
 	if flagCount == 0 {
-		// Print the standardized error message format with red color
-		fmt.Fprintf(os.Stderr, "%s\n\n", utils.ErrorColor("the following arguments are required (choose one): --current-subscription, --all-subscriptions, or --subscription"))
-		utils.ShowHelpWithoutTypes(cmd)
+		// Use centralized error handling - matches Azure CLI style
+		utils.PrintRequiredArgumentsError([]string{"--current-subscription, --all-subscriptions, or --subscription"})
 		return ValidationResult{
 			IsValid: false,
-			Error:   fmt.Errorf("validation_failed_with_output_already_shown"),
+			Error:   fmt.Errorf("missing required subscription selection"),
 		}
 	}
 
 	// Validate flag combinations - prevent contradictory flags
 	if flagCount > 1 {
+		fmt.Fprintf(os.Stderr, "Only one subscription selection option can be specified at a time.\n")
 		return ValidationResult{
 			IsValid: false,
-			Error:   fmt.Errorf("conflicting subscription flags: choose only one of --all-subscriptions, --current-subscription, or --subscription"),
+			Error:   fmt.Errorf("conflicting subscription flags"),
 		}
 	}
 
@@ -97,9 +98,10 @@ func (lvs *ListValidationService) ValidateSubscriptionAccess(listingService List
 	}
 
 	if _, err := listingService.GetSubscription(subscription); err != nil {
+		fmt.Fprintf(os.Stderr, "The subscription '%s' doesn't exist or you don't have access.\n", subscription)
 		return ValidationResult{
 			IsValid: false,
-			Error:   fmt.Errorf("subscription access failed for '%s': verify subscription ID and permissions: %w", subscription, err),
+			Error:   fmt.Errorf("subscription access failed"),
 		}
 	}
 	return ValidationResult{IsValid: true}

@@ -31,11 +31,10 @@ func (dvs *DeployValidationService) ValidateDeployFlags(cmd *cobra.Command) Vali
 // ValidateRequiredArguments validates that all required arguments are provided
 func (dvs *DeployValidationService) ValidateRequiredArguments(cmd *cobra.Command, requiredArguments []string) ValidationResult {
 	if !utils.PrintMissingRequiredFlagsError(cmd, requiredArguments) {
-		// PrintMissingRequiredFlagsError already printed the error message and help
-		// Create a special error type to indicate silent failure
+		// PrintMissingRequiredFlagsError already printed the error message using centralized handling
 		return ValidationResult{
 			IsValid: false,
-			Error:   fmt.Errorf("validation_failed_with_output_already_shown"),
+			Error:   fmt.Errorf("missing required arguments"),
 		}
 	}
 	return ValidationResult{IsValid: true}

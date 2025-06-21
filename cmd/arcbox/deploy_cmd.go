@@ -39,22 +39,13 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 
 			// Run all validation checks using the service layer
 			if result := deployValidationService.ValidateAllDeployRequirements(cmd); !result.IsValid {
-				errorMessage := result.Error.Error()
-
-				// Special case: if validation failed but output was already shown, exit silently
-				if errorMessage == "validation_failed_with_output_already_shown" {
-					// Show helpful tip for missing required arguments
-					utils.PrintMissingRequiredArgumentsTip(cmd)
-					// Use os.Exit to avoid Cobra printing any additional error messages
-					os.Exit(1)
-				}
-
-				if strings.Contains(errorMessage, "preflight checks failed") {
+				// Handle specific validation error types
+				if strings.Contains(result.Error.Error(), "preflight checks failed") {
 					fmt.Println(utils.ErrorColor("💡 [TIP] You can use --skip-preflight to bypass these checks (not recommended)."))
-				} else if strings.Contains(errorMessage, "missing required arguments") {
-					utils.PrintMissingRequiredArgumentsTip(cmd)
 				}
-				return result.Error
+				// For missing required arguments, the validation service already showed
+				// the clean Azure CLI-style error message, so we just exit
+				os.Exit(1)
 			}
 
 			bicepPath, _ := cmd.Flags().GetString("template-local")
