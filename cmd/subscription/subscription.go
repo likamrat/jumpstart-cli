@@ -286,14 +286,12 @@ The subscription will be set as the default for all subsequent Azure CLI command
 			}
 
 			if flagCount > 1 {
-				fmt.Fprintln(cmd.ErrOrStderr(), utils.ErrorColor("Cannot specify multiple subscription selection methods. Use only one of: --subscription/-s, --name/-n, or positional argument."))
-				utils.ShowHelpWithoutTypes(cmd)
-				utils.PrintMissingRequiredArgumentsTip(cmd)
+				errorMsg := "Cannot specify multiple subscription selection methods. Use only one of: --subscription/-s, --name/-n, or positional argument."
+				utils.HandleSubscriptionSelectionError(cmd, errorMsg)
 				return
 			} else if flagCount == 0 {
-				fmt.Fprintln(cmd.ErrOrStderr(), utils.ErrorColor("the following arguments are required (choose one): --subscription/-s, --name/-n, or positional argument"))
-				utils.ShowHelpWithoutTypes(cmd)
-				utils.PrintMissingRequiredArgumentsTip(cmd)
+				errorMsg := "the following arguments are required (choose one): --subscription/-s, --name/-n, or positional argument"
+				utils.HandleSubscriptionSelectionError(cmd, errorMsg)
 				return
 			}
 

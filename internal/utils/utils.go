@@ -686,15 +686,17 @@ func NormalizeRegion(region string) string {
 
 // PrintMissingRequiredArgumentsError prints an error message for missing required arguments and exits
 // This maintains the original behavior for CLI command handlers
+// Updated to use centralized error handling while preserving backward compatibility
 func PrintMissingRequiredArgumentsError(cmd *cobra.Command, requiredArgs []string) {
-	if !PrintMissingRequiredFlagsError(cmd, requiredArgs) {
+	if !HandleRequiredFlagsValidation(cmd, requiredArgs) {
 		os.Exit(1)
 	}
 }
 
 // PrintMissingRequiredArgumentsTip prints a helpful tip message for missing required arguments
+// Updated to use centralized error handling for consistency
 func PrintMissingRequiredArgumentsTip(cmd *cobra.Command) {
-	fmt.Fprintf(os.Stderr, "%s\n", InfoColor("💡 [TIP] Use '"+cmd.CommandPath()+" --help' to see all required arguments."))
+	PrintStandardHelpTip(cmd)
 }
 
 // SuggestSimilarCommand suggests similar commands based on edit distance

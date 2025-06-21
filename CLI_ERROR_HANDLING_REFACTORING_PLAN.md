@@ -3,6 +3,97 @@
 
 **Objective**: Refactor the Jumpstart CLI to achieve Azure CLI-like consistency in error handling while maintaining functionality, testability, and avoiding hard-coded command-specific logic.
 
+## **🎯 CRITICAL GLOBAL REQUIREMENTS**
+
+**EXACT ERROR MESSAGE FORMAT** (applies to ALL commands and subcommands):
+- **Format**: `"the following arguments are required: [args]"`
+- **Color**: RED (using ErrorColor function)
+- **No prefixes**: Absolutely no "❌ [ERROR]" or any prefix
+- **No suffixes**: Absolutely no "(choose one)" or any extra text
+- **Global consistency**: Every command must produce IDENTICAL error message format
+
+### **🎯 DESIRED STATE - EXACT AZURE CLI BEHAVIOR**
+
+Our CLI must behave EXACTLY like Azure CLI. Here are the exact patterns to replicate:
+
+**1. Missing Subcommand Example:**
+```bash
+~/repos/jumpstart-cli initial_commit ❯ az vm
+the following arguments are required: _subcommand
+```
+
+**2. Missing Required Flag Example:**
+```bash
+~/repos/jumpstart-cli initial_commit ❯ az vm list-usage
+the following arguments are required: --location/-l
+```
+
+**CRITICAL IMPLEMENTATION REQUIREMENTS:**
+- ✅ **Exact text**: "the following arguments are required: [args]"
+- ✅ **RED color**: The entire error message must be displayed in red
+- ✅ **No prefixes**: No "Error:", no "❌", no brackets, no decorations
+- ✅ **No suffixes**: No "(choose one)", no extra explanatory text
+- ✅ **Clean format**: Just the plain error message in red, exactly like Azure CLI
+- ✅ **Global consistency**: ALL commands must use this identical format
+- ✅ **Remove help footer**: Remove "Use [command] --help" messages from help output (Azure CLI doesn't show these)
+- ✅ **Remove tip messages**: Remove "💡 [TIP] Use '<command>' to see all required arguments" messages (Azure CLI doesn't show these)
+- ✅ **Clean minimal output**: Remove excessive help text after errors - show only the required arguments error message, not the full help text with descriptions and examples (Azure CLI shows minimal output)
+
+**Our CLI Target Examples:**
+```bash
+# When missing subcommand (CLEAN OUTPUT - just the error message)
+~/repos/jumpstart-cli ❯ js arcbox
+the following arguments are required: _subcommand
+
+# When missing required flags (CLEAN OUTPUT - just the error message)  
+~/repos/jumpstart-cli ❯ js arcbox deploy
+the following arguments are required: --location/-l, --name/-n
+
+# When missing subscription argument (CLEAN OUTPUT - just the error message)
+~/repos/jumpstart-cli ❯ js subscription set
+the following arguments are required: --subscription/-s, --name/-n, or positional argument
+```
+
+**CURRENT PROBLEM - TOO MUCH TEXT:**  
+```bash
+# BEFORE (TOO VERBOSE - like current CLI):
+~/repos/jumpstart-cli ❯ js arcbox deploy
+the following arguments are required: --location/-l, --resource-group/-g, --windows-user, --flavor/-f
+
+Usage:
+  js arcbox deploy [flags]
+
+Deploy a new Jumpstart ArcBox deployment
+
+Deploy a new Jumpstart ArcBox deployment using remote Bicep or ARM templates from GitHub.
+
+By default, uses the official ArcBox ARM template from GitHub. You can specify:
+- Custom remote template URI with --template-uri (ARM templates only - Bicep doesn't support remote templates)
+- Local template files with --template-local and --template-params (for local Bicep/ARM templates)
+
+# AFTER (CLEAN - like Azure CLI):
+~/repos/jumpstart-cli ❯ js arcbox deploy
+the following arguments are required: --location/-l, --resource-group/-g, --windows-user, --flavor/-f
+```
+
+**AZURE CLI CLEAN OUTPUT REFERENCE:**
+```bash
+# Azure CLI is CLEAN and MINIMAL on errors:
+~/repos/jumpstart-cli ❯ az vm list-usage
+the following arguments are required: --location/-l
+
+# No extra help text, no usage, no descriptions - JUST the error!
+```
+
+**COMMANDS IN SCOPE** (ALL must use identical error handling):
+- **subscription**: set, show, list
+- **arcbox**: deploy, delete, list, preflight quota, preflight check, show  
+- **repo**: list, set, show, init, update, delete
+- **upgrade**: check, apply, version, install, rollback, list
+- **completion**: bash, zsh, fish, powershell
+- **agora**, **localbox**, **version** commands
+- Any other commands and subcommands
+
 **Key Principles**:
 - ✅ Preserve ALL existing CLI functionality
 - ✅ Maintain testing compatibility and mock-friendly interfaces
@@ -10,6 +101,11 @@
 - ✅ Eliminate hard-coded command-specific logic
 - ✅ Achieve Azure CLI-like consistency
 - ✅ Build and test CLI after each phase
+- ✅ **PRESERVE FLAGS & EXAMPLES**: Do NOT change any existing flags, arguments, examples, or help text - only standardize error message format
+- ✅ **AZURE CLI COMPARISON**: Test against actual Azure CLI commands during refactoring to ensure identical error message formatting
+- ✅ **PRESERVE ROOT COMMAND HELP**: Keep our excellent UX where root commands (like `js arcbox`) automatically show help - this is BETTER than Azure CLI and should be preserved
+- ✅ **FIX DUPLICATE HELP SECTIONS**: Remove duplicate command listings - show only "Subcommands:" section, not both "Subcommands:" and "Available Commands:"
+- ✅ **FIX DUPLICATE USAGE LINES**: Remove duplicate usage lines like "js arcbox [flags]" and "js arcbox [command]" - show single clean usage line like Azure CLI
 
 ---
 
@@ -51,6 +147,8 @@
 ❌ Mixed error prefixes (❌ [ERROR] vs clean messages)
 ❌ Duplicate error messages in some commands
 ❌ Missing tip messages in some commands
+❌ "Use [command] --help" footer messages in help output (Azure CLI doesn't show these)
+❌ "💡 [TIP] Use '<command>' to see all required arguments" messages (Azure CLI doesn't show these)
 ```
 
 ### **Files Requiring Assessment/Cleanup**
@@ -127,6 +225,42 @@ os.Exit(1) // only in main command handlers
 - Error display logic repeated across files
 - Tip message formatting inconsistent
 
+#### **5. Remove Help Footer Messages**
+- Remove "Use [command] --help" messages from help output
+- Azure CLI doesn't show these footer messages
+- Clean, minimal help output like Azure CLI
+
+#### **6. Remove Tip Messages**
+- Remove "💡 [TIP] Use '<command>' to see all required arguments" messages
+- Azure CLI doesn't show these tip messages after errors
+- Clean, minimal error output like Azure CLI
+
+#### **7. Fix Duplicate Help Sections**
+- Remove duplicate command listings in help output
+- Keep only "Subcommands:" section, remove redundant "Available Commands:" section
+- Preserve our excellent UX where root commands automatically show help (better than Azure CLI)
+- Clean up help formatting while maintaining functionality
+
+#### **8. Clean Up Usage Lines**
+- Remove duplicate usage lines like "js arcbox [flags]" and "js arcbox [command]"
+- Show single, clean usage line like Azure CLI: just the command description
+- Match Azure CLI's minimal, professional help format
+- Eliminate redundant usage patterns that clutter the output
+
+---
+
+## **✅ PHASE 1 COMPLETION STATUS**
+
+**COMPLETED SUCCESSFULLY**:
+- ✅ Created `internal/utils/error_handling.go` with centralized error handling functions
+- ✅ Updated `internal/utils/utils.go` to integrate with new centralized functions
+- ✅ Refactored subscription set command to use the new error handling pattern
+- ✅ Verified CLI builds and basic functionality works after each change
+- ✅ Removed "(choose one)" text from subscription set command error messages
+- ✅ All Phase 1 functions are ready and working
+
+**READY FOR PHASE 2+**: The foundation is complete. ALL remaining commands must now be refactored to use the centralized error handling functions to achieve global consistency.
+
 ---
 
 ## **Phase 1: Foundation - Create Centralized Error Handling**
@@ -138,17 +272,67 @@ I need to create a new file `internal/utils/error_handling.go` that provides cen
 
 **ASSESSMENT**: Current codebase has `PrintMissingRequiredFlagsError`, `PrintMissingRequiredArgumentsTip`, and related functions in `utils.go`, but they have inconsistencies and some call `os.Exit`. We need centralized functions that work with the existing validation service pattern.
 
+**CRITICAL GLOBAL ERROR MESSAGE REQUIREMENTS**:
+This is a GLOBAL refactoring - ALL commands and subcommands (subscription, arcbox, repo, upgrade, completion, etc.) must use the exact same error message format:
+
+- **Exact Format**: "the following arguments are required: [args]"
+- **Color**: RED (using ErrorColor function) 
+- **No prefixes**: Absolutely no "❌ [ERROR]" or any prefix
+- **No suffixes**: Absolutely no "(choose one)" or any extra text
+- **Azure CLI style**: Clean, direct, professional - exactly like Azure CLI
+- **Global consistency**: Every command must produce identical error message format
+
+**REFERENCE - EXACT AZURE CLI BEHAVIOR TO REPLICATE**:
+```bash
+# Azure CLI missing subcommand example:
+~/repos/jumpstart-cli initial_commit ❯ az vm
+the following arguments are required: _subcommand
+
+# Azure CLI missing flag example:
+~/repos/jumpstart-cli initial_commit ❯ az vm list-usage
+the following arguments are required: --location/-l
+```
+
+**OUR CLI MUST PRODUCE IDENTICAL OUTPUT**:
+```bash
+# Our CLI examples (RED text, no prefixes/suffixes):
+~/repos/jumpstart-cli ❯ js arcbox
+the following arguments are required: _subcommand
+
+~/repos/jumpstart-cli ❯ js arcbox deploy
+the following arguments are required: --location/-l, --name/-n
+
+~/repos/jumpstart-cli ❯ js subscription set
+the following arguments are required: --subscription/-s, --name/-n, or positional argument
+```
+
 Requirements:
-1. Create `PrintRequiredArgumentsError(missingArgs []string)` - formats "the following arguments are required: [args]" with NO error prefix
-2. Create `PrintStandardHelpTip(cmd *cobra.Command)` - shows "💡 [TIP] Use '[command] --help' to see all required arguments" using InfoColor
-3. Create `HandleMissingRequiredArguments(cmd *cobra.Command, missingArgs []string)` - combines error + help + tip
-4. Create `HandleValidationError(err error, cmd *cobra.Command, showHelp bool)` - generic validation error handler
-5. All functions must be testing-friendly (no os.Exit calls)
-6. Use existing color functions from utils package
-7. Follow existing code patterns in the codebase
-8. Integrate with existing ValidationResult pattern used in validation services
+1. Create `PrintRequiredArgumentsError(missingArgs []string)` - formats exactly "the following arguments are required: [args]" with **RED color** (using ErrorColor) and **NO error prefix or suffix**
+2. Create `HandleMissingRequiredArguments(cmd *cobra.Command, missingArgs []string)` - shows ONLY the error message (NO help, NO usage, NO descriptions - Azure CLI style)
+3. Create `HandleValidationError(err error, cmd *cobra.Command, showHelp bool)` - generic validation error handler
+4. All functions must be testing-friendly (no os.Exit calls)
+5. Use existing color functions from utils package - **ErrorColor for the required arguments message**
+6. Follow existing code patterns in the codebase
+7. Integrate with existing ValidationResult pattern used in validation services
+8. **CRITICAL**: The required arguments error message must be RED and match Azure CLI format exactly: "the following arguments are required: --flag1, --flag2" (absolutely no extra text, no prefixes, no suffixes)
+9. **GLOBAL SCOPE**: This will be used by ALL commands - subscription, arcbox, repo, upgrade, completion, agora, localbox, version, etc.
+10. **REMOVE HELP FOOTERS**: Ensure commands don't show "Use [command] --help" footer messages (Azure CLI doesn't show these)
+11. **REMOVE TIP MESSAGES**: Don't create or show "💡 [TIP] Use '<command>' to see all required arguments" messages (Azure CLI doesn't show these)
+12. **MINIMAL OUTPUT**: When showing required argument errors, show ONLY the error message - no usage, no help text, no descriptions, no examples (exactly like Azure CLI)
 
 After creating the file, verify it compiles by running `make build`.
+
+**TESTING VERIFICATION REQUIREMENT**: During ALL phases, compare our CLI error output against actual Azure CLI commands to ensure exact consistency:
+```bash
+# Test Azure CLI behavior for reference:
+az vm                     # Missing subcommand
+az vm list-usage          # Missing required flag
+
+# Then test our CLI and compare:
+js arcbox                 # Should match Azure CLI format exactly
+js arcbox deploy          # Should match Azure CLI format exactly
+```
+**CRITICAL**: Preserve ALL existing flags, examples, and functionality - only change error message format to match Azure CLI style.
 <!-- END PROMPT 1.1 -->
 
 ### **Prompt 1.2: Update Utils Package Integration and Cleanup**
@@ -158,7 +342,17 @@ I need to update the existing `internal/utils/utils.go` file to integrate with t
 
 **CLEANUP NEEDED**: Current `utils.go` has `PrintMissingRequiredArgumentsError()` which calls `os.Exit` - this should be updated to use the new centralized functions while maintaining backward compatibility for existing callers.
 
+**GLOBAL SCOPE REMINDER**: This refactoring affects ALL commands and subcommands across the entire CLI:
+- subscription (set, show, list)
+- arcbox (deploy, delete, list, preflight quota, preflight check, show)
+- repo (list, set, show)
+- upgrade (check, apply, version)
+- completion (bash, zsh, fish, powershell)
+- agora, localbox, version commands
+- All must use IDENTICAL error message format: "the following arguments are required: [args]" in RED
+
 Requirements:
+
 1. Review existing error handling functions: `PrintMissingRequiredFlagsError`, `PrintMissingRequiredArgumentsTip`, `PrintMissingRequiredArgumentsError`
 2. Update `PrintMissingRequiredArgumentsError` to use new centralized functions instead of calling `os.Exit` directly
 3. Update `PrintMissingRequiredFlagsError` if needed to work with centralized approach
@@ -166,6 +360,7 @@ Requirements:
 5. Remove any duplicate logic that's now handled by the new utilities
 6. Maintain all existing function signatures to avoid breaking tests
 7. Keep the existing `FatalError` function (testing-friendly) and `Fatal` function (calls os.Exit)
+8. **CRITICAL**: Ensure all functions produce the exact Azure CLI error format globally
 
 Build and verify: `make build`
 Test that existing functionality still works by running a simple command like `js --help`
@@ -180,24 +375,39 @@ Test that existing functionality still works by running a simple command like `j
 <!-- START PROMPT 2.1 -->
 I need to refactor the subscription set command in `cmd/subscription/subscription.go` to use the new centralized error handling approach.
 
+**GLOBAL CONSISTENCY REQUIREMENT**: This command must produce the EXACT same error message format as ALL other commands in the CLI - subscription, arcbox, repo, upgrade, completion, agora, localbox, etc. The error message format must be identical across the entire codebase.
+
 Current behavior to maintain:
 - Command requires one of: --subscription/-s, --name/-n, or positional argument
-- Should show clean error message: "the following arguments are required (choose one): --subscription/-s, --name/-n, or positional argument"
-- Should show help and tip message
+- Should show clean error message: "the following arguments are required: --subscription/-s, --name/-n, or positional argument" (**RED color, NO "(choose one)" text**)
+- Should show help (but NO tip messages like Azure CLI)
 - Must handle mutual exclusion validation
 
 Requirements:
+
 1. Use the new `HandleMissingRequiredArguments` function from error_handling.go
 2. Remove hard-coded error messages and use centralized approach
-3. Maintain existing validation logic
+3. Maintain existing validation logic but **fix the error message format** - remove any "(choose one)" text
 4. Preserve testing compatibility (avoid os.Exit in core logic)
 5. Keep all existing functionality intact
+6. **CRITICAL**: Error message must be exactly "the following arguments are required: --subscription/-s, --name/-n, or positional argument" in RED color
+7. **GLOBAL CONSISTENCY**: This error format must match what ALL other commands will use
 
 After changes:
+
 1. Build: `make build`
 2. Test the command: `js subscription set` (should show clean error)
 3. Test with valid args: `js subscription set --help` (should work)
-4. Verify error message format matches Azure CLI style
+4. Verify error message format matches Azure CLI style and is consistent with global pattern
+5. **AZURE CLI COMPARISON**: Compare against Azure CLI commands with missing arguments to ensure identical error format:
+   ```bash
+   # Test Azure CLI for reference:
+   az account set                    # Missing required args
+   
+   # Test our CLI (should match format exactly):
+   js subscription set               # Should show identical error format
+   ```
+6. **PRESERVE FUNCTIONALITY**: Ensure all existing flags, examples, and command behavior remain unchanged
 <!-- END PROMPT 2.1 -->
 
 ### **Prompt 2.2: Refactor All Subscription Subcommands**
@@ -249,10 +459,10 @@ Requirements:
 
 After changes:
 1. Build: `make build`
-2. Test deploy command: `js arcbox deploy` (should show clean error, help, and tip - NO duplicates)
-3. Test with some args: `js arcbox deploy --location eastus` (should show remaining required args)
+2. Test deploy command: `js arcbox deploy` (should show ONLY clean error message - NO usage, NO help, NO descriptions)
+3. Test with some args: `js arcbox deploy --location eastus` (should show remaining required args only)
 4. Verify the command works with all required arguments
-5. Check that examples in help output are preserved
+5. **CRITICAL VERIFICATION**: Error output should be MINIMAL like Azure CLI - just the red error message, nothing else
 <!-- END PROMPT 3.1 -->
 
 ### **Prompt 3.2: Refactor ArcBox Delete Command**
@@ -264,9 +474,9 @@ Requirements:
 1. Apply centralized error handling pattern
 2. Ensure consistent language: "the following arguments are required: --name/-n"
 3. Remove any ❌ [ERROR] prefixes for required argument errors
-4. Add proper tip messages
-5. Maintain existing validation and business logic
-6. Keep testing compatibility
+4. Maintain existing validation and business logic
+5. Keep testing compatibility
+6. **NO tip messages**: Don't show "💡 [TIP]" messages (Azure CLI doesn't show these)
 
 After changes:
 1. Build: `make build`
@@ -415,12 +625,55 @@ After changes:
 <!-- START PROMPT 5.1 -->
 I need to review the root command in `main.go` and ensure consistent error handling for unknown commands and global error patterns.
 
+**PRESERVE EXCELLENT UX**: Our CLI has better UX than Azure CLI - when users run root commands like `js arcbox`, we automatically show help. This is EXCELLENT and should be preserved. Azure CLI just shows error messages, but our approach is more user-friendly.
+
+**FIX DUPLICATE HELP SECTIONS**: Currently, help output shows both "Subcommands:" and "Available Commands:" sections, which is redundant and confusing. We should only show "Subcommands:" section.
+
+**FIX DUPLICATE USAGE LINES**: Currently, help output shows multiple usage lines:
+```
+Usage:
+  js arcbox [flags]
+  js arcbox [command]
+```
+This should be consolidated to a single, clean usage line like Azure CLI:
+```
+Usage:
+  js arcbox [command]
+```
+
+**CURRENT PROBLEM** (example from `js arcbox`):
+```
+Subcommands:
+  • deploy     Deploy a new Jumpstart ArcBox deployment
+  • delete     Delete a Jumpstart ArcBox deployment
+  • list       List all Jumpstart ArcBox deployments
+  • preflight  Run preflight checks for ArcBox deployment
+
+Available Commands:
+  delete     : Delete a Jumpstart ArcBox deployment
+  deploy     : Deploy a new Jumpstart ArcBox deployment
+  list       : List Jumpstart ArcBox deployments
+  preflight  : Run preflight checks for ArcBox deployment
+```
+
+**TARGET CLEAN OUTPUT** (remove duplicate):
+```
+Subcommands:
+  • deploy     Deploy a new Jumpstart ArcBox deployment
+  • delete     Delete a Jumpstart ArcBox deployment
+  • list       List all Jumpstart ArcBox deployments
+  • preflight  Run preflight checks for ArcBox deployment
+```
+
 Requirements:
 1. Ensure root command error handling uses centralized functions
 2. Verify "did you mean" suggestions work consistently
 3. Check that unknown command handling is standardized
 4. Maintain all existing suggestion logic
 5. Preserve version and help command functionality
+6. **PRESERVE ROOT HELP UX**: Keep our excellent behavior where `js arcbox` shows help automatically
+7. **FIX DUPLICATE SECTIONS**: Remove redundant "Available Commands:" section, keep only "Subcommands:"
+8. **NO AZURE CLI COMPARISON**: Our root command help behavior is BETTER than Azure CLI - preserve it!
 
 After changes:
 1. Build: `make build`
@@ -441,9 +694,33 @@ Testing checklist:
 1. **Build verification**: `make build` should complete successfully
 2. **Command structure verification**: All commands and subcommands should be available
 3. **Error message consistency**: All required argument errors should follow Azure CLI format
-4. **Tip message presence**: All commands should show helpful tip messages
+4. **Azure CLI comparison testing**: Systematically compare our CLI against Azure CLI for identical error output
 5. **Functionality preservation**: All existing features should work as before
 6. **Examples preservation**: Help text and examples should be intact
+7. **Flag compatibility**: All existing flags and arguments must remain unchanged
+
+**AZURE CLI COMPARISON TESTING PROTOCOL**:
+For each command family, test matching Azure CLI commands and compare output:
+
+```bash
+# ARCBOX COMMANDS - Compare against Azure resource group commands:
+az group create                    # Missing required args
+js arcbox deploy                   # Should match error format
+
+# SUBSCRIPTION COMMANDS - Compare against Azure account commands:  
+az account set                     # Missing required args
+js subscription set                # Should match error format
+
+# COMPLETION COMMANDS - Compare against Azure completion:
+az completion                      # Missing shell argument
+js completion                      # Should match error format
+```
+
+**PRESERVATION VERIFICATION**:
+- ✅ All flags remain exactly the same (no changes to --location, --name, etc.)
+- ✅ All examples in help text remain intact
+- ✅ All command functionality preserved
+- ✅ Only error message format changes to match Azure CLI style
 
 Systematic testing approach:
 1. Test each command family (subscription, arcbox, repo, upgrade, completion)
@@ -534,10 +811,15 @@ Create a final report documenting:
 - ✅ All examples and help text intact
 
 ### **Consistency Achieved**
-- ✅ All required argument errors follow format: "the following arguments are required: [args]"
+- ✅ All required argument errors follow exact Azure CLI format: "the following arguments are required: [args]"
+- ✅ All error messages displayed in RED color (no other colors for required argument errors)
 - ✅ No ❌ [ERROR] prefixes for required argument errors
-- ✅ All commands show helpful tip messages
-- ✅ Consistent coloring and formatting
+- ✅ No "(choose one)" or any suffix text for required argument errors
+- ✅ Consistent coloring and formatting across all commands
+- ✅ **EXACT REPLICATION**: Our CLI behaves identically to Azure CLI error patterns
+- ✅ **CLEAN HELP OUTPUT**: No "Use [command] --help" footer messages (like Azure CLI)
+- ✅ **CLEAN ERROR OUTPUT**: No "💡 [TIP]" messages after errors (like Azure CLI)
+- ✅ **MINIMAL ERROR OUTPUT**: Show ONLY the required arguments error message, not full help text with usage, descriptions, and examples (like Azure CLI)
 
 ### **Technical Quality**
 - ✅ No hard-coded command-specific error handling
@@ -594,12 +876,16 @@ PRESERVED:
 - [ ] `make build` completes successfully
 - [ ] All commands show Azure CLI-style error messages
 - [ ] No duplicate error messages exist anywhere
-- [ ] All commands show helpful tip messages  
 - [ ] All existing functionality preserved
 - [ ] All tests pass
 - [ ] Mock interfaces work correctly
 - [ ] Performance is acceptable
 - [ ] Examples and help text intact
+- [ ] **No help footer messages**: "Use [command] --help" messages removed from all help output
+- [ ] **No tip messages**: "💡 [TIP]" messages removed from all error output
+- [ ] **Minimal error output**: Commands show ONLY the required arguments error message - no usage, help text, descriptions, or examples (like Azure CLI)
+- [ ] **Root command help preserved**: Commands like `js arcbox` still automatically show help (our excellent UX)
+- [ ] **Clean help sections**: Only "Subcommands:" section shown, "Available Commands:" section removed
 
 ---
 
@@ -625,3 +911,5 @@ PRESERVED:
 - Check that all functionality works with real arguments
 - Ensure help text and examples are preserved
 - Confirm no duplicate error messages exist
+- **Azure CLI comparison testing**: Systematically compare our CLI error output against matching Azure CLI commands to ensure identical formatting
+- **Preserve all functionality**: Verify that NO flags, examples, or command behavior changes - only error message format should match Azure CLI style
