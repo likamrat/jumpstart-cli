@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"jumpstartcli/cmd/arcbox/display"
@@ -48,15 +49,16 @@ func (q *QuotaService) CheckQuota(locationFlag string, allLocations bool, select
 
 	// Validate required arguments - either location or all-locations must be specified
 	if selectedFlavor == "" {
-		return nil, fmt.Errorf("required argument missing: --flavor flag must specify an ArcBox flavor")
+		return nil, fmt.Errorf("missing required arguments")
 	}
 
 	if locationFlag == "" && !allLocations {
-		return nil, fmt.Errorf("location specification required: specify either --location or --all-locations")
+		return nil, fmt.Errorf("missing required arguments")
 	}
 
 	if locationFlag != "" && allLocations {
-		return nil, fmt.Errorf("conflicting location flags: cannot specify both --location and --all-locations")
+		fmt.Fprintf(os.Stderr, "%s\n", utils.ErrorColor("Cannot specify both --location and --all-locations flags."))
+		return nil, fmt.Errorf("conflicting location flags")
 	}
 
 	// Get and validate locations early
@@ -188,6 +190,22 @@ func (q *QuotaService) RunQuotaCheckCommand(cmd *cobra.Command, args []string) e
 	// Normalize flavor for consistent display
 	selectedFlavor = arcboxUtils.NormalizeFlavorCase(selectedFlavor)
 	subscriptionID := arcboxUtils.GetSubscriptionID(cmd, q.cli)
+
+	// Check for missing required arguments and handle them with centralized error handling
+	var missingArgs []string
+
+	if selectedFlavor == "" {
+		missingArgs = append(missingArgs, "--flavor/-f")
+	}
+
+	if locationFlag == "" && !allLocations {
+		missingArgs = append(missingArgs, "--location/-l or --all-locations")
+	}
+
+	if len(missingArgs) > 0 {
+		utils.PrintRequiredArgumentsError(missingArgs)
+		return fmt.Errorf("missing required arguments")
+	}
 
 	// Run quota checks using the service method
 	allResults, err := q.CheckQuota(locationFlag, allLocations, selectedFlavor, subscriptionID)

@@ -101,7 +101,6 @@ func GetLastPreflightStatus() []StatusCheckResult {
 func DisplayStatusResults(results []StatusCheckResult) {
 	if len(results) == 0 {
 		fmt.Println(utils.InfoColor("📋 [INFO] No preflight checks have been performed yet."))
-		fmt.Println(utils.InfoColor("💡 [TIP] Run 'js arcbox preflight' to perform initial checks"))
 		return
 	}
 
@@ -165,10 +164,8 @@ func DisplayStatusResults(results []StatusCheckResult) {
 	} else if successCount > 0 {
 		fmt.Printf(utils.WarnColor("⚠️  [WARNING] %d of %d preflight checks completed successfully. Review failed checks above.\n"),
 			successCount, len(results))
-		fmt.Println(utils.InfoColor("💡 [TIP] Run specific preflight commands to resolve issues"))
 	} else {
 		fmt.Println(utils.ErrorColor("❌ [ERROR] No preflight checks have completed successfully."))
-		fmt.Println(utils.InfoColor("💡 [TIP] Run 'js arcbox preflight rp show' and 'js arcbox preflight quota' to diagnose issues"))
 	}
 }
 

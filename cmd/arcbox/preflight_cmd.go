@@ -92,8 +92,14 @@ func createPreflightCommand(quotaService *services.QuotaService, validationServi
 func executePreflightQuotaCommandWithError(quotaService *services.QuotaService, cmd *cobra.Command, args []string) error {
 	// Use the quota service to run the command
 	if err := quotaService.RunQuotaCheckCommand(cmd, args); err != nil {
-		// Handle specific error types with appropriate help text
+		// Handle specific error types with appropriate handling
 		errorMessage := err.Error()
+
+		// Check if this is a required arguments error (already handled by the service)
+		if strings.Contains(errorMessage, "missing required arguments") {
+			// The error message was already printed by the service, just exit
+			os.Exit(1)
+		}
 
 		if strings.Contains(errorMessage, "required argument missing") ||
 			strings.Contains(errorMessage, "location specification required") ||
@@ -108,13 +114,13 @@ func executePreflightQuotaCommandWithError(quotaService *services.QuotaService, 
 				innerMessage = strings.TrimPrefix(errorMessage, "quota check failed: ")
 			}
 
-			// Print standardized error message without prefix
+			// Print clean error message without prefix
 			fmt.Fprintf(os.Stderr, "%s\n", utils.ErrorColor(innerMessage))
-			utils.PrintMissingRequiredArgumentsTip(cmd)
 		} else {
-			fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
+			// For other errors, just print the error message without ERROR prefix
+			fmt.Fprintf(os.Stderr, "%v\n", err)
 		}
-		return nil // Don't return the error to prevent duplicate printing by Cobra
+		os.Exit(1)
 	}
 	return nil
 }

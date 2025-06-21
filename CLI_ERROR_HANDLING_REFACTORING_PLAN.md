@@ -538,6 +538,31 @@ After changes:
    - `js arcbox preflight rp show` (test with timeout if needed)
 3. Verify all validation scenarios work correctly
 4. Check that examples and help text are preserved
+
+**✅ COMPLETED SUCCESSFULLY**:
+- ✅ Updated `cmd/arcbox/preflight_cmd.go` to use centralized error handling
+- ✅ Refactored `cmd/arcbox/services/quota_service.go` to use `PrintRequiredArgumentsError` and clean error handling
+- ✅ Updated `internal/preflight/arcbox/rp.go` to remove ❌ [ERROR] prefixes and use centralized error handling
+- ✅ Fixed duplicate error message issue in preflight quota command
+- ✅ Removed tip messages from resource provider commands (no more "💡 [TIP]" messages)
+- ✅ Preserved all existing business logic and timeout handling
+- ✅ All preflight subcommands now use consistent Azure CLI-style error format
+- ✅ Verified that help text and examples are preserved for all commands
+
+**TESTING RESULTS**:
+- ✅ `js arcbox preflight` - Shows help correctly
+- ✅ `js arcbox preflight quota` - Shows clean error: "the following arguments are required: --flavor/-f, --location/-l or --all-locations"
+- ✅ `js arcbox preflight quota --flavor itpro` - Shows remaining required args: "the following arguments are required: --location/-l or --all-locations"
+- ✅ `js arcbox preflight rp` - Shows help correctly
+- ✅ `js arcbox preflight rp register` - Shows clean error: "the following arguments are required: --name/-n"
+- ✅ `js arcbox preflight rp show` - Works correctly and shows resource provider status
+- ✅ `js arcbox preflight rp list` - Works correctly and shows required providers
+- ✅ `js arcbox preflight status` - Works correctly and shows preflight status (removed all tip messages)
+- ✅ All help text and examples are preserved (verified with --help flag)
+- ✅ All error messages match Azure CLI format exactly (red color, no prefixes, clean output)
+- ✅ All tip messages removed from status command to match Azure CLI minimal output style
+
+**READY FOR NEXT PHASE**: All ArcBox preflight commands now use centralized error handling and match Azure CLI consistency requirements.
 <!-- END PROMPT 3.4 -->
 
 ---

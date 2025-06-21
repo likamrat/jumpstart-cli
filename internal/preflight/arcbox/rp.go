@@ -86,15 +86,14 @@ func CreateResourceProviderCommands(cli azurecli.AzureCLI) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			provider, _ := cmd.Flags().GetString("name")
 
-			// Check if required argument is missing
+			// Check if required argument is missing using centralized error handling
 			if provider == "" {
-				fmt.Fprintf(os.Stderr, "%s\n", utils.ErrorColor("the following arguments are required: --name/-n"))
-				utils.PrintMissingRequiredArgumentsTip(cmd)
+				utils.PrintRequiredArgumentsError([]string{"--name/-n"})
 				os.Exit(1)
 			}
 
 			if err := RegisterResourceProvider(cli, provider); err != nil {
-				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
+				fmt.Fprintf(os.Stderr, "%v\n", err)
 				os.Exit(1)
 			}
 		},
@@ -136,9 +135,7 @@ func CheckAllResourceProviders(cli azurecli.AzureCLI) bool {
 	allRegistered, missingProviders := resourceproviders.CheckAllProviders(cli, config)
 
 	if !allRegistered {
-		fmt.Printf(utils.ErrorColor("❌ [ERROR] %d resource provider(s) not registered: %v\n"),
-			len(missingProviders), missingProviders)
-		fmt.Println(utils.InfoColor("💡 [TIP] Use 'js arcbox preflight rp register --name <provider>' to register missing providers"))
+		fmt.Fprintf(os.Stderr, "%s\n", utils.ErrorColor(fmt.Sprintf("%d resource provider(s) not registered: %v", len(missingProviders), missingProviders)))
 		return false
 	}
 
