@@ -3,6 +3,8 @@ package completion
 import (
 	"os"
 
+	"jumpstartcli/internal/utils"
+
 	"github.com/spf13/cobra"
 )
 
@@ -52,9 +54,36 @@ PowerShell:
 `,
 		DisableFlagsInUseLine: true,
 		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
-		Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
-		Run: func(cmd *cobra.Command, args []string) {
-			switch args[0] {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate arguments using centralized error handling
+			if len(args) == 0 {
+				utils.HandleMissingRequiredArguments(cmd, []string{"shell"})
+				return nil
+			}
+
+			if len(args) > 1 {
+				utils.PrintRequiredArgumentsError([]string{"shell"})
+				return nil
+			}
+
+			// Validate shell type
+			validShells := []string{"bash", "zsh", "fish", "powershell"}
+			shell := args[0]
+			isValidShell := false
+			for _, validShell := range validShells {
+				if shell == validShell {
+					isValidShell = true
+					break
+				}
+			}
+
+			if !isValidShell {
+				utils.PrintRequiredArgumentsError([]string{"shell (bash|zsh|fish|powershell)"})
+				return nil
+			}
+
+			// Generate completion for the specified shell
+			switch shell {
 			case "bash":
 				cmd.Root().GenBashCompletion(os.Stdout)
 			case "zsh":
@@ -64,6 +93,7 @@ PowerShell:
 			case "powershell":
 				cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
 			}
+			return nil
 		},
 	}
 }

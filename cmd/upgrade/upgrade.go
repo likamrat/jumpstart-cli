@@ -74,9 +74,9 @@ Use --yes/-y to execute the check operation.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			yes, _ := cmd.Flags().GetBool("yes")
 
-			// If --yes not provided, show help
+			// If --yes not provided, use centralized error handling
 			if !yes {
-				utils.ShowHelpWithoutTypes(cmd)
+				utils.HandleMissingRequiredArguments(cmd, []string{"--yes"})
 				return nil
 			}
 
@@ -102,9 +102,9 @@ Use --yes/-y to execute the installation operation.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			yes, _ := cmd.Flags().GetBool("yes")
 
-			// If --yes not provided, show help
+			// If --yes not provided, use centralized error handling
 			if !yes {
-				utils.ShowHelpWithoutTypes(cmd)
+				utils.HandleMissingRequiredArguments(cmd, []string{"--yes"})
 				return nil
 			}
 
@@ -140,13 +140,13 @@ Use --yes/-y to execute the rollback operation.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			yes, _ := cmd.Flags().GetBool("yes")
 
-			// If --yes not provided, show help
+			// If --yes not provided, use centralized error handling
 			if !yes {
-				utils.ShowHelpWithoutTypes(cmd)
+				utils.HandleMissingRequiredArguments(cmd, []string{"--yes"})
 				return nil
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), utils.WarnColor("🚧 Rollback functionality is not yet implemented"))
+			fmt.Fprintln(cmd.OutOrStdout(), "Rollback functionality is not yet implemented")
 			fmt.Fprintln(cmd.OutOrStdout(), "This feature will allow rolling back to previous versions.")
 			return nil
 		},
@@ -169,13 +169,13 @@ Use --yes/-y to execute the list operation.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			yes, _ := cmd.Flags().GetBool("yes")
 
-			// If --yes not provided, show help
+			// If --yes not provided, use centralized error handling
 			if !yes {
-				utils.ShowHelpWithoutTypes(cmd)
+				utils.HandleMissingRequiredArguments(cmd, []string{"--yes"})
 				return nil
 			}
 
-			fmt.Fprintln(cmd.OutOrStdout(), utils.WarnColor("🚧 List backups functionality is not yet implemented"))
+			fmt.Fprintln(cmd.OutOrStdout(), "List backups functionality is not yet implemented")
 			fmt.Fprintln(cmd.OutOrStdout(), "This feature will show available backup versions.")
 			return nil
 		},
@@ -194,17 +194,17 @@ Use --yes/-y to execute the list operation.
 // performUpgrade handles the main upgrade logic
 func performUpgrade(checkOnly, preRelease, force bool) error {
 	// Check for updates
-	fmt.Println(utils.InfoColor("🔍 Checking for updates..."))
+	fmt.Println("Checking for updates...")
 	versionInfo, err := version.CheckForUpdates(preRelease)
 	if err != nil {
 		// If the repository doesn't exist yet, provide helpful guidance
 		if strings.Contains(err.Error(), "404") {
-			fmt.Println(utils.WarnColor("⚠️  Repository not found - jscli releases not yet published"))
-			fmt.Println("📝 The upgrade feature is ready, but requires:")
+			fmt.Println("Repository not found - jscli releases not yet published")
+			fmt.Println("The upgrade feature is ready, but requires:")
 			fmt.Println("   1. A GitHub repository with binary releases")
 			fmt.Println("   2. Release assets named like: js-linux-amd64, js-windows-amd64.exe, js-darwin-arm64")
 			fmt.Println("   3. Update the GitHubReleasesAPI constant in internal/upgrade/version.go")
-			fmt.Printf("📖 For manual installation, visit: %s\n", version.GetManualDownloadURL())
+			fmt.Printf("For manual installation, visit: %s\n", version.GetManualDownloadURL())
 			return nil
 		}
 		return fmt.Errorf("failed to check for updates: %v", err)
@@ -220,7 +220,7 @@ func performUpgrade(checkOnly, preRelease, force bool) error {
 
 	// If no newer version and not forcing, stop here
 	if !versionInfo.IsNewer && !force {
-		fmt.Println(utils.InfoColor("✅ You are already running the latest version!"))
+		fmt.Println("You are already running the latest version!")
 		return nil
 	}
 
@@ -228,22 +228,22 @@ func performUpgrade(checkOnly, preRelease, force bool) error {
 	if versionInfo.IsNewer || force {
 		// Show appropriate message for force installation
 		if force && !versionInfo.IsNewer {
-			fmt.Println(utils.WarnColor("⚠️  Force installation requested - reinstalling current version"))
+			fmt.Println("Force installation requested - reinstalling current version")
 		}
 
 		// Check if we have a download URL
 		if versionInfo.DownloadURL == "" {
-			fmt.Println(utils.WarnColor("🚧 No binary available for automatic download"))
+			fmt.Println("No binary available for automatic download")
 			fmt.Printf("Platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
-			fmt.Println("📝 To enable automatic upgrades:")
+			fmt.Println("To enable automatic upgrades:")
 			fmt.Println("   1. Create binary releases in your GitHub repository")
 			fmt.Println("   2. Name assets like: js-linux-amd64, js-windows-amd64.exe, js-darwin-arm64")
 			fmt.Println("   3. Update GitHubReleasesAPI in internal/upgrade/version.go")
-			fmt.Printf("📖 For manual installation, visit: %s\n", version.GetManualDownloadURL())
+			fmt.Printf("For manual installation, visit: %s\n", version.GetManualDownloadURL())
 			return nil
 		}
 
-		fmt.Printf("📦 Found binary for %s/%s\n", runtime.GOOS, runtime.GOARCH)
+		fmt.Printf("Found binary for %s/%s\n", runtime.GOOS, runtime.GOARCH)
 		fmt.Printf("Download URL: %s\n", versionInfo.DownloadURL)
 
 		// Download the binary
@@ -259,7 +259,7 @@ func performUpgrade(checkOnly, preRelease, force bool) error {
 			return fmt.Errorf("installation failed: %v", err)
 		}
 
-		fmt.Printf("🎉 Successfully upgraded from %s to %s!\n",
+		fmt.Printf("Successfully upgraded from %s to %s!\n",
 			versionInfo.Current, versionInfo.Latest)
 	}
 

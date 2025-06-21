@@ -148,8 +148,7 @@ they have been backed up or committed to a remote repository.`,
 			}
 
 			if !force {
-				fmt.Fprintf(os.Stderr, "%s\n", utils.ErrorColor("the following arguments are required: --force"))
-				utils.PrintMissingRequiredArgumentsTip(cmd)
+				utils.PrintRequiredArgumentsError([]string{"--force"})
 				os.Exit(1)
 			}
 

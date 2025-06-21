@@ -259,9 +259,9 @@ func (v *VersionInfo) FormatVersionInfo() string {
 	result.WriteString(fmt.Sprintf("Latest version:  %s\n", v.Latest))
 
 	if v.IsNewer {
-		result.WriteString(utils.InfoColor("📦 A newer version is available!\n"))
+		result.WriteString("A newer version is available!\n")
 	} else {
-		result.WriteString(utils.SuccessColor("✅ You have the latest version!\n"))
+		result.WriteString("You have the latest version!\n")
 	}
 
 	if v.ReleaseDate.Year() > 1 { // Check if date is set
