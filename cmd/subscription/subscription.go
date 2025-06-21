@@ -290,7 +290,7 @@ The subscription will be set as the default for all subsequent Azure CLI command
 				utils.HandleSubscriptionSelectionError(cmd, errorMsg)
 				return
 			} else if flagCount == 0 {
-				errorMsg := "the following arguments are required (choose one): --subscription/-s, --name/-n, or positional argument"
+				errorMsg := "the following arguments are required: --subscription/-s, --name/-n, or positional argument"
 				utils.HandleSubscriptionSelectionError(cmd, errorMsg)
 				return
 			}

@@ -206,9 +206,9 @@ func PrintMissingRequiredFlagsError(cmd *cobra.Command, requiredFlags []string) 
 		}
 	}
 	if len(missing) > 0 {
-		// Use red color for missing required arguments (no error prefix, but still red)
-		fmt.Fprintf(os.Stderr, "%s\n\n", ErrorColor("the following arguments are required: "+strings.Join(missing, ", ")))
-		ShowHelpWithoutTypes(cmd)
+		// Azure CLI style: Print ONLY the error message in red, no help output
+		// CRITICAL: Matches Azure CLI minimal output - just the error, nothing else
+		PrintRequiredArgumentsError(missing)
 		return false // Indicate validation failed
 	}
 	return true // Indicate validation passed
@@ -688,15 +688,18 @@ func NormalizeRegion(region string) string {
 // This maintains the original behavior for CLI command handlers
 // Updated to use centralized error handling while preserving backward compatibility
 func PrintMissingRequiredArgumentsError(cmd *cobra.Command, requiredArgs []string) {
-	if !HandleRequiredFlagsValidation(cmd, requiredArgs) {
-		os.Exit(1)
-	}
+	// Use the new centralized error handling approach instead of HandleRequiredFlagsValidation
+	// This ensures consistent Azure CLI-style error messages across all commands
+	HandleMissingRequiredArguments(cmd, requiredArgs)
+	os.Exit(1)
 }
 
 // PrintMissingRequiredArgumentsTip prints a helpful tip message for missing required arguments
-// Updated to use centralized error handling for consistency
+// DEPRECATED: Azure CLI doesn't show tip messages - this function is kept for backward compatibility
+// but does nothing to match Azure CLI minimal output style
 func PrintMissingRequiredArgumentsTip(cmd *cobra.Command) {
-	PrintStandardHelpTip(cmd)
+	// Azure CLI style: No tip messages shown
+	// This function is maintained for backward compatibility but produces no output
 }
 
 // SuggestSimilarCommand suggests similar commands based on edit distance
