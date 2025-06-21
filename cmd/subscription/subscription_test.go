@@ -832,7 +832,7 @@ func TestSpecialCasesWithMock(t *testing.T) {
 
 		outputStr := output.String()
 		// Should either show error for invalid GUID format or treat as subscription name
-		success := strings.Contains(outputStr, "Invalid") || strings.Contains(outputStr, "not found") || mockCLI.GetSubscriptionCalled
+		success := strings.Contains(outputStr, "invalid") || strings.Contains(outputStr, "Invalid") || strings.Contains(outputStr, "not found") || mockCLI.GetSubscriptionCalled
 		testutils.PrintTestStatus(t, "Invalid GUID format handling", success, "Should handle invalid GUID format appropriately")
 	})
 

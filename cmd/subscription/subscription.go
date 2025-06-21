@@ -3,6 +3,7 @@ package subscription
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	"jumpstartcli/internal/auth"
@@ -85,7 +86,11 @@ Use different output formats to integrate with scripts or automation tools.`,
 
 			// Check for mutually exclusive flags
 			if idOnly && nameOnly {
-				utils.Error("Cannot specify both --id and --name flags. Please use only one.")
+				utils.HandleValidationError(
+					fmt.Errorf("argument --name: not allowed with argument --id"),
+					cmd,
+					false,
+				)
 				return
 			}
 
@@ -188,7 +193,17 @@ Use different output formats to integrate with scripts or automation tools.`,
 	var subscriptionListCmd = &cobra.Command{
 		Use:   "list",
 		Short: "List all available Azure subscriptions",
-		Args:  cobra.NoArgs,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				utils.HandleValidationError(
+					fmt.Errorf("unrecognized arguments: %s", strings.Join(args, " ")),
+					cmd,
+					false,
+				)
+				os.Exit(1)
+			}
+			return nil
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			// Check Azure CLI authentication first
 			if err := auth.CheckAzureAuthentication(azCLI); err != nil {
@@ -286,12 +301,16 @@ The subscription will be set as the default for all subsequent Azure CLI command
 			}
 
 			if flagCount > 1 {
+				// Multiple selection methods specified - this is a validation error, not missing arguments
 				errorMsg := "Cannot specify multiple subscription selection methods. Use only one of: --subscription/-s, --name/-n, or positional argument."
 				utils.HandleSubscriptionSelectionError(cmd, errorMsg)
 				return
 			} else if flagCount == 0 {
-				errorMsg := "the following arguments are required: --subscription/-s, --name/-n, or positional argument"
-				utils.HandleSubscriptionSelectionError(cmd, errorMsg)
+				// Use the centralized error handling for missing required arguments
+				// Azure CLI format: show mutual exclusion options with forward slashes
+				// This matches Azure CLI: "az account set" shows "--name --subscription -n -s [Required]"
+				missingArgs := []string{"--subscription/-s/--name/-n"}
+				utils.HandleMissingRequiredArguments(cmd, missingArgs)
 				return
 			}
 
@@ -309,7 +328,11 @@ The subscription will be set as the default for all subsequent Azure CLI command
 			utils.Info("Validating subscription access...")
 
 			if isSubscriptionID && !isValidGUID(targetSubscription) {
-				fmt.Fprintln(cmd.ErrOrStderr(), utils.ErrorColor("[ERROR] Invalid subscription ID format. Expected GUID format (e.g., 12345678-1234-1234-1234-123456789012)"))
+				utils.HandleValidationError(
+					fmt.Errorf("invalid subscription ID format. Expected GUID format (e.g., 12345678-1234-1234-1234-123456789012)"),
+					cmd,
+					false,
+				)
 				return
 			}
 
