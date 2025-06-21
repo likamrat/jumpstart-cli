@@ -206,6 +206,7 @@ func PrintMissingRequiredFlagsError(cmd *cobra.Command, requiredFlags []string) 
 		}
 	}
 	if len(missing) > 0 {
+		// Use red color for missing required arguments (no error prefix, but still red)
 		fmt.Fprintf(os.Stderr, "%s\n\n", ErrorColor("the following arguments are required: "+strings.Join(missing, ", ")))
 		ShowHelpWithoutTypes(cmd)
 		return false // Indicate validation failed
@@ -689,6 +690,11 @@ func PrintMissingRequiredArgumentsError(cmd *cobra.Command, requiredArgs []strin
 	if !PrintMissingRequiredFlagsError(cmd, requiredArgs) {
 		os.Exit(1)
 	}
+}
+
+// PrintMissingRequiredArgumentsTip prints a helpful tip message for missing required arguments
+func PrintMissingRequiredArgumentsTip(cmd *cobra.Command) {
+	fmt.Fprintf(os.Stderr, "%s\n", InfoColor("💡 [TIP] Use '"+cmd.CommandPath()+" --help' to see all required arguments."))
 }
 
 // SuggestSimilarCommand suggests similar commands based on edit distance

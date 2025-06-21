@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"os"
 
 	"jumpstartcli/cmd/arcbox/models"
 	"jumpstartcli/internal/azurecli"
@@ -53,9 +54,12 @@ func (lvs *ListValidationService) ValidateSubscriptionSelection(cmd *cobra.Comma
 
 	// If no subscription selection flag is provided
 	if flagCount == 0 {
+		// Print the standardized error message format with red color
+		fmt.Fprintf(os.Stderr, "%s\n\n", utils.ErrorColor("the following arguments are required (choose one): --current-subscription, --all-subscriptions, or --subscription"))
+		utils.ShowHelpWithoutTypes(cmd)
 		return ValidationResult{
 			IsValid: false,
-			Error:   fmt.Errorf("subscription selection required: specify --current-subscription, --all-subscriptions, or --subscription <id>"),
+			Error:   fmt.Errorf("validation_failed_with_output_already_shown"),
 		}
 	}
 

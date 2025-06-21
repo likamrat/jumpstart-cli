@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -137,6 +138,10 @@ type AzureCLI interface {
 	// Resource operations
 	ListResources(resourceGroup string) ([]ResourceInfo, error)
 	GetResource(resourceID string) (*ResourceInfo, error)
+	// ListResourcesWithDetails gets all resources in a resource group with full details including provisioning state in a single call
+	ListResourcesWithDetails(resourceGroup string) ([]ResourceInfo, error)
+	// GetResourcesBatch gets multiple resources by their IDs in parallel with limited concurrency
+	GetResourcesBatch(resourceIDs []string, maxConcurrency int) ([]ResourceInfo, []error)
 
 	// Deployment operations
 	ListDeployments(resourceGroup string) ([]DeploymentInfo, error)
@@ -542,7 +547,141 @@ func (r *RealAzureCLI) GetResource(resourceID string) (*ResourceInfo, error) {
 	return &resource, nil
 }
 
-// ListDeployments lists all deployments in a resource group
+// ListResourcesWithDetails gets all resources in a resource group with full details including provisioning state in a single call
+func (r *RealAzureCLI) ListResourcesWithDetails(resourceGroup string) ([]ResourceInfo, error) {
+	if resourceGroup == "" {
+		return nil, fmt.Errorf("resource group cannot be empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "az", "resource", "list", "--resource-group", resourceGroup, "--output", "json", "--query", "[].{id:id,name:name,type:type,location:location,properties:properties}")
+	output, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("timeout while listing resources with details in resource group %s", resourceGroup)
+		}
+		return nil, fmt.Errorf("failed to list resources with details in resource group %s: %v", resourceGroup, err)
+	}
+
+	var resources []ResourceInfo
+	if err := json.Unmarshal(output, &resources); err != nil {
+		return nil, fmt.Errorf("failed to parse resource data: %v", err)
+	}
+
+	return resources, nil
+}
+
+// GetResourcesBatch gets multiple resources by their IDs in parallel with limited concurrency
+func (r *RealAzureCLI) GetResourcesBatch(resourceIDs []string, maxConcurrency int) ([]ResourceInfo, []error) {
+	if len(resourceIDs) == 0 {
+		return nil, nil
+	}
+
+	if maxConcurrency <= 0 {
+		maxConcurrency = 5 // Default to 5 concurrent calls
+	}
+
+	// Ensure we don't exceed 8 concurrent calls for Azure API safety
+	if maxConcurrency > 8 {
+		maxConcurrency = 8
+	}
+
+	// Create a worker pool with ordered results
+	type resourceResult struct {
+		index    int
+		resource ResourceInfo
+		err      error
+	}
+
+	// Channel for worker pool
+	jobs := make(chan struct {
+		index      int
+		resourceID string
+	}, len(resourceIDs))
+
+	results := make(chan resourceResult, len(resourceIDs))
+
+	// Start workers
+	var wg sync.WaitGroup
+	for w := 0; w < maxConcurrency; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for job := range jobs {
+				// Use context with timeout for each individual resource query
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+
+				cmd := exec.CommandContext(ctx, "az", "resource", "show", "--ids", job.resourceID, "--output", "json")
+				output, err := cmd.Output()
+
+				var result resourceResult
+				result.index = job.index
+
+				if err != nil {
+					if ctx.Err() == context.DeadlineExceeded {
+						result.err = fmt.Errorf("timeout while retrieving resource %s", job.resourceID)
+					} else {
+						result.err = fmt.Errorf("failed to retrieve resource %s: %v", job.resourceID, err)
+					}
+				} else {
+					var resource ResourceInfo
+					if parseErr := json.Unmarshal(output, &resource); parseErr != nil {
+						result.err = fmt.Errorf("failed to parse resource data for %s: %v", job.resourceID, parseErr)
+					} else {
+						result.resource = resource
+					}
+				}
+
+				cancel() // Clean up context
+				results <- result
+			}
+		}()
+	}
+
+	// Send jobs to workers
+	for i, resourceID := range resourceIDs {
+		jobs <- struct {
+			index      int
+			resourceID string
+		}{index: i, resourceID: resourceID}
+	}
+	close(jobs)
+
+	// Wait for all workers to finish
+	wg.Wait()
+	close(results)
+
+	// Collect results and maintain original order
+	orderedResults := make([]ResourceInfo, 0, len(resourceIDs))
+	orderedErrors := make([]error, 0)
+	resultMap := make(map[int]ResourceInfo)
+	errorMap := make(map[int]error)
+
+	// Collect all results
+	for result := range results {
+		if result.err != nil {
+			errorMap[result.index] = result.err
+		} else {
+			resultMap[result.index] = result.resource
+		}
+	}
+
+	// Build ordered results and errors
+	for i := 0; i < len(resourceIDs); i++ {
+		if resource, exists := resultMap[i]; exists {
+			orderedResults = append(orderedResults, resource)
+		}
+		if err, exists := errorMap[i]; exists {
+			orderedErrors = append(orderedErrors, err)
+		}
+	}
+
+	return orderedResults, orderedErrors
+}
+
+// Deployment operations
 func (r *RealAzureCLI) ListDeployments(resourceGroup string) ([]DeploymentInfo, error) {
 	if resourceGroup == "" {
 		return nil, fmt.Errorf("resource group cannot be empty")

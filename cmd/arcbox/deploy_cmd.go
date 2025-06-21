@@ -2,6 +2,7 @@ package arcbox
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"jumpstartcli/cmd/arcbox/services"
@@ -38,12 +39,20 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 
 			// Run all validation checks using the service layer
 			if result := deployValidationService.ValidateAllDeployRequirements(cmd); !result.IsValid {
-				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), result.Error)
 				errorMessage := result.Error.Error()
+
+				// Special case: if validation failed but output was already shown, exit silently
+				if errorMessage == "validation_failed_with_output_already_shown" {
+					// Show helpful tip for missing required arguments
+					utils.PrintMissingRequiredArgumentsTip(cmd)
+					// Use os.Exit to avoid Cobra printing any additional error messages
+					os.Exit(1)
+				}
+
 				if strings.Contains(errorMessage, "preflight checks failed") {
 					fmt.Println(utils.ErrorColor("💡 [TIP] You can use --skip-preflight to bypass these checks (not recommended)."))
 				} else if strings.Contains(errorMessage, "missing required arguments") {
-					fmt.Println(utils.InfoColor("💡 [TIP] Use 'js arcbox deploy --help' to see all required arguments."))
+					utils.PrintMissingRequiredArgumentsTip(cmd)
 				}
 				return result.Error
 			}
@@ -54,7 +63,6 @@ By default, uses the official ArcBox ARM template from GitHub. You can specify:
 
 			// Use the provided deployment service
 			if err := deployService.Deploy(cmd, args, bicepPath, useParamFile, paramFile); err != nil {
-				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
 				return err
 			}
 			return nil

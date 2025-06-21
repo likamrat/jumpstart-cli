@@ -3,6 +3,7 @@ package repo
 
 import (
 	"fmt"
+	"os"
 
 	"jumpstartcli/internal/utils"
 
@@ -146,14 +147,13 @@ they have been backed up or committed to a remote repository.`,
 				path = "./jumpstart"
 			}
 
-			fmt.Printf("Repository path: %s\n", path)
-
 			if !force {
-				fmt.Println(utils.WarnColor("⚠️  This will permanently delete the repository and all its contents."))
-				fmt.Println("Use --force to confirm deletion.")
-				return
+				fmt.Fprintf(os.Stderr, "%s\n", utils.ErrorColor("the following arguments are required: --force"))
+				utils.PrintMissingRequiredArgumentsTip(cmd)
+				os.Exit(1)
 			}
 
+			fmt.Printf("Repository path: %s\n", path)
 			fmt.Println(utils.InfoColor("🗑️  Deleting Jumpstart repository..."))
 
 			// TODO: Implement actual repository deletion logic

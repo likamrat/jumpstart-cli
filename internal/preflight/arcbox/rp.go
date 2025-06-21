@@ -84,10 +84,15 @@ func CreateResourceProviderCommands(cli azurecli.AzureCLI) *cobra.Command {
 
 ` + examples.GetExamples("arcbox.preflight.rp.register").FormatExamples(),
 		Run: func(cmd *cobra.Command, args []string) {
-			requiredArguments := []string{"name"}
-			utils.PrintMissingRequiredArgumentsError(cmd, requiredArguments)
-
 			provider, _ := cmd.Flags().GetString("name")
+
+			// Check if required argument is missing
+			if provider == "" {
+				fmt.Fprintf(os.Stderr, "%s\n", utils.ErrorColor("the following arguments are required: --name/-n"))
+				utils.PrintMissingRequiredArgumentsTip(cmd)
+				os.Exit(1)
+			}
+
 			if err := RegisterResourceProvider(cli, provider); err != nil {
 				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
 				os.Exit(1)

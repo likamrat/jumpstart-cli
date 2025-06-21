@@ -2,6 +2,7 @@ package arcbox
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"jumpstartcli/cmd/arcbox/services"
@@ -93,12 +94,23 @@ func executePreflightQuotaCommandWithError(quotaService *services.QuotaService, 
 	if err := quotaService.RunQuotaCheckCommand(cmd, args); err != nil {
 		// Handle specific error types with appropriate help text
 		errorMessage := err.Error()
-		if strings.Contains(errorMessage, "missing required argument") ||
+
+		if strings.Contains(errorMessage, "required argument missing") ||
+			strings.Contains(errorMessage, "location specification required") ||
+			strings.Contains(errorMessage, "conflicting location flags") ||
 			strings.Contains(errorMessage, "must specify either") ||
 			strings.Contains(errorMessage, "cannot specify both") ||
 			strings.Contains(errorMessage, "location validation failed") {
-			fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n\n"), err)
-			utils.ShowHelpWithoutTypes(cmd)
+
+			// Extract the inner error message for standardized output
+			innerMessage := errorMessage
+			if strings.Contains(errorMessage, "quota check failed: ") {
+				innerMessage = strings.TrimPrefix(errorMessage, "quota check failed: ")
+			}
+
+			// Print standardized error message without prefix
+			fmt.Fprintf(os.Stderr, "%s\n", utils.ErrorColor(innerMessage))
+			utils.PrintMissingRequiredArgumentsTip(cmd)
 		} else {
 			fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), err)
 		}

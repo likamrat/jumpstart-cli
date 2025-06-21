@@ -2,6 +2,7 @@ package arcbox
 
 import (
 	"fmt"
+	"os"
 
 	"jumpstartcli/cmd/arcbox/services"
 	"jumpstartcli/internal/auth"
@@ -39,8 +40,14 @@ This operation is irreversible and will permanently remove all ArcBox resources.
 
 			// Perform all validation
 			if validationResult := validationService.ValidateAllDeleteRequirements(cmd, subscription); !validationResult.IsValid {
-				fmt.Printf(utils.ErrorColor("❌ [ERROR] %v\n"), validationResult.Error)
-				utils.ShowHelpWithoutTypes(cmd)
+				errorMessage := validationResult.Error.Error()
+
+				// Special case: if validation failed but output was already shown, exit silently
+				if errorMessage == "validation_failed_with_output_already_shown" {
+					utils.PrintMissingRequiredArgumentsTip(cmd)
+					os.Exit(1)
+				}
+
 				return validationResult.Error
 			}
 

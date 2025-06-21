@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"strings"
 
 	arcboxUtils "jumpstartcli/cmd/arcbox/utils"
 	"jumpstartcli/internal/azurecli"
@@ -32,12 +31,12 @@ func (dvs *DeleteValidationService) ValidateRequiredArguments(cmd *cobra.Command
 		}
 	}
 
-	// Check if the name flag is provided and not empty
-	resourceGroupName, _ := cmd.Flags().GetString("name")
-	if strings.TrimSpace(resourceGroupName) == "" {
+	// Use standard missing required flags validation
+	requiredFlags := []string{"name"}
+	if !utils.PrintMissingRequiredFlagsError(cmd, requiredFlags) {
 		return ValidationResult{
 			IsValid: false,
-			Error:   fmt.Errorf("required argument missing: --name flag must specify a resource group name"),
+			Error:   fmt.Errorf("validation_failed_with_output_already_shown"),
 		}
 	}
 

@@ -714,6 +714,50 @@ func (m *MockAzureCLI) GetResource(resourceID string) (*ResourceInfo, error) {
 	return nil, fmt.Errorf("resource not found: %s", resourceID)
 }
 
+// ListResourcesWithDetails gets all resources in a resource group with full details including provisioning state in a single call (mock implementation)
+func (m *MockAzureCLI) ListResourcesWithDetails(resourceGroup string) ([]ResourceInfo, error) {
+	// Get basic resources first
+	resources, err := m.ListResources(resourceGroup)
+	if err != nil {
+		return nil, err
+	}
+
+	// For each resource, try to get detailed information from SpecificResources if available
+	var detailedResources []ResourceInfo
+	for _, resource := range resources {
+		if detailed, exists := m.SpecificResources[resource.ID]; exists {
+			// Use the detailed information if available
+			detailedResources = append(detailedResources, *detailed)
+		} else {
+			// Use the basic resource information
+			detailedResources = append(detailedResources, resource)
+		}
+	}
+
+	return detailedResources, nil
+}
+
+// GetResourcesBatch gets multiple resources by their IDs in parallel with limited concurrency (mock implementation)
+func (m *MockAzureCLI) GetResourcesBatch(resourceIDs []string, maxConcurrency int) ([]ResourceInfo, []error) {
+	if len(resourceIDs) == 0 {
+		return nil, nil
+	}
+
+	var results []ResourceInfo
+	var errors []error
+
+	for _, resourceID := range resourceIDs {
+		resource, err := m.GetResource(resourceID)
+		if err != nil {
+			errors = append(errors, err)
+		} else {
+			results = append(results, *resource)
+		}
+	}
+
+	return results, errors
+}
+
 // ListDeployments lists all deployments in a resource group (mock implementation)
 func (m *MockAzureCLI) ListDeployments(resourceGroup string) ([]DeploymentInfo, error) {
 	m.ListDeploymentsCalled = true
