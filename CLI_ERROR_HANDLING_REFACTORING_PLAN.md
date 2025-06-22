@@ -882,9 +882,176 @@ Test EVERY command and subcommand individually:
 **TARGET**: Professional, consistently formatted help output with proper case and clean format across ALL commands and subcommands.
 <!-- END PROMPT 5.3 -->
 
-### **Prompt 5.4: Global Fix - Remove "Use <command> --help" Lines**
+### **Prompt 5.4: Global Fix - Examples Section Ordering**
 
 <!-- START PROMPT 5.4 -->
+I need to implement a global fix to ensure the Examples section appears LAST in help output, after all Flags sections (both local and global flags).
+
+**PROBLEM IDENTIFIED**: The Examples section currently appears immediately after the description, before the Flags sections. This is incorrect ordering according to standard CLI help format conventions.
+
+**CURRENT INCORRECT ORDER**:
+```
+Usage:
+  js arcbox delete [flags]
+
+Description text here
+
+Examples:
+    Example commands here
+
+Flags:
+    --flag1    Description
+
+Global Flags:
+    --flag2    Description
+```
+
+**TARGET CORRECT ORDER**:
+```
+Usage:
+  js arcbox delete [flags]
+
+Description text here
+
+Flags:
+    --flag1    Description
+
+Global Flags:
+    --flag2    Description
+
+Examples:
+    Example commands here
+```
+
+**SOLUTION**: Modify the help output generation logic to ensure Examples section is rendered last, after all Flags sections.
+
+**IMPLEMENTATION APPROACH**:
+1. Locate the help output generation logic in `internal/utils/utils.go`
+2. Identify where Examples section is currently being added (likely too early)
+3. Move Examples section generation to the end, after Global Flags section
+4. Ensure proper spacing and formatting is maintained
+
+**COMPREHENSIVE VALIDATION REQUIREMENT**:
+Test EVERY command and subcommand individually to ensure Examples section appears last:
+
+**Main Commands:**
+- `js --help`
+- `js version --help`
+- `js completion --help`
+- `js agora --help`
+- `js localbox --help`
+
+**ArcBox Commands (test ALL subcommands):**
+- `js arcbox --help`
+- `js arcbox deploy --help`
+- `js arcbox delete --help`
+- `js arcbox list --help`
+- `js arcbox preflight --help`
+- `js arcbox preflight quota --help`
+- `js arcbox preflight rp --help`
+- `js arcbox preflight rp show --help`
+- `js arcbox preflight rp list --help`
+- `js arcbox preflight rp register --help`
+- `js arcbox preflight status --help`
+
+**Subscription Commands (test ALL subcommands):**
+- `js subscription --help`
+- `js subscription set --help`
+- `js subscription show --help`
+- `js subscription list --help`
+
+**Repo Commands (test ALL subcommands):**
+- `js repo --help`
+- `js repo init --help`
+- `js repo update --help`
+- `js repo delete --help`
+
+**Upgrade Commands (test ALL subcommands):**
+- `js upgrade --help`
+- `js upgrade check --help`
+- `js upgrade install --help`
+- `js upgrade rollback --help`
+- `js upgrade list --help`
+
+**Completion Commands (test ALL shell options):**
+- `js completion bash --help`
+- `js completion zsh --help`
+- `js completion fish --help`
+- `js completion powershell --help`
+
+**VALIDATION CHECKLIST** (verify each item):
+- [x] Examples section appears LAST in all help output
+- [x] Examples section comes after local Flags section
+- [x] Examples section comes after Global Flags section
+- [x] Proper spacing maintained between sections
+- [x] All subcommands are tested individually
+- [x] Build succeeds: `make build`
+- [x] Help functionality still works correctly
+
+**✅ PHASE 5.4 COMPLETED SUCCESSFULLY**:
+Successfully implemented global fix to ensure Examples section appears LAST in help output across ALL commands and subcommands.
+
+**IMPLEMENTATION COMPLETED**:
+- ✅ Fixed `internal/utils/utils.go` to ensure Examples section is rendered after Global Flags section
+- ✅ Removed embedded examples from Long descriptions in all command files:
+  - ✅ `cmd/arcbox/delete_cmd.go` - Removed examples from Long description
+  - ✅ `cmd/arcbox/list_cmd.go` - Removed examples from Long description
+  - ✅ `cmd/arcbox/preflight_cmd.go` - Removed examples from Long description
+  - ✅ `cmd/upgrade/upgrade.go` - Removed examples from all subcommands (check, install, rollback, list)
+  - ✅ `internal/preflight/arcbox/rp.go` - Removed examples from all rp subcommands (show, list, register)
+- ✅ Removed unused `internal/examples` imports from all affected files
+- ✅ Added blank line after Global Flags section to maintain proper spacing
+- ✅ Examples section now automatically appears via the centralized help generation logic
+
+**COMPREHENSIVE VALIDATION COMPLETED**:
+Tested ALL commands and subcommands individually to verify Examples section appears last:
+- ✅ **Main Commands**: All tested (js --help, version --help, completion --help, agora --help, localbox --help)
+- ✅ **ArcBox Commands**: All tested (arcbox --help, arcbox deploy --help, arcbox delete --help, arcbox list --help, arcbox preflight --help, arcbox preflight quota --help, arcbox preflight rp --help, arcbox preflight rp show --help, arcbox preflight rp list --help, arcbox preflight rp register --help, arcbox preflight status --help)
+- ✅ **Subscription Commands**: All tested (subscription --help, subscription set --help, subscription show --help, subscription list --help)
+- ✅ **Repo Commands**: All tested (repo --help, repo init --help, repo update --help, repo delete --help)
+- ✅ **Upgrade Commands**: All tested (upgrade --help, upgrade check --help, upgrade install --help, upgrade rollback --help, upgrade list --help)
+- ✅ **Completion Commands**: All tested (completion bash --help, completion zsh --help, completion fish --help, completion powershell --help)
+
+**SECTION ORDERING VERIFIED**:
+All commands now follow the correct section ordering:
+1. **Usage:** (first)
+2. **Description** (Long description with proper spacing)
+3. **Subcommands:** (if applicable)
+4. **Flags:** (local flags, if present)
+5. **Global Flags:** (inherited flags)
+6. **Examples:** (LAST, if present)
+
+**TESTING RESULTS**:
+- ✅ Build succeeds: `make build`
+- ✅ All help output shows Examples section last
+- ✅ Section ordering verified using `grep -E "(Flags:|Global Flags:|Examples:)"` on all commands
+- ✅ Proper spacing maintained between all sections
+- ✅ No duplicate examples (removed from Long descriptions, now only appear in Examples section)
+- ✅ All functionality preserved (flags, validation, command execution)
+
+**TARGET ACHIEVED**: ✅ Correct help output section ordering with Examples appearing last across ALL commands and subcommands.
+
+**READY FOR NEXT PHASE**: Phase 5.5 - Global Fix - Remove "Use <command> --help" Lines
+
+**VALIDATION**:
+After changes:
+1. Build: `make build`
+2. Test help output for ALL commands and subcommands listed above
+3. Verify section ordering for each command:
+   ```bash
+   # Check section ordering for each command
+   ./bin/jumpstart-cli arcbox delete --help | grep -E "(Flags:|Global Flags:|Examples:)" 
+   # Should show: Flags: first, then Global Flags:, then Examples: last
+   ```
+4. Ensure Examples section appears at the very end
+5. Check that spacing and formatting remain consistent
+
+**TARGET**: Correct help output section ordering with Examples appearing last across ALL commands and subcommands.
+<!-- END PROMPT 5.4 -->
+
+### **Prompt 5.5: Global Fix - Remove "Use <command> --help" Lines**
+
+<!-- START PROMPT 5.5 -->
 I need to implement a global fix to remove all "Use <command> --help" or similar instructional lines from help output across the entire CLI.
 
 **PROBLEM IDENTIFIED**: Help output includes lines like:
@@ -913,19 +1080,84 @@ These lines are unnecessary and redundant since the user is already viewing the 
 - Help template configurations
 - Usage text generation
 
+**COMPREHENSIVE VALIDATION REQUIREMENT**:
+Test EVERY command and subcommand individually to ensure no "Use --help" lines appear:
+
+**Main Commands:**
+- `js --help`
+- `js version --help`
+- `js completion --help`
+- `js agora --help`
+- `js localbox --help`
+
+**ArcBox Commands (test ALL subcommands):**
+- `js arcbox --help`
+- `js arcbox deploy --help`
+- `js arcbox delete --help`
+- `js arcbox list --help`
+- `js arcbox preflight --help`
+- `js arcbox preflight quota --help`
+- `js arcbox preflight rp --help`
+- `js arcbox preflight rp show --help`
+- `js arcbox preflight rp list --help`
+- `js arcbox preflight rp register --help`
+- `js arcbox preflight status --help`
+
+**Subscription Commands (test ALL subcommands):**
+- `js subscription --help`
+- `js subscription set --help`
+- `js subscription show --help`
+- `js subscription list --help`
+
+**Repo Commands (test ALL subcommands):**
+- `js repo --help`
+- `js repo init --help`
+- `js repo update --help`
+- `js repo delete --help`
+
+**Upgrade Commands (test ALL subcommands):**
+- `js upgrade --help`
+- `js upgrade check --help`
+- `js upgrade install --help`
+- `js upgrade rollback --help`
+- `js upgrade list --help`
+
+**Completion Commands (test ALL shell options):**
+- `js completion bash --help`
+- `js completion zsh --help`
+- `js completion fish --help`
+- `js completion powershell --help`
+
+**VALIDATION CHECKLIST** (verify each item):
+- [ ] No commands show "Use <command> --help" lines
+- [ ] No commands show "for more details" or "for more information" lines
+- [ ] All help output is cleaner and more focused
+- [ ] Essential help information is still present
+- [ ] All subcommands are tested individually
+- [ ] Build succeeds: `make build`
+- [ ] Help functionality still works correctly
+
 **VALIDATION**:
 After changes:
 1. Build: `make build`
-2. Test help output for all commands to ensure no "Use --help" lines appear
-3. Verify help output is cleaner and more focused
-4. Check that essential help information is still present
+2. Test help output for ALL commands and subcommands listed above
+3. Use `grep` to search for any remaining "Use" + "help" patterns:
+   ```bash
+   # Search for any remaining "Use --help" patterns
+   ./bin/jumpstart-cli --help | grep -i "use.*help" || echo "No 'Use help' lines found"
+   ./bin/jumpstart-cli arcbox --help | grep -i "use.*help" || echo "No 'Use help' lines found"
+   ./bin/jumpstart-cli subscription --help | grep -i "use.*help" || echo "No 'Use help' lines found"
+   # Continue for all command families...
+   ```
+4. Verify help output is cleaner and more focused
+5. Check that essential help information is still present
 
-**TARGET**: Clean help output without redundant "Use --help" instructions, matching Azure CLI's help format.
-<!-- END PROMPT 5.4 -->
+**TARGET**: Clean help output without redundant "Use --help" instructions across ALL commands and subcommands, matching Azure CLI's help format.
+<!-- END PROMPT 5.5 -->
 
-### **Prompt 5.5: Global Fix - Standardize "Global Flags" and Section Spacing**
+### **Prompt 5.6: Global Fix - Standardize "Global Flags" and Section Spacing**
 
-<!-- START PROMPT 5.5 -->
+<!-- START PROMPT 5.6 -->
 I need to implement a global fix to standardize section headers and spacing in help output across all commands.
 
 **PROBLEMS IDENTIFIED**:
@@ -963,7 +1195,7 @@ After changes:
 3. Compare with Azure CLI help format for consistency reference
 
 **TARGET**: Professional, consistently formatted help output with proper case and spacing, similar to Azure CLI's clean help format.
-<!-- END PROMPT 5.5 -->
+<!-- END PROMPT 5.6 -->
 
 ---
 
@@ -972,12 +1204,13 @@ After changes:
 ### **Prompt 6.1: Update Test Suite for New Error Handling**
 
 <!-- START PROMPT 6.1 -->
-Now that all core functionality is working and global help output fixes have been implemented (Phases 5.3, 5.4, 5.5), I need to update the test suite to work with the new centralized error handling while maintaining all existing test coverage.
+Now that all core functionality is working and global help output fixes have been implemented (Phases 5.3, 5.4, 5.5, 5.6), I need to update the test suite to work with the new centralized error handling while maintaining all existing test coverage.
 
-**PREREQUISITE**: Ensure Phases 5.3, 5.4, and 5.5 are completed first:
+**PREREQUISITE**: Ensure Phases 5.3, 5.4, 5.5, and 5.6 are completed first:
 - ✅ Phase 5.3: Global fix to remove duplicate Short/Long descriptions
-- ✅ Phase 5.4: Global fix to remove "Use <command> --help" lines
-- ✅ Phase 5.5: Global fix to standardize "Global Flags" and section spacing
+- ✅ Phase 5.4: Global fix to correct Examples section ordering
+- ✅ Phase 5.5: Global fix to remove "Use <command> --help" lines
+- ✅ Phase 5.6: Global fix to standardize "Global Flags" and section spacing
 
 Requirements:
 1. Review all test files for commands that were refactored
@@ -1016,8 +1249,9 @@ I need to perform final integration testing and update documentation to reflect 
 - ✅ Phase 5.1: Global centralized error handling refactoring
 - ✅ Phase 5.2: Global help output duplicate fixes
 - ✅ Phase 5.3: Global fix to remove duplicate Short/Long descriptions
-- ✅ Phase 5.4: Global fix to remove "Use <command> --help" lines
-- ✅ Phase 5.5: Global fix to standardize "Global Flags" and section spacing
+- ✅ Phase 5.4: Global fix to correct Examples section ordering
+- ✅ Phase 5.5: Global fix to remove "Use <command> --help" lines
+- ✅ Phase 5.6: Global fix to standardize "Global Flags" and section spacing
 - ✅ Phase 6.1: Test suite updates
 
 Requirements:

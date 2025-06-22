@@ -7,7 +7,6 @@ import (
 	"jumpstartcli/cmd/arcbox/services"
 	"jumpstartcli/internal/auth"
 	"jumpstartcli/internal/azurecli"
-	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/utils"
 
 	"github.com/spf13/cobra"
@@ -61,9 +60,7 @@ func createListCommand(listingService *services.ListingService, cli azurecli.Azu
 - ArcBox naming prefix (configurable, default: "ArcBox")
 - Specific ArcBox resource types (VMs, Key Vaults, etc.)
 
-Requires explicit subscription selection: --current-subscription, --all-subscriptions, or --subscription <id>.
-
-` + examples.GetExamples("js.arcbox.list").FormatExamples(),
+Requires explicit subscription selection: --current-subscription, --all-subscriptions, or --subscription <id>.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Execute the core command logic
 			if err := executeListCommand(cmd, listingService, cli); err != nil {

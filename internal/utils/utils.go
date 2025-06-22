@@ -290,9 +290,11 @@ func buildCustomHelpOutput(cmd *cobra.Command) string {
 	if cmd.HasAvailableInheritedFlags() {
 		result.WriteString("Global Flags:\n") // Changed from "Global FLAGS:" to "Global Flags:"
 		result.WriteString(buildFlagsOutput(cmd, cmd.InheritedFlags(), terminalWidth))
+		result.WriteString("\n") // Blank line after global flags
 	}
 
 	// Examples section - only add if Long description doesn't already contain examples
+	// This section is placed LAST, after all other sections including flags
 	commandKey := strings.ReplaceAll(cmd.CommandPath(), " ", ".")
 	if exampleSet := examples.GetExamples(commandKey); len(exampleSet.Examples) > 0 {
 		// Check if Long description already contains examples

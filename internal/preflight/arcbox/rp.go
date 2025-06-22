@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"jumpstartcli/internal/azurecli"
-	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/resourceproviders"
 	"jumpstartcli/internal/utils"
 
@@ -56,9 +55,7 @@ func CreateResourceProviderCommands(cli azurecli.AzureCLI) *cobra.Command {
 	var showCmd = &cobra.Command{
 		Use:   "show",
 		Short: "Show registration status of required Azure resource providers",
-		Long: `Check and display the registration status of all required Azure resource providers for ArcBox deployment.
-
-` + examples.GetExamples("arcbox.preflight.rp.show").FormatExamples(),
+		Long:  `Check and display the registration status of all required Azure resource providers for ArcBox deployment.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ShowResourceProviderStatus(cli)
 		},
@@ -68,9 +65,7 @@ func CreateResourceProviderCommands(cli azurecli.AzureCLI) *cobra.Command {
 	var listCmd = &cobra.Command{
 		Use:   "list",
 		Short: "List required Azure resource providers for ArcBox",
-		Long: `List the Azure resource providers required for ArcBox deployment (names only).
-
-` + examples.GetExamples("arcbox.preflight.rp.list").FormatExamples(),
+		Long:  `List the Azure resource providers required for ArcBox deployment (names only).`,
 		Run: func(cmd *cobra.Command, args []string) {
 			ListRequiredResourceProviders()
 		},
@@ -80,9 +75,7 @@ func CreateResourceProviderCommands(cli azurecli.AzureCLI) *cobra.Command {
 	var registerCmd = &cobra.Command{
 		Use:   "register",
 		Short: "Register a required Azure resource provider",
-		Long: `Register a required Azure resource provider for ArcBox deployment.
-
-` + examples.GetExamples("arcbox.preflight.rp.register").FormatExamples(),
+		Long:  `Register a required Azure resource provider for ArcBox deployment.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			provider, _ := cmd.Flags().GetString("name")
 

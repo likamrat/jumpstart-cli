@@ -5,7 +5,6 @@ import (
 	"runtime"
 	"strings"
 
-	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/upgrade/installer"
 	"jumpstartcli/internal/upgrade/version"
 	"jumpstartcli/internal/utils"
@@ -64,9 +63,7 @@ Subcommands:
 		Long: `This command will check GitHub releases for newer versions and display
 version information without making any changes to your installation.
 
-Use --yes/-y to execute the check operation.
-
-` + examples.GetExamples("upgrade.check").FormatExamples(),
+Use --yes/-y to execute the check operation.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			yes, _ := cmd.Flags().GetBool("yes")
 
@@ -90,9 +87,7 @@ Use --yes/-y to execute the check operation.
 		Long: `This command will check for updates, download the latest version,
 and replace your current installation with the newer version.
 
-Use --yes/-y to execute the installation operation.
-
-` + examples.GetExamples("upgrade.install").FormatExamples(),
+Use --yes/-y to execute the installation operation.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			yes, _ := cmd.Flags().GetBool("yes")
 
@@ -126,9 +121,7 @@ Use --yes/-y to execute the installation operation.
 		Long: `This command will restore a previous version from your backup installations.
 You can specify a version or select from available backups interactively.
 
-Use --yes/-y to execute the rollback operation.
-
-` + examples.GetExamples("upgrade.rollback").FormatExamples(),
+Use --yes/-y to execute the rollback operation.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			yes, _ := cmd.Flags().GetBool("yes")
 
@@ -153,9 +146,7 @@ Use --yes/-y to execute the rollback operation.
 		Long: `This command will display all backup versions available for rollback,
 including version numbers, installation dates, and current status.
 
-Use --yes/-y to execute the list operation.
-
-` + examples.GetExamples("upgrade.list").FormatExamples(),
+Use --yes/-y to execute the list operation.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			yes, _ := cmd.Flags().GetBool("yes")
 

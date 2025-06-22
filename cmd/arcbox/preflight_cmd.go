@@ -8,7 +8,6 @@ import (
 	"jumpstartcli/cmd/arcbox/services"
 	"jumpstartcli/internal/auth"
 	"jumpstartcli/internal/azurecli"
-	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/preflight/arcbox"
 	"jumpstartcli/internal/utils"
 
@@ -57,9 +56,7 @@ func createPreflightCommand(quotaService *services.QuotaService, validationServi
 	var arcboxPreflightQuotaCmd = &cobra.Command{
 		Use:   "quota",
 		Short: "Check vCPU quota for ArcBox flavors",
-		Long: `Check if your Azure subscription and region have sufficient vCPU quota for ArcBox ITPro, DevOps, and DataOps flavors.
-
-` + examples.GetExamples("arcbox.preflight.quota").FormatExamples(),
+		Long:  `Check if your Azure subscription and region have sufficient vCPU quota for ArcBox ITPro, DevOps, and DataOps flavors.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Check Azure CLI authentication first
 			if err := auth.CheckAzureAuthentication(cli); err != nil {

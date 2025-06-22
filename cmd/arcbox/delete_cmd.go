@@ -6,7 +6,6 @@ import (
 	"jumpstartcli/cmd/arcbox/services"
 	"jumpstartcli/internal/auth"
 	"jumpstartcli/internal/azurecli"
-	"jumpstartcli/internal/examples"
 
 	"github.com/spf13/cobra"
 )
@@ -18,9 +17,7 @@ func createDeleteCommand(deletionService *services.DeletionService, cli azurecli
 		Short: "Delete a Jumpstart ArcBox deployment",
 		Long: `Deletes the specified resource group and all resources within it.
 Use --name to specify the resource group containing your ArcBox deployment.
-This operation is irreversible and will permanently remove all ArcBox resources.
-
-` + examples.GetExamples("arcbox.delete").FormatExamples(),
+This operation is irreversible and will permanently remove all ArcBox resources.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Check Azure CLI authentication first
 			if err := auth.CheckAzureAuthentication(cli); err != nil {
