@@ -765,7 +765,7 @@ js completion                      # Should match error format
 - ✅ All flags remain exactly the same (no changes to --location, --name, etc.)
 - ✅ All examples in help text remain intact
 - ✅ All command functionality preserved
-- ✅ Only error message format changes to match Azure CLI style
+- ✅ All tests pass
 
 Systematic testing approach:
 1. Test each command family (subscription, arcbox, repo, upgrade, completion)
@@ -782,52 +782,91 @@ Create a testing summary report documenting:
 - Confirmation that functionality is preserved
 <!-- END PROMPT 5.2 -->
 
-### **Prompt 5.3: Global Fix - Remove Duplicate Short/Long Descriptions**
+### **Prompt 5.3: Enhanced Global Fix - Standardize Help Output Format**
 
 <!-- START PROMPT 5.3 -->
-I need to implement a global fix to remove duplicate Short/Long descriptions across all commands and ensure a single, concise description for each command in help output.
+I need to implement a comprehensive global fix to standardize help output format across all commands and subcommands in the entire CLI.
 
-**PROBLEM IDENTIFIED**: Many commands have both Short and Long descriptions that are nearly identical, causing cluttered help output. Examples:
-- Short: "Manage Jumpstart ArcBox automation"
-- Long: "Manage Jumpstart ArcBox automation resources."
+**PROBLEMS IDENTIFIED**:
+1. **Inconsistent capitalization**: Help output shows "FLAGS" (all caps) instead of "Flags" (proper case)
+2. **Duplicate Short/Long descriptions**: Many commands show redundant description lines
+3. **Missing "Use --help" line removal**: Some commands may still show redundant help instructions
+4. **Inconsistent section spacing**: Missing blank lines before major sections
 
-This creates redundant lines in help output, making it cluttered and inconsistent with Azure CLI's clean help format.
-
-**SOLUTION**: Implement a global solution to ensure:
-1. **Single description line**: Each command shows only one concise description in help output
-2. **Short description only**: Keep Short descriptions, clear Long descriptions unless they provide substantial additional value
-3. **Extended help preservation**: If Long descriptions contain examples, detailed explanations, or significantly different content, preserve them
-4. **Global consistency**: Apply this fix across ALL commands and subcommands
+**SOLUTION**: Implement a comprehensive global solution to ensure:
+1. **Proper case for sections**: Change "FLAGS" to "Flags", "Global FLAGS" to "Global Flags"
+2. **Single description line**: Each command shows only one concise description (use only Long descriptions)
+3. **Clean section spacing**: Ensure blank lines before major sections
+4. **Remove redundant help instructions**: No "Use <command> --help" lines
 
 **IMPLEMENTATION APPROACH**:
-1. Scan all command files for duplicate Short/Long descriptions
-2. Identify commands where Short and Long are nearly identical
-3. Clear redundant Long descriptions, keeping only Short
-4. Preserve Long descriptions that contain valuable extended information (examples, detailed explanations)
-5. Ensure help output shows only one description line per command
+1. Fix help output generation in `internal/utils/utils.go` to use proper case
+2. Ensure all commands have Long descriptions (add where missing)
+3. Remove any remaining "Use --help" instructional lines
+4. Test systematically across ALL commands and subcommands
 
-**COMMANDS TO REVIEW**:
-- All ArcBox commands (`cmd/arcbox/`)
-- All subscription commands (`cmd/subscription/`)
-- All repo commands (`cmd/repo/`)
-- All upgrade commands (`cmd/upgrade/`)
-- All completion commands (`cmd/completion/`)
-- Root command (`main.go`)
+**COMPREHENSIVE VALIDATION REQUIREMENT**:
+Test EVERY command and subcommand individually:
 
-**VALIDATION**:
-After changes:
-1. Build: `make build`
-2. Test help output for all commands to ensure single description lines
-3. Verify no valuable information is lost
-4. Check that help output is cleaner and more readable
+**Main Commands:**
+- `js --help`
+- `js version --help`
+- `js completion --help`
+- `js agora --help`
+- `js localbox --help`
 
-**TARGET**: Help output should show ONE concise description per command, eliminating redundant duplication.
+**ArcBox Commands (test ALL subcommands):**
+- `js arcbox --help`
+- `js arcbox deploy --help`
+- `js arcbox delete --help`
+- `js arcbox list --help`
+- `js arcbox preflight --help`
+- `js arcbox preflight quota --help`
+- `js arcbox preflight rp --help`
+- `js arcbox preflight status --help`
+
+**Subscription Commands (test ALL subcommands):**
+- `js subscription --help`
+- `js subscription set --help`
+- `js subscription show --help`
+- `js subscription list --help`
+
+**Repo Commands (test ALL subcommands):**
+- `js repo --help`
+- `js repo init --help`
+- `js repo update --help`
+- `js repo delete --help`
+
+**Upgrade Commands (test ALL subcommands):**
+- `js upgrade --help`
+- `js upgrade check --help`
+- `js upgrade install --help`
+- `js upgrade rollback --help`
+- `js upgrade list --help`
+
+**Completion Commands (test ALL shell options):**
+- `js completion bash --help`
+- `js completion zsh --help`
+- `js completion fish --help`
+- `js completion powershell --help`
+
+**VALIDATION CHECKLIST** (verify each item):
+- [ ] All commands show "Flags" not "FLAGS"
+- [ ] All commands show "Global Flags" not "Global FLAGS"
+- [ ] All commands show only Long descriptions (no Short fallback)
+- [ ] No commands show "Use <command> --help" lines
+- [ ] Blank lines appear before major sections
+- [ ] All subcommands are tested individually
+- [ ] Build succeeds: `make build`
+- [ ] Error handling still works: test missing args scenarios
+
+**TARGET**: Professional, consistently formatted help output with proper case and clean format across ALL commands and subcommands.
 <!-- END PROMPT 5.3 -->
 
 ### **Prompt 5.4: Global Fix - Remove "Use <command> --help" Lines**
 
 <!-- START PROMPT 5.4 -->
-I need to implement a global fix to remove all "Use <command> --help for more details" lines from help output across the entire CLI.
+I need to implement a global fix to remove all "Use <command> --help" or similar instructional lines from help output across the entire CLI.
 
 **PROBLEM IDENTIFIED**: Help output includes lines like:
 - "Use 'js arcbox <subcommand> --help' for more details."
@@ -977,10 +1016,18 @@ Final validation checklist:
 - [ ] No duplicate error messages exist
 - [ ] All existing functionality preserved
 - [ ] All tests pass
-- [ ] Examples and help text intact
-- [ ] Performance is acceptable
 - [ ] Mock interfaces work correctly
-- [ ] Help sections are properly formatted with correct spacing
+- [ ] Performance is acceptable
+- [ ] Examples and help text intact
+- [ ] **No help footer messages**: "Use [command] --help" messages removed from all help output
+- [ ] **No tip messages**: "💡 [TIP]" messages removed from all error output
+- [ ] **Minimal error output**: Commands show ONLY the required arguments error message - no usage, help text, descriptions, or examples (like Azure CLI)
+- [ ] **Root command help preserved**: Commands like `js arcbox` still automatically show help (our excellent UX)
+- [ ] **Clean help sections**: Only "Subcommands:" section shown, "Available Commands:" section removed
+- [ ] **No duplicate descriptions**: Short and Long descriptions are not duplicated in help output
+- [ ] **No redundant help instructions**: All "Use <command> --help" lines removed from help output
+- [ ] **Proper section formatting**: "Global Flags" appears in proper case (not "Global FLAGS")
+- [ ] **Consistent section spacing**: Blank lines appear before major sections
 
 Create a final report documenting:
 - Summary of changes made across all phases
@@ -1046,14 +1093,14 @@ UPDATED:
 ✅ internal/utils/utils.go - Updated existing functions
 ✅ cmd/subscription/subscription.go - Standardized error handling  
 ✅ cmd/arcbox/deploy_cmd.go - Fixed duplicates, centralized handling
-✅ cmd/arcbox/delete_cmd.go - Standardized error handling
-✅ cmd/arcbox/list_cmd.go - Standardized subscription validation
-✅ cmd/arcbox/preflight_cmd.go - Standardized all preflight commands
-✅ internal/preflight/arcbox/rp.go - Standardized resource provider commands
-✅ cmd/repo/*.go - Added proper error handling and tips
-✅ cmd/upgrade/upgrade.go - Added proper error handling and tips
-✅ cmd/completion/completion.go - Standardized error handling
-✅ main.go - Root command uses centralized patterns
+✅ cmd/arcbox/delete_cmd.go - Standardize error handling
+✅ cmd/arcbox/list_cmd.go - Standardize subscription validation errors
+✅ cmd/arcbox/preflight_cmd.go - Standardize preflight command errors
+✅ internal/preflight/arcbox/rp.go - Standardize resource provider command errors
+✅ cmd/repo/*.go - Add proper error handling and tips
+✅ cmd/upgrade/upgrade.go - Add proper error handling and tips
+✅ cmd/completion/completion.go - Standardize error handling
+✅ main.go - Ensure root command uses centralized patterns
 ✅ All test files updated for new error message formats
 
 PRESERVED:
@@ -1080,7 +1127,7 @@ PRESERVED:
 - [ ] **No duplicate descriptions**: Short and Long descriptions are not duplicated in help output
 - [ ] **No redundant help instructions**: All "Use <command> --help" lines removed from help output
 - [ ] **Proper section formatting**: "Global Flags" appears in proper case (not "Global FLAGS")
-- [ ] **Consistent section spacing**: Blank lines appear before major sections (Subcommands, Global Flags, Examples)
+- [ ] **Consistent section spacing**: Blank lines appear before major sections
 
 ---
 

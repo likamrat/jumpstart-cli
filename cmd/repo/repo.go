@@ -15,17 +15,13 @@ func NewRepoCmd() *cobra.Command {
 	var repoCmd = &cobra.Command{
 		Use:   "repo",
 		Short: "Manage Jumpstart user local source code repository",
-		Long: `Manage Jumpstart user local source code repository.
-
-This command helps you initialize, update, and manage your local Jumpstart repository
+		Long: `This command helps you initialize, update, and manage your local Jumpstart repository
 containing automation scripts, templates, and resources.
 
 Subcommands:
   • init     Initialize a new local Jumpstart repository
   • update   Update existing repository with latest templates
-  • delete   Delete local repository
-
-Use 'js repo <subcommand> --help' for more details.`,
+  • delete   Delete local repository`,
 		// Disable suggestions to use our custom handling
 		DisableSuggestions: true,
 		SilenceErrors:      true,
@@ -61,9 +57,7 @@ Use 'js repo <subcommand> --help' for more details.`,
 	var repoInitCmd = &cobra.Command{
 		Use:   "init",
 		Short: "Initialize a new local Jumpstart repository",
-		Long: `Initialize a new local Jumpstart repository with templates and automation scripts.
-
-This command will:
+		Long: `This command will:
 - Clone or download the latest Jumpstart repository templates
 - Set up the local directory structure
 - Configure initial settings
@@ -99,9 +93,7 @@ for deploying Jumpstart scenarios like ArcBox, LocalBox, and Agora.`,
 	var repoUpdateCmd = &cobra.Command{
 		Use:   "update",
 		Short: "Update existing repository with latest templates",
-		Long: `Update your existing local Jumpstart repository with the latest templates and scripts.
-
-This command will:
+		Long: `This command will:
 - Pull the latest changes from the remote repository
 - Update templates and automation scripts
 - Preserve your local customizations
@@ -132,9 +124,7 @@ This ensures you have access to the latest features, bug fixes, and improvements
 	var repoDeleteCmd = &cobra.Command{
 		Use:   "delete",
 		Short: "Delete local repository",
-		Long: `Delete your local Jumpstart repository.
-
-This command will remove the entire local repository directory and all its contents.
+		Long: `This command will remove the entire local repository directory and all its contents.
 Use with caution as this action cannot be undone.
 
 Any local customizations or modifications will be permanently lost unless

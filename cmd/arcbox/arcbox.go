@@ -39,7 +39,7 @@ func NewArcboxCmdWithCLI(cli azurecli.AzureCLI) *cobra.Command {
 	arcboxCmd := &cobra.Command{
 		Use:   "arcbox",
 		Short: "Manage Jumpstart ArcBox automation",
-		Long: `Manage Jumpstart ArcBox automation resources.
+		Long: `Manage Jumpstart ArcBox automation for deploying, managing, and monitoring ArcBox environments.
 
 Subcommands:
   • deploy     Deploy a new Jumpstart ArcBox deployment

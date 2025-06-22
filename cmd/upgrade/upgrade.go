@@ -63,9 +63,7 @@ Use 'js upgrade <subcommand> --help' for more details.`,
 	var upgradeCheckCmd = &cobra.Command{
 		Use:   "check",
 		Short: "Check for available updates without installing",
-		Long: `Check for available updates to the Jumpstart CLI without installing them.
-
-This command will check GitHub releases for newer versions and display
+		Long: `This command will check GitHub releases for newer versions and display
 version information without making any changes to your installation.
 
 Use --yes/-y to execute the check operation.
@@ -91,9 +89,7 @@ Use --yes/-y to execute the check operation.
 	var upgradeInstallCmd = &cobra.Command{
 		Use:   "install",
 		Short: "Download and install the latest version",
-		Long: `Download and install the latest version of the Jumpstart CLI.
-
-This command will check for updates, download the latest version,
+		Long: `This command will check for updates, download the latest version,
 and replace your current installation with the newer version.
 
 Use --yes/-y to execute the installation operation.
@@ -129,9 +125,7 @@ Use --yes/-y to execute the installation operation.
 	var upgradeRollbackCmd = &cobra.Command{
 		Use:   "rollback",
 		Short: "Rollback to a previous version",
-		Long: `Rollback to a previous version of the Jumpstart CLI.
-
-This command will restore a previous version from your backup installations.
+		Long: `This command will restore a previous version from your backup installations.
 You can specify a version or select from available backups interactively.
 
 Use --yes/-y to execute the rollback operation.
@@ -158,9 +152,7 @@ Use --yes/-y to execute the rollback operation.
 	var upgradeListCmd = &cobra.Command{
 		Use:   "list",
 		Short: "List available backup versions",
-		Long: `List available backup versions that can be restored.
-
-This command will display all backup versions available for rollback,
+		Long: `This command will display all backup versions available for rollback,
 including version numbers, installation dates, and current status.
 
 Use --yes/-y to execute the list operation.

@@ -16,9 +16,7 @@ func createDeleteCommand(deletionService *services.DeletionService, cli azurecli
 	var arcboxDeleteCmd = &cobra.Command{
 		Use:   "delete",
 		Short: "Delete a Jumpstart ArcBox deployment",
-		Long: `Delete an existing Jumpstart ArcBox deployment by deleting its resource group.
-
-This command will delete the specified resource group and all resources within it.
+		Long: `Deletes the specified resource group and all resources within it.
 Use --name to specify the resource group containing your ArcBox deployment.
 This operation is irreversible and will permanently remove all ArcBox resources.
 

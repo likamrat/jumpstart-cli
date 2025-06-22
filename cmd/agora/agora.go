@@ -31,9 +31,7 @@ func NewAgoraCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "agora",
 		Short: "Manage Jumpstart Agora automation",
-		Long: `Manage Jumpstart Agora automation resources.
-
-(Implementation in progress)
+		Long: `(Implementation in progress)
 
 Use 'js agora --help' for future options.`,
 		Run: func(cmd *cobra.Command, args []string) {

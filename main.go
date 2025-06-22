@@ -31,7 +31,7 @@ func createRootCommand() *cobra.Command {
 	var rootCmd = &cobra.Command{
 		Use:     "js",
 		Short:   "Jumpstart CLI",
-		Long:    `Jumpstart CLI - Azure Arc Jumpstart automation tool.`,
+		Long:    `Azure Arc Jumpstart automation tool.`,
 		Version: utils.CliVersion,
 		// Disable Cobra's built-in suggestions and errors to use our custom ones
 		SilenceUsage:       true,

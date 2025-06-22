@@ -250,16 +250,29 @@ func buildCustomHelpOutput(cmd *cobra.Command) string {
 		result.WriteString("  " + cmd.UseLine() + "\n")
 	}
 
-	// Description section
-	if cmd.Short != "" {
-		result.WriteString(cmd.Short + "\n")
-	}
+	// Description section - use only Long description
 	if cmd.Long != "" {
 		result.WriteString(cmd.Long + "\n")
 	}
 
-	// NOTE: Removed "Available Commands:" section to eliminate duplicates
-	// Commands now use "Subcommands:" in their Long text for better UX
+	// Subcommands section - show automatically if command has subcommands
+	// and they're not already listed in the Long description
+	if cmd.HasAvailableSubCommands() {
+		// Check if Long description already contains subcommands
+		longHasSubcommands := cmd.Long != "" && (strings.Contains(cmd.Long, "Subcommands:") ||
+			strings.Contains(cmd.Long, "Available Commands:"))
+
+		if !longHasSubcommands {
+			// Build subcommands section automatically
+			result.WriteString("Subcommands:\n")
+			for _, subCmd := range cmd.Commands() {
+				if !subCmd.IsAvailableCommand() {
+					continue
+				}
+				result.WriteString(fmt.Sprintf("  %-12s %s\n", subCmd.Name(), subCmd.Short))
+			}
+		}
+	}
 
 	// Local Flags section
 	if cmd.HasAvailableLocalFlags() {

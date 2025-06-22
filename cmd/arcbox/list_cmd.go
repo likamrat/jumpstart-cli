@@ -56,9 +56,7 @@ func createListCommand(listingService *services.ListingService, cli azurecli.Azu
 	var arcboxListCmd = &cobra.Command{
 		Use:   "list",
 		Short: "List Jumpstart ArcBox deployments",
-		Long: `List all Jumpstart ArcBox deployments across your Azure subscriptions.
-
-Discovers ArcBox deployments by identifying resource groups containing resources with:
+		Long: `Discovers ArcBox deployments by identifying resource groups containing resources with:
 - Solution tag "jumpstart_arcbox" (default identification method)
 - ArcBox naming prefix (configurable, default: "ArcBox")
 - Specific ArcBox resource types (VMs, Key Vaults, etc.)

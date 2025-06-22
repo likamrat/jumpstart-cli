@@ -33,14 +33,10 @@ func NewSubscriptionCmdWithCLI(azCLI azurecli.AzureCLI) *cobra.Command {
 	var subscriptionCmd = &cobra.Command{
 		Use:   "subscription",
 		Short: "Manage Azure subscriptions",
-		Long: `Manage Azure subscriptions (show, list, set).
-
-Subcommands:
+		Long: `Subcommands:
   • show     Show the current Azure subscription details
   • list     List all available Azure subscriptions  
-  • set      Set the current Azure subscription
-
-Use 'js subscription <subcommand> --help' for more details.`,
+  • set      Set the current Azure subscription`,
 		DisableSuggestions: true,
 		SilenceErrors:      true,
 		SilenceUsage:       true,
@@ -70,9 +66,7 @@ Use 'js subscription <subcommand> --help' for more details.`,
 	var subscriptionShowCmd = &cobra.Command{
 		Use:   "show",
 		Short: "Show the current Azure subscription details",
-		Long: `Show details about the current Azure subscription including subscription ID, name, and tenant information.
-
-The command displays the subscription that is currently set as the default for Azure CLI operations.
+		Long: `Displays the subscription that is currently set as the default for Azure CLI operations.
 Use different output formats to integrate with scripts or automation tools.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Check Azure CLI authentication first
@@ -193,6 +187,7 @@ Use different output formats to integrate with scripts or automation tools.`,
 	var subscriptionListCmd = &cobra.Command{
 		Use:   "list",
 		Short: "List all available Azure subscriptions",
+		Long:  "Displays all Azure subscriptions that are available to the current authenticated user.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				utils.HandleValidationError(
@@ -268,9 +263,7 @@ Use different output formats to integrate with scripts or automation tools.`,
 	var subscriptionSetCmd = &cobra.Command{
 		Use:   "set",
 		Short: "Set the current Azure subscription",
-		Long: `Set the current Azure subscription using either subscription ID or subscription name.
-
-You can specify the subscription using either:
+		Long: `Specify the subscription using either:
   • --subscription/-s flag with subscription ID
   • --name/-n flag with subscription name
   • positional argument (for backward compatibility)

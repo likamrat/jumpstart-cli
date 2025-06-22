@@ -8,7 +8,6 @@ import (
 	"jumpstartcli/cmd/arcbox/services"
 	"jumpstartcli/internal/auth"
 	"jumpstartcli/internal/azurecli"
-	"jumpstartcli/internal/examples"
 	"jumpstartcli/internal/utils"
 
 	"github.com/spf13/cobra"
@@ -22,13 +21,7 @@ func createDeployCommand(deployService *services.DeploymentService, validationSe
 	var arcboxDeployCmd = &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy a new Jumpstart ArcBox deployment",
-		Long: `Deploy a new Jumpstart ArcBox deployment using remote Bicep or ARM templates from GitHub.
-
-By default, uses the official ArcBox ARM template from GitHub. You can specify:
-- Custom remote template URI with --template-uri (ARM templates only - Bicep doesn't support remote templates)
-- Local template files with --template-local and --template-params (for local Bicep/ARM templates)
-
-` + examples.GetExamples("arcbox.deploy").FormatExamples(),
+		Long:  "Deploy a new Jumpstart ArcBox deployment using remote Bicep or ARM templates from GitHub.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Check Azure CLI authentication first
 			if azCLI, ok := cli.(azurecli.AzureCLI); ok {
