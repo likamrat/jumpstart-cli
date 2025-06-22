@@ -242,58 +242,34 @@ func buildCustomHelpOutput(cmd *cobra.Command) string {
 	var result strings.Builder
 	terminalWidth := 160 // Maximized width for optimal description formatting
 
-	// Usage section
+	// Usage section - show single clean usage line like Azure CLI
 	result.WriteString("Usage:\n")
-	if cmd.Runnable() {
-		result.WriteString("  " + cmd.UseLine() + "\n")
-	}
 	if cmd.HasAvailableSubCommands() {
 		result.WriteString("  " + cmd.CommandPath() + " [command]\n")
+	} else if cmd.Runnable() {
+		result.WriteString("  " + cmd.UseLine() + "\n")
 	}
 
 	// Description section
 	if cmd.Short != "" {
-		result.WriteString("\n" + cmd.Short + "\n")
+		result.WriteString(cmd.Short + "\n")
 	}
 	if cmd.Long != "" {
-		result.WriteString("\n" + cmd.Long + "\n")
+		result.WriteString(cmd.Long + "\n")
 	}
 
-	// Available Commands section
-	if cmd.HasAvailableSubCommands() {
-		result.WriteString("\nAvailable Commands:\n")
-
-		// Calculate maximum command name width for consistent alignment
-		maxCmdWidth := 0
-		availableCommands := []*cobra.Command{}
-		for _, subCmd := range cmd.Commands() {
-			if subCmd.IsAvailableCommand() {
-				availableCommands = append(availableCommands, subCmd)
-				if len(subCmd.Name()) > maxCmdWidth {
-					maxCmdWidth = len(subCmd.Name())
-				}
-			}
-		}
-
-		// Use actual maximum width with some padding for visual spacing
-		// Add 2 extra spaces for better readability
-		maxCmdWidth += 2
-
-		// Format each command with consistent spacing (single colon)
-		for _, subCmd := range availableCommands {
-			result.WriteString(fmt.Sprintf("  %-*s: %s\n", maxCmdWidth, subCmd.Name(), subCmd.Short))
-		}
-	}
+	// NOTE: Removed "Available Commands:" section to eliminate duplicates
+	// Commands now use "Subcommands:" in their Long text for better UX
 
 	// Local Flags section
 	if cmd.HasAvailableLocalFlags() {
-		result.WriteString("\nFLAGS:\n")
+		result.WriteString("FLAGS:\n")
 		result.WriteString(buildFlagsOutput(cmd, cmd.LocalFlags(), terminalWidth))
 	}
 
 	// Global Flags section
 	if cmd.HasAvailableInheritedFlags() {
-		result.WriteString("\nGlobal FLAGS:\n")
+		result.WriteString("Global FLAGS:\n")
 		result.WriteString(buildFlagsOutput(cmd, cmd.InheritedFlags(), terminalWidth))
 	}
 
@@ -304,10 +280,7 @@ func buildCustomHelpOutput(cmd *cobra.Command) string {
 		result.WriteString(exampleSet.FormatExamples())
 	}
 
-	// Additional help section
-	if cmd.HasAvailableSubCommands() {
-		result.WriteString("\nUse \"" + cmd.CommandPath() + " [command] --help\" for more information about a command.\n")
-	}
+	// NOTE: Removed footer help message "Use [command] --help" to match Azure CLI minimal style
 
 	return result.String()
 }

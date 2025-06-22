@@ -782,29 +782,163 @@ Create a testing summary report documenting:
 - Confirmation that functionality is preserved
 <!-- END PROMPT 5.2 -->
 
+### **Prompt 5.3: Global Fix - Remove Duplicate Short/Long Descriptions**
+
+<!-- START PROMPT 5.3 -->
+I need to implement a global fix to remove duplicate Short/Long descriptions across all commands and ensure a single, concise description for each command in help output.
+
+**PROBLEM IDENTIFIED**: Many commands have both Short and Long descriptions that are nearly identical, causing cluttered help output. Examples:
+- Short: "Manage Jumpstart ArcBox automation"
+- Long: "Manage Jumpstart ArcBox automation resources."
+
+This creates redundant lines in help output, making it cluttered and inconsistent with Azure CLI's clean help format.
+
+**SOLUTION**: Implement a global solution to ensure:
+1. **Single description line**: Each command shows only one concise description in help output
+2. **Short description only**: Keep Short descriptions, clear Long descriptions unless they provide substantial additional value
+3. **Extended help preservation**: If Long descriptions contain examples, detailed explanations, or significantly different content, preserve them
+4. **Global consistency**: Apply this fix across ALL commands and subcommands
+
+**IMPLEMENTATION APPROACH**:
+1. Scan all command files for duplicate Short/Long descriptions
+2. Identify commands where Short and Long are nearly identical
+3. Clear redundant Long descriptions, keeping only Short
+4. Preserve Long descriptions that contain valuable extended information (examples, detailed explanations)
+5. Ensure help output shows only one description line per command
+
+**COMMANDS TO REVIEW**:
+- All ArcBox commands (`cmd/arcbox/`)
+- All subscription commands (`cmd/subscription/`)
+- All repo commands (`cmd/repo/`)
+- All upgrade commands (`cmd/upgrade/`)
+- All completion commands (`cmd/completion/`)
+- Root command (`main.go`)
+
+**VALIDATION**:
+After changes:
+1. Build: `make build`
+2. Test help output for all commands to ensure single description lines
+3. Verify no valuable information is lost
+4. Check that help output is cleaner and more readable
+
+**TARGET**: Help output should show ONE concise description per command, eliminating redundant duplication.
+<!-- END PROMPT 5.3 -->
+
+### **Prompt 5.4: Global Fix - Remove "Use <command> --help" Lines**
+
+<!-- START PROMPT 5.4 -->
+I need to implement a global fix to remove all "Use <command> --help for more details" lines from help output across the entire CLI.
+
+**PROBLEM IDENTIFIED**: Help output includes lines like:
+- "Use 'js arcbox <subcommand> --help' for more details."
+- "Use 'js completion <shell> --help' for more information."
+
+These lines are unnecessary and redundant since the user is already viewing the help menu. Azure CLI doesn't show these lines in help output.
+
+**SOLUTION**: Remove all "Use <command> --help" or similar instructional lines from help output globally.
+
+**IMPLEMENTATION APPROACH**:
+1. Search for all occurrences of "Use" + "help" patterns in help output generation
+2. Identify where these lines are generated (likely in help templates or command setup)
+3. Remove or comment out these lines globally
+4. Ensure help output is cleaner without these redundant instructions
+
+**SEARCH PATTERNS TO FIND**:
+- "Use" + command name + "help"
+- "--help for more"
+- "for more details"
+- "for more information"
+
+**COMMANDS TO REVIEW**:
+- All help output generation logic
+- Command setup in all `cmd/` directories
+- Help template configurations
+- Usage text generation
+
+**VALIDATION**:
+After changes:
+1. Build: `make build`
+2. Test help output for all commands to ensure no "Use --help" lines appear
+3. Verify help output is cleaner and more focused
+4. Check that essential help information is still present
+
+**TARGET**: Clean help output without redundant "Use --help" instructions, matching Azure CLI's help format.
+<!-- END PROMPT 5.4 -->
+
+### **Prompt 5.5: Global Fix - Standardize "Global Flags" and Section Spacing**
+
+<!-- START PROMPT 5.5 -->
+I need to implement a global fix to standardize section headers and spacing in help output across all commands.
+
+**PROBLEMS IDENTIFIED**:
+1. **Inconsistent capitalization**: Help output shows "Global FLAGS" (all caps) instead of "Global Flags" (proper case)
+2. **Missing blank lines**: Sometimes there's no blank line before "Subcommands:" and "Global Flags:" sections
+3. **Inconsistent section formatting**: Section headers may not follow consistent formatting patterns
+
+**SOLUTION**: Standardize help output formatting globally to ensure:
+1. **Proper case**: Change "Global FLAGS" to "Global Flags"
+2. **Consistent spacing**: Ensure blank lines before major sections
+3. **Section header consistency**: Standardize all section header formatting
+
+**IMPLEMENTATION APPROACH**:
+1. Find where "Global FLAGS" is generated in help output
+2. Change it to "Global Flags" (proper case)
+3. Ensure blank lines are added before major sections:
+   - Blank line before "Subcommands:"
+   - Blank line before "Global Flags:"
+   - Blank line before "Examples:" (if present)
+4. Verify consistent formatting across all commands
+
+**HELP OUTPUT SECTIONS TO STANDARDIZE**:
+- "Subcommands:" (with blank line before)
+- "Global Flags:" (with blank line before, proper case)
+- "Examples:" (with blank line before, if present)
+- Usage lines (ensure consistent formatting)
+
+**VALIDATION**:
+After changes:
+1. Build: `make build`
+2. Test help output for all commands to verify:
+   - "Global Flags" appears in proper case (not "Global FLAGS")
+   - Blank lines appear before major sections
+   - Section headers are consistently formatted
+3. Compare with Azure CLI help format for consistency reference
+
+**TARGET**: Professional, consistently formatted help output with proper case and spacing, similar to Azure CLI's clean help format.
+<!-- END PROMPT 5.5 -->
+
 ---
 
-## **Phase 6: Test Suite Updates (Final Phase)**
+## **Phase 6: Test Suite Updates and Final Integration (Final Phase)**
 
 ### **Prompt 6.1: Update Test Suite for New Error Handling**
 
 <!-- START PROMPT 6.1 -->
-Now that all core functionality is working, I need to update the test suite to work with the new centralized error handling while maintaining all existing test coverage.
+Now that all core functionality is working and global help output fixes have been implemented (Phases 5.3, 5.4, 5.5), I need to update the test suite to work with the new centralized error handling while maintaining all existing test coverage.
+
+**PREREQUISITE**: Ensure Phases 5.3, 5.4, and 5.5 are completed first:
+- ✅ Phase 5.3: Global fix to remove duplicate Short/Long descriptions
+- ✅ Phase 5.4: Global fix to remove "Use <command> --help" lines
+- ✅ Phase 5.5: Global fix to standardize "Global Flags" and section spacing
 
 Requirements:
 1. Review all test files for commands that were refactored
 2. Update test expectations to match new error message formats
-3. Ensure tests still validate core functionality
-4. Maintain test isolation and mock compatibility
-5. Add tests for new centralized error handling functions
-6. Preserve all existing test coverage
+3. Update test expectations to match new help output formats (no duplicate descriptions, no "Use --help" lines, proper "Global Flags" case)
+4. Ensure tests still validate core functionality
+5. Maintain test isolation and mock compatibility
+6. Add tests for new centralized error handling functions
+7. Add tests for new help output formatting
+8. Preserve all existing test coverage
 
 Focus areas:
 - `cmd/subscription/subscription_test.go`
 - `cmd/arcbox/*_test.go` files
 - `cmd/repo/*_test.go` files
 - `cmd/upgrade/upgrade_test.go`
+- `cmd/completion/completion_test.go`
 - `internal/utils/utils_test.go`
+- `internal/utils/error_handling_test.go` (if needs creation)
 
 After changes:
 1. Build: `make build`
@@ -812,37 +946,49 @@ After changes:
 3. Ensure all tests pass
 4. Verify test coverage is maintained
 5. Check that mock interfaces still work correctly
+6. Verify help output tests match new clean format
 <!-- END PROMPT 6.1 -->
 
 ### **Prompt 6.2: Final Integration Testing and Documentation**
 
 <!-- START PROMPT 6.2 -->
-I need to perform final integration testing and update documentation to reflect the new consistent error handling approach.
+I need to perform final integration testing and update documentation to reflect the new consistent error handling and clean help output approach.
+
+**PREREQUISITES**: Ensure all previous phases are completed:
+- ✅ Phase 5.1: Global centralized error handling refactoring
+- ✅ Phase 5.2: Global help output duplicate fixes
+- ✅ Phase 5.3: Global fix to remove duplicate Short/Long descriptions
+- ✅ Phase 5.4: Global fix to remove "Use <command> --help" lines
+- ✅ Phase 5.5: Global fix to standardize "Global Flags" and section spacing
+- ✅ Phase 6.1: Test suite updates
 
 Requirements:
 1. **Final comprehensive testing**: Test all command paths and scenarios
 2. **Performance verification**: Ensure no performance regressions
 3. **Error handling documentation**: Update any relevant documentation
-4. **Integration test verification**: Run integration tests if they exist
-5. **Backward compatibility confirmation**: Ensure all existing usage patterns work
+4. **Help output documentation**: Document new clean help format
+5. **Integration test verification**: Run integration tests if they exist
+6. **Backward compatibility confirmation**: Ensure all existing usage patterns work
 
 Final validation checklist:
 - [ ] All commands build successfully
-- [ ] All error messages follow Azure CLI format
-- [ ] All commands show helpful tips
+- [ ] All error messages follow Azure CLI format (no prefixes, red color, minimal output)
+- [ ] All help output is clean (no duplicates, no "Use --help" lines, proper "Global Flags" case)
 - [ ] No duplicate error messages exist
 - [ ] All existing functionality preserved
 - [ ] All tests pass
 - [ ] Examples and help text intact
 - [ ] Performance is acceptable
 - [ ] Mock interfaces work correctly
+- [ ] Help sections are properly formatted with correct spacing
 
 Create a final report documenting:
-- Summary of changes made
-- Commands refactored
-- Error handling improvements
-- Testing results
-- Any remaining considerations
+- Summary of changes made across all phases
+- Commands refactored with error handling improvements
+- Global help output improvements implemented
+- Testing results and coverage verification
+- Performance impact analysis
+- Any remaining considerations or future improvements
 <!-- END PROMPT 6.2 -->
 
 ---
@@ -931,6 +1077,10 @@ PRESERVED:
 - [ ] **Minimal error output**: Commands show ONLY the required arguments error message - no usage, help text, descriptions, or examples (like Azure CLI)
 - [ ] **Root command help preserved**: Commands like `js arcbox` still automatically show help (our excellent UX)
 - [ ] **Clean help sections**: Only "Subcommands:" section shown, "Available Commands:" section removed
+- [ ] **No duplicate descriptions**: Short and Long descriptions are not duplicated in help output
+- [ ] **No redundant help instructions**: All "Use <command> --help" lines removed from help output
+- [ ] **Proper section formatting**: "Global Flags" appears in proper case (not "Global FLAGS")
+- [ ] **Consistent section spacing**: Blank lines appear before major sections (Subcommands, Global Flags, Examples)
 
 ---
 
