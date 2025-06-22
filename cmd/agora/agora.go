@@ -31,9 +31,7 @@ func NewAgoraCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "agora",
 		Short: "Manage Jumpstart Agora automation",
-		Long: `(Implementation in progress)
-
-Use 'js agora --help' for future options.`,
+		Long:  `(Implementation in progress)`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Validate ALL flags first (before any other operations)
 			if err := utils.ValidateAllFlags(cmd); err != nil {

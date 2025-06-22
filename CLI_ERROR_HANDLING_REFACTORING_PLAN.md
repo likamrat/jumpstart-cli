@@ -792,12 +792,31 @@ I need to implement a comprehensive global fix to standardize help output format
 2. **Duplicate Short/Long descriptions**: Many commands show redundant description lines
 3. **Missing "Use --help" line removal**: Some commands may still show redundant help instructions
 4. **Inconsistent section spacing**: Missing blank lines before major sections
+5. **Missing blank lines around descriptions**: Command descriptions need blank lines before and after for proper formatting
 
 **SOLUTION**: Implement a comprehensive global solution to ensure:
 1. **Proper case for sections**: Change "FLAGS" to "Flags", "Global FLAGS" to "Global Flags"
 2. **Single description line**: Each command shows only one concise description (use only Long descriptions)
 3. **Clean section spacing**: Ensure blank lines before major sections
-4. **Remove redundant help instructions**: No "Use <command> --help" lines
+4. **Proper description formatting**: Ensure blank lines before AND after command descriptions
+5. **Remove redundant help instructions**: No "Use <command> --help" lines
+
+**TARGET HELP OUTPUT FORMAT**:
+```
+Usage:
+  js arcbox deploy [flags]
+
+Deploy a new Jumpstart ArcBox deployment using remote Bicep or ARM templates from GitHub.
+
+Flags:
+  --admin-username    : Admin username for Linux virtual machines
+  --location/-l       : Azure region for deployment
+```
+
+**CRITICAL FORMATTING REQUIREMENTS**:
+- **Blank line before description**: After usage line, add blank line, then description
+- **Blank line after description**: After description, add blank line before next section (Flags/Subcommands)
+- **Proper case sections**: "Flags" not "FLAGS", "Global Flags" not "Global FLAGS"
 
 **IMPLEMENTATION APPROACH**:
 1. Fix help output generation in `internal/utils/utils.go` to use proper case

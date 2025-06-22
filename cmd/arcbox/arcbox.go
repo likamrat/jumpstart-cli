@@ -45,9 +45,7 @@ Subcommands:
   • deploy     Deploy a new Jumpstart ArcBox deployment
   • delete     Delete a Jumpstart ArcBox deployment
   • list       List all Jumpstart ArcBox deployments
-  • preflight  Run preflight checks for ArcBox deployment
-
-Use 'js arcbox <subcommand> --help' for more details.`,
+  • preflight  Run preflight checks for ArcBox deployment`,
 		// Disable suggestions to use our custom handling
 		DisableSuggestions: true,
 		SilenceErrors:      true,

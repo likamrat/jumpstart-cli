@@ -31,12 +31,9 @@ func NewSubscriptionCmd() *cobra.Command {
 // NewSubscriptionCmdWithCLI creates the subscription command with a specific Azure CLI implementation
 func NewSubscriptionCmdWithCLI(azCLI azurecli.AzureCLI) *cobra.Command {
 	var subscriptionCmd = &cobra.Command{
-		Use:   "subscription",
-		Short: "Manage Azure subscriptions",
-		Long: `Subcommands:
-  • show     Show the current Azure subscription details
-  • list     List all available Azure subscriptions  
-  • set      Set the current Azure subscription`,
+		Use:                "subscription",
+		Short:              "Manage Azure subscriptions",
+		Long:               "Manage Azure subscription operations. View current subscription details, list available subscriptions, or set the active subscription for Azure CLI operations.",
 		DisableSuggestions: true,
 		SilenceErrors:      true,
 		SilenceUsage:       true,

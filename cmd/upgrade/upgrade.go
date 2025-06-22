@@ -24,9 +24,7 @@ Subcommands:
   • check      Check for available updates without installing
   • install    Download and install the latest version
   • rollback   Rollback to a previous version
-  • list       List available backup versions
-
-Use 'js upgrade <subcommand> --help' for more details.`,
+  • list       List available backup versions`,
 		// Disable suggestions to use our custom handling
 		DisableSuggestions: true,
 		SilenceErrors:      true,

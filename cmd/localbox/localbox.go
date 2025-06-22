@@ -31,9 +31,7 @@ func NewLocalboxCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "localbox",
 		Short: "Manage Jumpstart LocalBox automation",
-		Long: `(Implementation in progress)
-
-Use 'js localbox --help' for future options.`,
+		Long:  `(Implementation in progress)`,
 		Run: func(cmd *cobra.Command, args []string) {
 			// Validate ALL flags first (before any other operations)
 			if err := utils.ValidateAllFlags(cmd); err != nil {

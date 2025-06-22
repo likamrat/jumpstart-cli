@@ -24,7 +24,7 @@ func (es *ExampleSet) FormatExamples() string {
 	}
 
 	var builder strings.Builder
-	builder.WriteString("Examples\n")
+	builder.WriteString("Examples:\n")
 
 	for i, example := range es.Examples {
 		// Format similar to Azure CLI: description followed by indented command

@@ -250,9 +250,13 @@ func buildCustomHelpOutput(cmd *cobra.Command) string {
 		result.WriteString("  " + cmd.UseLine() + "\n")
 	}
 
-	// Description section - use only Long description
+	// Description section - use only Long description with proper spacing
 	if cmd.Long != "" {
-		result.WriteString(cmd.Long + "\n")
+		result.WriteString("\n") // Blank line before description
+		// Trim trailing whitespace from Long description to avoid extra blank lines
+		trimmedLong := strings.TrimRight(cmd.Long, " \t\n")
+		result.WriteString(trimmedLong + "\n")
+		result.WriteString("\n") // Blank line after description
 	}
 
 	// Subcommands section - show automatically if command has subcommands
@@ -271,26 +275,32 @@ func buildCustomHelpOutput(cmd *cobra.Command) string {
 				}
 				result.WriteString(fmt.Sprintf("  %-12s %s\n", subCmd.Name(), subCmd.Short))
 			}
+			result.WriteString("\n") // Blank line after subcommands
 		}
 	}
 
-	// Local Flags section
+	// Local Flags section with proper case and spacing
 	if cmd.HasAvailableLocalFlags() {
-		result.WriteString("FLAGS:\n")
+		result.WriteString("Flags:\n") // Changed from "FLAGS:" to "Flags:"
 		result.WriteString(buildFlagsOutput(cmd, cmd.LocalFlags(), terminalWidth))
+		result.WriteString("\n") // Blank line after flags
 	}
 
-	// Global Flags section
+	// Global Flags section with proper case and spacing
 	if cmd.HasAvailableInheritedFlags() {
-		result.WriteString("Global FLAGS:\n")
+		result.WriteString("Global Flags:\n") // Changed from "Global FLAGS:" to "Global Flags:"
 		result.WriteString(buildFlagsOutput(cmd, cmd.InheritedFlags(), terminalWidth))
 	}
 
-	// Examples section
+	// Examples section - only add if Long description doesn't already contain examples
 	commandKey := strings.ReplaceAll(cmd.CommandPath(), " ", ".")
 	if exampleSet := examples.GetExamples(commandKey); len(exampleSet.Examples) > 0 {
-		result.WriteString("\n")
-		result.WriteString(exampleSet.FormatExamples())
+		// Check if Long description already contains examples
+		longHasExamples := cmd.Long != "" && strings.Contains(cmd.Long, "Examples:")
+		if !longHasExamples {
+			result.WriteString("\n")
+			result.WriteString(exampleSet.FormatExamples())
+		}
 	}
 
 	// NOTE: Removed footer help message "Use [command] --help" to match Azure CLI minimal style
