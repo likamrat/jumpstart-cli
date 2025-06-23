@@ -300,7 +300,7 @@ func buildCustomHelpOutput(cmd *cobra.Command) string {
 		// Check if Long description already contains examples
 		longHasExamples := cmd.Long != "" && strings.Contains(cmd.Long, "Examples:")
 		if !longHasExamples {
-			result.WriteString("\n")
+			// No extra blank line needed since Global Flags section already adds one
 			result.WriteString(exampleSet.FormatExamples())
 		}
 	}

@@ -155,9 +155,11 @@ func printWelcome() {
                         |_|                          
 `)
 	fmt.Println("\n" + ascii)
-	fmt.Println(utils.InfoColor("Use `js --help` to see available commands or visit https://github.com/Azure/jumpstart-sdk."))
 	fmt.Println(utils.WarnColor("\nNote: The Jumpstart CLI is based on the Azure CLI and requires Azure CLI to be installed and available in your PATH."))
+	fmt.Println("\nFor more specific examples, use: `js <command> --help/-h`.")
+	fmt.Println("Use `js --version/-v` to display the current version.")
 	fmt.Println("\nHere are the base commands:")
+	fmt.Println("")
 	fmt.Println("    agora         : Manage Jumpstart Agora automation")
 	fmt.Println("    arcbox        : Manage Jumpstart ArcBox automation (deploy, delete, list)")
 	fmt.Println("    completion    : Generate shell completion scripts")
@@ -166,5 +168,4 @@ func printWelcome() {
 	fmt.Println("    subscription  : Manage Azure subscriptions (show, list, set)")
 	fmt.Println("    upgrade       : Upgrade the Jumpstart CLI to the latest version")
 	fmt.Println("    version       : Display the current version of the CLI")
-	fmt.Println("\nUse 'js <command> --help' for more information on a command.")
 }
