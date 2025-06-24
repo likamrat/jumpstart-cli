@@ -3,6 +3,7 @@ package arcbox
 
 import (
 	"fmt"
+	"os"
 
 	"jumpstartcli/cmd/arcbox/display"
 	"jumpstartcli/cmd/arcbox/services"
@@ -27,9 +28,12 @@ func NewArcboxCmd() *cobra.Command {
 
 // NewArcboxCmdWithCLI creates the arcbox command with injectable Azure CLI for testing
 func NewArcboxCmdWithCLI(cli azurecli.AzureCLI) *cobra.Command {
-	// Create services
-	deployDisplay := display.NewDeploymentDisplay(cli)
-	deploymentService := services.NewDeploymentService(cli, deployDisplay)
+	// Create enhanced deployment display with proper configuration
+	// Note: Using os.Exit as fallback until exitFunc is properly threaded through the architecture
+	enhancedDisplay := display.NewEnhancedDeploymentDisplay(cli, os.Exit, utils.DebugMode, utils.VerboseMode)
+
+	// Create services with enhanced display
+	deploymentService := services.NewDeploymentService(cli, enhancedDisplay)
 	deletionService := services.NewDeletionService(cli)
 	listingService := services.NewListingService(cli)
 	quotaService := services.NewQuotaService(cli)

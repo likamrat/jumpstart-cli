@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"jumpstartcli/cmd/arcbox/display"
 	arcboxUtils "jumpstartcli/cmd/arcbox/utils"
 	"jumpstartcli/internal/azurecli"
 	"jumpstartcli/internal/urlutils"
@@ -15,14 +14,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// DeploymentDisplayInterface defines the interface for deployment monitoring
+type DeploymentDisplayInterface interface {
+	WaitForDeploymentAndShowStatus(resourceGroup, deploymentName string)
+}
+
 // DeploymentService handles ArcBox deployment operations
 type DeploymentService struct {
 	azureCLI azurecli.AzureCLI
-	display  *display.DeploymentDisplay
+	display  DeploymentDisplayInterface
 }
 
 // NewDeploymentService creates a new deployment service with dependency injection
-func NewDeploymentService(cli azurecli.AzureCLI, disp *display.DeploymentDisplay) *DeploymentService {
+func NewDeploymentService(cli azurecli.AzureCLI, disp DeploymentDisplayInterface) *DeploymentService {
 	return &DeploymentService{
 		azureCLI: cli,
 		display:  disp,
